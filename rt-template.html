@@ -1,0 +1,354 @@
+<title>Dimensionamento de Cabos FV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700&display=swap">
+<style>
+/* Layout: fluxo de cima para baixo — local e critérios, inversores, percursos entre quadros, resultado — com escolha da passagem por figura do quadro 52H */
+/* Identidade Solcor (solcor.pt): verde solar como acento, azul-noite na faixa do logótipo, Syne nos títulos, DM Sans no texto, JetBrains Mono nos números.
+   Fundo claro de trabalho; a faixa do cabeçalho fica sempre escura porque o logótipo é branco. */
+:root{
+  --bg:#F3F5F7; --surface:#FFFFFF; --sunk:#EEF2F5; --ink:#1A2028; --muted:#5A6672; --line:#D8DEE4;
+  --accent:#38D430; --accent-soft:rgba(56,212,48,.14); --accent-ink:#1E8A19;
+  --dc:#2DB327; --dc-soft:rgba(56,212,48,.12); --tile:#FFFFFF;
+  --ok:#1E8A19; --ok-soft:rgba(56,212,48,.16); --warn:#A96300; --warn-soft:#FBEED6; --bad:#BF3328; --bad-soft:#FBE3E0;
+  --brand:#1A2028; --brand-ink:#FFFFFF; --brand-muted:#ABB3BA; --brand-line:#2E3845;
+  --f-display:"Syne","DM Sans",system-ui,sans-serif;
+  --f-body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:18px 48px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;text-wrap:balance;margin:0}
+h1{font-size:22px} h2{font-size:17px}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.n{white-space:nowrap;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 24px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.mark{display:flex;align-items:center;gap:10px}
+.mark small{display:block;color:var(--muted);font-size:12px}
+.grow{flex:1 1 220px;min-width:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+label{display:grid;grid-template-columns:auto 1fr;align-items:baseline;column-gap:4px;row-gap:3px;font-size:12px;color:var(--muted);min-width:0}
+label>input,label>select{grid-column:1/-1}
+label .u{font-family:var(--f-mono);font-size:11px}
+label.check{display:flex;align-items:center;gap:6px;color:var(--ink);align-self:end;padding-bottom:7px}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0;width:100%}
+input[type=number]{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+input[type=checkbox]{width:auto}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;font-weight:500;cursor:pointer;border-radius:4px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px}
+button:hover{border-color:var(--muted)}
+button.pri{background:var(--accent);border-color:var(--accent);color:#1b1200}
+button.ghost{border-color:transparent;background:transparent;color:var(--muted);padding:4px 8px}
+button.ghost:hover{color:var(--ink)} button.ghost.del:hover{color:var(--bad)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--surface)}
+.kpi small{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi b{font-family:var(--f-mono);font-size:22px;font-weight:500}
+.kpi i{font-style:normal;font-size:12px;color:var(--muted);margin-left:3px}
+.kpi.bad{border-color:var(--bad)} .kpi.bad b{color:var(--bad)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+thead th{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--sunk);white-space:nowrap}
+td.r,th.r{text-align:right}
+#inv-table select,#inv-table input,#p-table input{padding:5px 7px}
+#inv-table td:first-child{width:30px;color:var(--muted)}
+#inv-table select[data-k=modelo]{min-width:220px}
+.w-num{width:84px}
+.pman{width:90px;margin-top:4px}
+#p-table tr:not(.rrow) td{border-bottom:0;padding-bottom:4px}
+#p-table tr.rrow td{padding-top:0;padding-bottom:14px}
+#gw-table input[data-g=nome]{min-width:140px}
+#gw-table select{width:auto}
+#p-table input[data-k=orig],#p-table input[data-k=dest]{min-width:120px}
+.cable{font-weight:600;color:var(--accent-ink)}
+.sub{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
+.sub.trace{font-family:var(--f-mono);font-size:10.5px}
+.pill{display:inline-flex;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-radius:3px;padding:2px 7px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+tr.feeder td{background:var(--sunk)}
+tr.err td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+.ovr{width:auto;padding:3px 5px;font-size:12px}
+.accw{display:flex;align-items:center;gap:8px;min-width:130px}
+.bar{position:relative;height:8px;background:var(--sunk);border-radius:2px;overflow:hidden;flex:1;min-width:50px}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--dc)}
+.bar i.bad{background:var(--bad)}
+.modecard{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:10px 16px;align-items:start;background:var(--sunk);border-radius:6px;padding:10px}
+.modecard .factor{grid-column:1/-1}
+@media (max-width:720px){.modecard{grid-template-columns:1fr}}
+.modepick{display:flex;gap:10px;align-items:center;text-align:left;padding:6px;background:var(--surface);min-width:0}
+.modepick:hover{border-color:var(--accent)}
+.tile{flex:none;display:flex;gap:4px;align-items:center;justify-content:center;background:var(--tile);border-radius:4px;padding:4px;width:96px;height:72px}
+.tile img{max-width:100%;max-height:100%;object-fit:contain;min-width:0}
+.mtext{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted);min-width:0}
+.mtext b{color:var(--ink);font-size:13px}
+.mtext u{color:var(--accent-ink);text-decoration:none;font-weight:500}
+.factor{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.factor b{color:var(--ink);font-weight:500}
+.modal{position:fixed;inset:0;background:rgba(10,14,20,.55);display:flex;align-items:flex-start;justify-content:center;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));z-index:10;overflow:auto}
+.modal .panel{width:min(980px,100%)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.pcard{display:flex;flex-direction:column;gap:4px;text-align:left;padding:8px;font-weight:400;font-size:12px;color:var(--muted)}
+.pcard .tile{width:100%;height:110px}
+.pcard b{color:var(--ink);font-size:13px}
+.pcard.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.pcard:hover{border-color:var(--accent)}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:4px;font-size:13px;z-index:20}
+details{font-size:13px}
+details summary{cursor:pointer;font-weight:500}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);max-width:86ch}
+details li{margin-bottom:4px}
+details code{font-family:var(--f-mono);font-size:12px;color:var(--ink)}
+.boards{display:flex;flex-direction:column;gap:18px}
+.board{border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.btot{display:flex;align-items:center;gap:10px}
+.btot small{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.btot b{font-family:var(--f-mono);font-size:18px;font-weight:500}
+.tagi{color:var(--muted);font-size:12px}
+.bname{font-size:15px;color:var(--ink);text-transform:none;letter-spacing:0}
+table.bom td{padding:5px 8px}
+tr.bsec td{background:var(--sunk);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.conf{font-family:var(--f-body);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--warn-soft);color:var(--warn);border-radius:3px;padding:1px 5px}
+.logo{height:40px;width:auto;display:block}
+.ttl{border-left:1px solid var(--brand-line);padding-left:14px}
+header.top{background:var(--brand);color:var(--brand-ink);margin-inline:-16px;padding:16px;border-bottom:3px solid var(--accent);border-radius:0 0 6px 6px}
+header.top small,header.top label{color:var(--brand-muted)}
+header.top input{background:#0F1923;border-color:var(--brand-line);color:var(--brand-ink);color-scheme:dark}
+header.top input::placeholder{color:#7D8792}
+header.top button{background:transparent;border-color:var(--brand-line);color:var(--brand-ink)}
+header.top button:hover{border-color:var(--accent)}
+h1{font-family:var(--f-display);font-weight:700;letter-spacing:-.01em}
+h2{font-family:var(--f-display);font-weight:700}
+button.pri{color:#0D1117;font-weight:600}
+button.pri:hover{border-color:#2DB327;background:#2DB327}
+.cable{color:var(--accent-ink)}
+.sub.abb{color:var(--ink);font-size:12px}
+.trace{font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.kpi b{color:var(--ink)}
+.pcard,.modepick{background:var(--surface)}
+@media (max-width:640px){.ttl{border-left:0;padding-left:0}}
+.limt{color:var(--warn);font-weight:500}
+.altc{color:var(--ink);background:var(--accent-soft);border-radius:3px;padding:3px 6px;margin-top:4px;display:block}
+.linkb{border:0;background:none;color:var(--accent-ink);font-weight:600;padding:0 2px;text-decoration:underline;cursor:pointer}
+.est{color:var(--warn);font-weight:600;margin-left:1px}
+.prices td{padding:4px 8px}
+.cgrid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;align-items:baseline}
+.cgrid span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cgrid b{font-weight:600;color:var(--accent-ink);white-space:nowrap}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-top:-4px;scrollbar-width:thin}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;color:var(--muted);padding:9px 12px;white-space:nowrap;font-weight:600}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs button:hover{color:var(--ink)}
+.pane{display:flex;flex-direction:column;gap:18px}
+.badge{display:inline-block;min-width:18px;font-size:11px;background:var(--accent-soft);color:var(--accent-ink);border-radius:9px;padding:0 6px;margin-left:4px}
+.bad-t{color:var(--bad);font-weight:600}
+.sldwrap{overflow:auto;border:1px solid var(--line);border-radius:6px;background:#fff;max-height:78vh}
+.sldwrap svg{display:block}
+.docprev{overflow-x:auto;border:1px solid var(--line);border-radius:6px;padding:16px;background:#fff}
+.docprev table{font-family:Calibri,Arial,sans-serif;font-size:12px;border-collapse:collapse}
+.docprev th,.docprev td{border:1px solid #9AA3AD;padding:4px 6px;text-transform:none;letter-spacing:0;color:#000;background:none;white-space:normal}
+.docprev thead th{background:#E8F7E6;font-weight:700;font-size:11px}
+.docprev h4{font-family:Calibri,Arial,sans-serif;font-size:15px;margin:0 0 8px}
+.docprev p{font-family:Calibri,Arial,sans-serif;font-size:12px;margin:0 0 8px;max-width:none;color:#000}
+.eqtabs{display:flex;gap:6px;flex-wrap:wrap}
+.eqtabs button[aria-selected=true]{border-color:var(--accent);background:var(--accent-soft)}
+.eqform{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;background:var(--sunk);border-radius:6px;padding:10px;align-items:end}
+.conf2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--warn-soft);color:var(--warn);border-radius:3px;padding:1px 5px;margin-left:4px}
+.mine{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--accent-soft);color:var(--accent-ink);border-radius:3px;padding:1px 5px;margin-left:4px}
+#dc-table input,#dc-table select{padding:4px 6px}
+#dc-table select[data-d=S]{min-width:96px}
+#dc-table select[data-d=inv],#dc-table select[data-d=panel]{min-width:170px}
+#dc-table tr.sel td{background:var(--accent-soft)}
+#dc-table tbody tr{cursor:pointer}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.checks li{display:grid;grid-template-columns:80px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
+.checks .d{display:block;font-size:11.5px;color:var(--muted)}
+.checks .v{font-family:var(--f-mono);font-size:12px;white-space:nowrap}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.spec{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;font-size:11.5px;color:var(--muted)}
+.spec b{display:block;font-family:var(--f-mono);font-weight:500;color:var(--ink);font-size:13px}
+.vwin svg{width:100%;max-width:760px;height:auto;font-family:var(--f-mono);font-size:11px;fill:var(--ink)}
+.vwin text.m{fill:var(--muted);font-size:10px}
+.pjsearch{max-width:360px}
+tr.cur td{background:var(--accent-soft)}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.tcard{display:flex;flex-direction:column;gap:4px;text-align:left;padding:10px;font-weight:400;font-size:12px;color:var(--muted)}
+.tcard b{color:var(--ink);font-size:14px}
+.tcard.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.btype{width:auto;margin-top:4px;font-size:12px;padding:3px 5px}
+.boards{display:flex;flex-direction:column;gap:18px}
+.bgrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:760px){.bgrid{grid-template-columns:1fr}}
+.bsk svg{max-width:100%;height:auto}
+.bdim{margin:6px 0 0;font-size:13px}
+.bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
+.bnotes{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink)}
+.bnotes li{margin-bottom:4px}
+#res-body td:first-child{min-width:170px}
+#res-body td:nth-child(4){min-width:230px}
+#res-body td:nth-child(5){min-width:180px}
+#res-body td:nth-child(6){min-width:170px}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="mark">
+    <img class="logo" src="__LOGO__" alt="Solcor Portugal" width="137" height="40">
+    <div class="ttl"><h1>Dimensionamento de Cabos FV</h1><small>Circuitos AC e disjuntores · RTIEBT (Portaria 949-A/2006)</small></div>
+  </div>
+  <label class="grow">Projeto<input id="proj" placeholder="Nome do projeto ou cliente"></label>
+  <div class="actions"><button id="copy">Copiar tabela</button><button id="reset">Repor exemplo</button></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Secções">
+  <button role="tab" data-tab="ac" aria-selected="true">Cabos AC</button>
+  <button role="tab" data-tab="sld" aria-selected="false">Esquema unifilar</button>
+  <button role="tab" data-tab="brd" aria-selected="false">Quadros</button>
+  <button role="tab" data-tab="eq" aria-selected="false">Equipamentos</button>
+  <button role="tab" data-tab="proj" aria-selected="false">Projetos <span class="badge" id="proj-badge" hidden></span></button>
+</nav>
+
+<div class="pane" data-pane="ac">
+<div class="kpis" id="kpis"></div>
+
+<div class="cols">
+  <section class="panel">
+    <div class="panel-head"><h2>Local</h2></div>
+    <div class="fields">
+      <label>Localização<select id="loc"></select></label>
+      <label>T ambiente (ar) <span class="u">°C</span><input id="tair" type="number" step="1"></label>
+      <label>T do solo <span class="u">°C</span><input id="tsoil" type="number" step="1"></label>
+    </div>
+    <label>Resistividade térmica do solo (52-E6)<select id="rsolo"></select></label>
+    <p class="hint">As temperaturas são sugeridas pela localização e podem ser alteradas. O 52-D1 não inclui radiação solar; a opção “exposto ao sol” soma 10 °C como estimativa (a RTIEBT remete para a IEC 60287).</p>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>Critérios</h2></div>
+    <div class="fields">
+      <label>Isolamento<select id="isol"><option value="XLPE">XLPE / EPR (XV, LXV, XZ1)</option><option value="PVC">PVC (VV, H07V)</option></select></label>
+      <label>Material<select id="mat"><option value="auto">Auto pela distância e potência</option><option value="Cu">Sempre cobre</option><option value="Al">Sempre alumínio</option></select></label>
+      <label>Alumínio acima de <span class="u">m</span><input id="alThr" type="number" min="0" step="1"></label>
+      <label>e acima de <span class="u">kW</span><input id="alPmin" type="number" min="0" step="1"></label>
+      <label>cos φ<input id="cos" type="number" step="0.01" min="0.5" max="1"></label>
+      <label class="check"><input type="checkbox" id="folga"> Folga no comprimento (+20% &lt;30 m, +10% ≥30 m)</label>
+      <label>ΔU máx. por troço <span class="u">%</span><input id="limT" type="number" step="0.1" min="0.1"></label>
+      <label>Desconto ABB <span class="u">% s/ PVP</span><input id="descABB" type="number" step="1" min="0" max="90"></label>
+    </div>
+    <p class="hint">Material automático: alumínio quando o circuito tem mais de 15 m e mais de 30 kW (nunca abaixo de 16 mm² e sempre monocondutor); nos restantes, cobre. A queda de tensão é verificada em cada troço, como na folha Excel. Ib dos inversores = corrente máxima de saída da ficha técnica. Nos percursos soma-se a corrente dos inversores a montante; os monofásicos contam um terço, por se distribuírem pelas três fases.</p>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Inversores</h2>
+    <div class="actions"><button id="add" class="pri">Adicionar inversor</button></div>
+  </div>
+  <div class="tablewrap">
+    <table id="inv-table">
+      <thead><tr><th>#</th><th>Modelo</th><th class="r">Pnom <span class="u">kW</span></th><th class="r">Iac máx <span class="u">A</span></th><th>Cabo</th><th>Liga ao quadro</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
+      <tbody id="inv-body"></tbody>
+    </table>
+  </div>
+  <h3>Passagem dos cabos dos inversores</h3>
+  <div id="route-inv"></div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Gateways</h2>
+    <div class="actions"><button id="addgw">Adicionar gateway</button></div>
+  </div>
+  <p class="hint" id="gw-empty">Sem gateway. Os modelos vêm da base da equipa (Equipamentos › Gateways). Se a instalação tiver um gateway (ex.: gestão de backup ou de baterias) entre os inversores e o quadro, adiciona-o aqui: passa a aparecer como quadro para ligar inversores e cria o percurso de saída.</p>
+  <div class="tablewrap" id="gw-wrap" hidden>
+    <table id="gw-table">
+      <thead><tr><th>Nome</th><th>Modelo</th><th>Rede</th><th>Corrente nominal <span class="u">A</span></th><th></th><th></th></tr></thead>
+      <tbody id="gw-body"></tbody>
+    </table>
+  </div>
+  <p class="hint">A corrente dos inversores ligados ao gateway é verificada contra a sua corrente nominal. Por defeito o cabo de saída é dimensionado para a corrente nominal do gateway, porque também transporta a energia da rede para as cargas de backup.</p>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Percursos entre quadros</h2>
+    <div class="actions"><button id="addp" class="pri">Adicionar quadro</button></div>
+  </div>
+  <p class="hint">Cada linha é um cabo entre dois quadros e encadeia-se pelo nome: o destino de um é a origem do seguinte, e o último destino é o ponto de injeção. A potência de cada percurso é a soma dos inversores a montante.</p>
+  <div class="tablewrap">
+    <table id="p-table">
+      <thead><tr><th>Origem</th><th>Destino</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
+      <tbody id="p-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Cabos e disjuntores sugeridos</h2><span class="hint" id="sumline"></span></div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Circuito</th><th class="r">P <span class="u">kW</span></th><th class="r">Ib <span class="u">A</span></th><th>Cabo sugerido</th><th>Disjuntor</th><th class="r">Iz corrigida</th><th class="r">ΔU troço <span class="u">V · %</span></th><th class="r">Custo cabo</th><th>Secção</th><th>Estado</th></tr></thead>
+      <tbody id="res-body"></tbody>
+    </table>
+  </div>
+  <details>
+    <summary>Como é feita a escolha</summary>
+    <ul>
+      <li><b>Corrente admissível:</b> o tipo de passagem (quadro 52H) define o método de referência e o quadro de correntes. Métodos A, B e C: 52-C1 a 52-C4. A2 e B2: 52-C13/14. E, F e G: 52-C9 a 52-C12. D (enterrado): 52-C30, × 0,80 quando em tubo (ref. 61). Os modos “em estudo” do 52H usam B2.</li>
+      <li><b>Fatores:</b> temperatura 52-D1 (ar) ou 52-D2 (solo); resistividade do solo 52-E6; agrupamento 52-E1 a 52-E5 consoante a passagem. Cada conjunto de cabos em paralelo conta como um circuito agrupado (nota 1 do 52-E5). O número de circuitos é calculado: nos cabos dos inversores, os inversores ligados ao mesmo quadro; nos percursos, os próprios cabos em paralelo. Em caminhos de cabos e escadas indica-se só quantas esteiras sobrepostas há; os circuitos dividem-se por elas e aplica-se a linha correspondente do 52-E4/52-E5.</li>
+      <li><b>Disjuntor:</b> o menor calibre normalizado com <code>In ≥ Ib</code>. Tem de cumprir <code>In ≤ Iz'</code> e <code>I₂ ≤ 1,45 Iz'</code>, com k₂ = 1,45 em modulares EN 60898 (até 125 A) e 1,30 em caixa moldada EN 60947-2.</li>
+      <li><b>Queda de tensão</b> (a mesma fórmula da folha Excel): <code>u = b · (ρ · L'/S · cos φ + X · L' · sin φ) · Ib/n</code> e <code>ΔU% = u / 230 × 100</code>. b = 1 em trifásico e 2 em monofásico; ρ = 0,0225 Ω·mm²/m (Cu) ou 0,036 (Al); L' é o comprimento com folga (+20% abaixo de 30 m, +10% a partir de 30 m); X é a reatância da tabela da folha (≈ 0,073–0,08 mΩ/m); n é o nº de cabos em paralelo. Verifica-se em cada troço.</li>
+      <li><b>Escolha da secção:</b> primeiro o menor número de cabos por fase (máximo 3) e, dentro disso, a menor secção que cumpre Iac máx ≤ In ≤ Iz, I₂ ≤ 1,45·Iz, a queda de tensão do troço. Se a queda não cumprir, aumenta a secção desse troço. Depois, inversores iguais no mesmo quadro ficam com o mesmo cabo e cabos usados uma só vez passam para outro já usado na obra, no máximo 1 secção acima. Alumínio é sempre monocondutor.</li>
+      <li><b>Neutro e terra:</b> neutro igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al; acima, metade da fase (secção normalizada seguinte), com mínimo de 16 Cu / 25 Al (RTIEBT 524.2). Terra pelo quadro 54F: S ≤ 16 → S; até 35 → 16; acima de 35 → S/2.</li>
+      <li><b>Valores corrigidos de gralhas do Diário da República:</b> 52-C13 Cu 95 mm² B2 (impresso 291, usado 201) e 52-C30 Cu 16 mm² (impresso “6”). O valor 52-C30 Al 300 mm² XLPE 3 condutores (400 A) foi usado tal como impresso.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>Preços de cabo usados (JMM e Indusmelec, compras de 2026)</summary>
+    <p class="hint">Preço unitário sem IVA (com desconto) da compra mais recente de cada cabo em 2026, entre os dois fornecedores; compras anteriores a 2026 não contam. Preços acrescentados em Equipamentos entram aqui se forem mais recentes. Secções sem compra em 2026 são estimadas por interpolação entre as compradas da mesma família e aparecem com *. O custo inclui fases, neutro e terra com as secções indicadas (ou o cabo multicondutor completo).</p>
+    <div class="tablewrap"><table class="prices" id="price-table"></table></div>
+  </details>
+</section>
+</div>
+
+__PANES__
+</div>
+
+<div class="modal" id="bpick" hidden>
+  <div class="panel" role="dialog" aria-label="Novo quadro">
+    <div class="panel-head"><h2>Novo quadro no percurso</h2><button class="ghost" id="bp-close">Fechar</button></div>
+    <h3>Tipo de quadro</h3>
+    <div class="tgrid" id="bp-types"></div>
+    <div class="fields">
+      <label>Nome<input id="bp-name"></label>
+      <label id="bp-gwl">Modelo de gateway<select id="bp-gw"></select></label>
+      <label>Posição<select id="bp-pos"></select></label>
+      <label>Distância do cabo de chegada <span class="u">m</span><input id="bp-L" type="number" min="0" step="1" value="5"></label>
+    </div>
+    <p class="hint" id="bp-hint"></p>
+    <div class="actions"><button class="pri" id="bp-add">Adicionar quadro</button></div>
+  </div>
+</div>
+<div class="modal" id="picker" hidden>
+  <div class="panel" role="dialog" aria-label="Tipo de passagem">
+    <div class="panel-head"><h2>Tipo de passagem · quadro 52H</h2><button class="ghost" id="pk-close">Fechar</button></div>
+    <h3>Mais usados em centrais FV</h3>
+    <div class="pgrid" id="pk-fav"></div>
+    <h3>Todos os modos de instalação</h3>
+    <div class="pgrid" id="pk-all"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+__DATA__
+__APP__
+</script>

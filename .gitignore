@@ -1,0 +1,4 @@
+node_modules/
+calc_dump.json
+tests/*.png
+tab_*.png

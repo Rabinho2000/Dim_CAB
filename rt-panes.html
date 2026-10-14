@@ -1,0 +1,37 @@
+<div class="pane" data-pane="sld" hidden>
+<section class="panel">
+  <div class="panel-head">
+    <h2>Esquema unifilar</h2>
+    <div class="actions"><button data-sld="svg">Descarregar SVG</button><button data-sld="png">Descarregar PNG</button><button data-sld="pdf" class="pri">Descarregar PDF</button></div>
+  </div>
+  <p class="hint">Gerado a partir dos inversores, gateways e percursos do separador Cabos AC. Em cada ligação: disjuntor, diferencial, cabo e queda de tensão. Atualiza-se sozinho.</p>
+  <div class="sldwrap" id="sld"></div>
+</section>
+</div>
+
+<div class="pane" data-pane="brd" hidden>
+<section class="panel">
+  <div class="panel-head"><h2>Sugestão de quadros</h2></div>
+  <p class="hint">Para cada quadro: a aparelhagem, os cabos que lá entram e a envolvente mínima onde tudo cabe com espaço para curvar e ligar os cabos. O raio de curvatura usado é ≈ 10 × Ø (cabos rígidos XV/LXV; os flexíveis RV-K/RZ1-K admitem cerca de metade); diâmetros e capacidade dos bornes são aproximados e devem ser confirmados no catálogo.</p>
+  <div class="boards" id="boards"></div>
+</section>
+</div>
+
+<div class="pane" data-pane="eq" hidden>
+<section class="panel">
+  <div class="panel-head"><h2>Base de equipamentos da equipa</h2><span class="hint" id="eq-status"></span></div>
+  <p class="hint">Inversores, módulos e preços acrescentados ou corrigidos aqui ficam guardados para toda a equipa e passam a aparecer nas listas. Um registo com o mesmo modelo de um da base substitui-o.</p>
+  <div class="eqtabs" role="tablist"><button data-eq="inv" aria-selected="true">Inversores</button><button data-eq="gw" aria-selected="false">Gateways</button><button data-eq="pr" aria-selected="false">Preços de cabo</button></div>
+  <div id="eq-form"></div>
+  <div class="tablewrap"><table id="eq-table"></table></div>
+</section>
+</div>
+
+<div class="pane" data-pane="proj" hidden>
+<section class="panel">
+  <div class="panel-head"><h2>Projetos da equipa</h2><div class="actions"><button id="pj-save" class="pri">Guardar projeto atual</button><button id="pj-new">Guardar como novo</button></div></div>
+  <p class="hint" id="pj-status"></p>
+  <label class="grow pjsearch">Procurar<input id="pj-q" placeholder="Nome do projeto ou autor"></label>
+  <div class="tablewrap"><table id="pj-table"><thead><tr><th>Projeto</th><th>Inversores</th><th class="r">Potência</th><th>Guardado por</th><th>Atualizado</th><th></th></tr></thead><tbody id="pj-body"></tbody></table></div>
+</section>
+</div>
