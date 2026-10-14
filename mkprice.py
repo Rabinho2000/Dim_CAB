@@ -27,5 +27,5 @@ for f,ref,d,p,dt in rows:
     if not k: continue
     if k not in best or dt>best[k][1]: best[k]=(p,dt,ref,(desc.get(ref,d)).strip(),f)
 out=[[k[0],k[1],k[2],round(v[0],4),v[1].strftime('%Y-%m-%d'),v[2],v[3],v[4]] for k,v in sorted(best.items())]
-json.dump(out,open('jmm/prices.json','w'),ensure_ascii=False)
+json.dump(out,open('jmm/prices.json','w',encoding='utf-8'),ensure_ascii=False)
 for o in out: print(o)

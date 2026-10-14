@@ -1,6 +1,6 @@
 import json,math,re
-d=json.load(open('calc_dump.json'))
-data=open('rt-data.js').read()
+d=json.load(open('calc_dump.json',encoding='utf-8'))
+data=open('rt-data.js',encoding='utf-8').read()
 TB=json.loads(re.search(r'const TB=(\{.*?\});\n',data,re.S).group(1))
 # tabelas transcritas do PDF (quadros 52-C), conferidas com a folha Excel
 METHOD={}

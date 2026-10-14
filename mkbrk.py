@@ -1,6 +1,6 @@
 """Gera a escada de disjuntores ABB (por calibre e nº de polos, do menor para o maior poder de corte) a partir da tabela ABB."""
 import json,re
-c=json.load(open('cat/cat.json'))['abb']
+c=json.load(open('cat/cat.json',encoding='utf-8'))['abb']
 items=[(k,str(v[0]),v[1]) for k,v in c.items()]
 def find(pat):
     r=[(k,d,p) for k,d,p in items if re.search(pat,d)]
@@ -55,5 +55,5 @@ for P in (2,4):
         out[P][In]=L
 miss=[(P,In) for P in out for In in out[P] if not out[P][In]]
 print('sem disjuntor:',miss)
-json.dump(out,open('brk.json','w'),ensure_ascii=False)
+json.dump(out,open('brk.json','w',encoding='utf-8'),ensure_ascii=False)
 print({P:{In:[x['s'] for x in out[P][In]] for In in (6,32,63,100,125,250,630,1000)} for P in out})
