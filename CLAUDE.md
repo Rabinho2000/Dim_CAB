@@ -11,6 +11,7 @@ node --test tests/engine.test.js      # testes unitários do motor em Node, sem 
 node dumpcalc.js && python verify.py  # verificação independente dos cálculos (tem de dar "ERROS 0")
 node tests/separadores.js             # abre todos os separadores; tem de dar "ERR []"
 node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/sem gateway, contagem)
+node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
 ```
 Os testes de interface usam Playwright (`npm i && npx playwright install chromium`).
 Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python` (não `python3`).
@@ -55,7 +56,8 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - Dados DC do inversor Sigen PV 150 M1 (marcado "a confirmar").
 - Nº de entradas do HomePro TP; calibres internos dos gateways além do C60-2.
 - Contador com gateway e vários inversores (hoje: indireto com TI por circuito).
-- Passagens em tubo (A2/B2, quadros 52-C13/C14): as tabelas só têm secções até 120 mm². Correntes altas ficam sem solução ("a rever") e o motor mostra a menor secção.
+- Métodos B e B2 (quadros 52-C1…C4, 52-C13/C14) só têm valores até 120 mm² na RTIEBT (confirmado na folha Excel; não extrapolar). Sem secção que cumpra, o motor mostra a opção de maior Iz e `noFitMsg` explica o limite e sugere outra passagem (decisão do utilizador, out. 2026).
+- A folha Excel tem um erro no 52-C13 (Cu 95 mm², B2, 2 condutores: 291 A; o correto é 201 A, que é o valor usado na app).
 
 ## Notas técnicas
 

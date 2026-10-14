@@ -130,6 +130,14 @@ const gwOf=n=>(S.gws||[]).find(g=>g.nome.trim()===String(n).trim());
 
 /* ---------- dimensionamento ---------- */
 const passes=x=>x.term&&x.sob&&x.scOk!==false;
+/* explicação para um circuito em que nenhuma secção tabelada cumpre In ≤ Iz (ex.: B2 só tabelado até 120 mm²) */
+function noFitMsg(c){
+  const o=c.res;if(!o||!(o.In>o.Iz))return null;
+  const m=MODE[c.r.ref].m,lab={EF:'E/F',D61:'D'}[m]||m,smax=Math.max(...c.opts.map(x=>x.s));
+  const head=`Nenhuma secção cumpre In ≤ Iz: ${c.auto?'a maior possível':'a escolhida'}, ${o.n} × ${fs(o.s)} mm² ${o.mat}, dá Iz ${fmt(o.Iz,0)} A < In ${o.In} A.`;
+  return smax<300?`${head} No método ${lab} a RTIEBT (${o.q}) só tem valores até ${fs(smax)} mm²: escolhe outra passagem (por exemplo caminho de cabos, ref. 13) ou divide o circuito.`
+    :`${head} Nem com 3 cabos de ${fs(smax)} mm² por fase chega: divide o circuito ou escolhe uma passagem com menos agrupamento.`;
+}
 function solve(zf){
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);const nq=S.invs.filter(x=>x.q===i.q).length;
     const nAgr=nq;
@@ -157,11 +165,13 @@ function solve(zf){
   /* comprimento de cálculo com folga, como na folha Excel (coluna W): +20% abaixo de 30 m, +10% a partir de 30 m */
   all.forEach(c=>{c.Lc=S.folga===false?c.L:(c.L<30?c.L*1.2:c.L*1.1);});
   all.forEach(c=>{const every=options(c);const tb=every.filter(o=>{const x=calc(c,o);return x.term&&x.sob;});const good=tb.filter(o=>passes(calc(c,o)));
-    c.opts=good.length?good:tb.length?tb:every;
+    c.opts=good.length?good:tb.length?tb:every;c.noFit=!good.length&&!tb.length&&every.length>0;
     const okey=o=>`${o.n}x${o.s}|${o.mat}|${o.cons}`;
     if(c.ref.S!=='auto'&&!c.ref.S.includes('|')){const f=c.opts.find(o=>`${o.n}x${o.s}`===c.ref.S)||every.find(o=>`${o.n}x${o.s}`===c.ref.S);c.ref.S=f?okey(f):'auto';}
     if(c.ref.S!=='auto'&&!c.opts.some(o=>okey(o)===c.ref.S)){const [ns,mat,cons]=c.ref.S.split('|');const [n,s]=ns.split('x').map(Number);c.opts=c.opts.concat([{n,s,mat,cons}]);}
-    const fx=c.ref.S!=='auto'?c.opts.findIndex(o=>okey(o)===c.ref.S):-1;c.auto=fx<0;c.i=c.auto?0:fx;c.min=c.i;});
+    /* sem nenhuma secção que cumpra In ≤ Iz: mostra-se a de maior Iz (a que fica mais perto), não a menor */
+    const big=()=>c.opts.reduce((bi,o,j)=>calc(c,o).Iz>calc(c,c.opts[bi]).Iz?j:bi,0);
+    const fx=c.ref.S!=='auto'?c.opts.findIndex(o=>okey(o)===c.ref.S):-1;c.auto=fx<0;c.i=c.auto?(c.noFit?big():0):fx;c.min=c.i;});
   const run=()=>{all.forEach(c=>c.res=(c.Ib>0&&c.opts.length)?calc(c,c.opts[c.i]):null);
     pC.forEach(c=>{let d=pathOf(c.ref.orig);d=d.slice(d.indexOf(c.base));c.acc=d.reduce((a,p)=>a+((pmap.get(p).res||{}).du||0),0);});
     invC.forEach(c=>{c.acc=((c.res||{}).du||0)+c.path.reduce((a,p)=>a+((pmap.get(p).res||{}).du||0),0);});};
@@ -210,6 +220,7 @@ function solve(zf){
       const x=calc(c,o);if(!passes(x)||x.du>S.limT+1e-9)continue;
       const q=costPerM(o,c.loaded);if(!q)continue;const v=q.p*c.Lc;if(!best||v<best.v)best={v,est:q.est,o:x};}
     if(best&&best.v<c.cost.v*0.97&&c.cost.v-best.v>=10&&!(best.o.n===c.res.n&&best.o.s===c.res.s&&best.o.mat===c.res.mat&&best.o.cons===c.res.cons))c.alt=best;});
+  all.forEach(c=>{c.noFitMsg=c.noFit?noFitMsg(c):null;});
   return {invC,pC,costTot:all.reduce((a,c)=>a+(c.cost?c.cost.v:0),0),costEst:all.some(c=>c.cost&&c.cost.est),Ptot:invC.reduce((a,c)=>a+c.p,0),IbTot:invC.reduce((a,c)=>a+(c.fases===1?c.Ib/3:c.Ib),0)};
 }
 

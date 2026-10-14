@@ -69,7 +69,9 @@ test('regras de dimensionamento em 400 cenários',()=>{
   for(const L of [5,15,16,40,120])for(const ref of ['13','61','11','3A'])for(const cons of ['mono','multi'])for(const k of [1,2]){
     E.set(scen({modelo,L,n:k,ref,cons}));const S=E.S();
     for(const c of rows(E.solve())){const o=c.res,id=`${modelo} ${L} m ref ${ref} ${cons} ×${k} · ${c.nome}`;
-      if(!feasible(c)){sem++;assert.ok(!(o.term&&o.sob),`${id}: sem solução tem de ficar "a rever"`);continue;}
+      if(!feasible(c)){sem++;assert.ok(!(o.term&&o.sob),`${id}: sem solução tem de ficar "a rever"`);
+        assert.ok(c.noFit&&c.noFitMsg,`${id}: sem solução tem de ter explicação`);continue;}
+      assert.ok(!c.noFit&&!c.noFitMsg,`${id}: com solução não leva a explicação`);
       n++;
       assert.ok(o.n>=1&&o.n<=3,`${id}: no máximo 3 cabos por fase`);
       if(o.mat==='Al'){assert.equal(o.cons,'mono',`${id}: alumínio só monocondutor`);assert.ok(o.s>=16,`${id}: Al ≥ 16 mm²`);
@@ -87,6 +89,18 @@ test('inversores iguais no mesmo quadro ficam com o mesmo cabo',()=>{
   E.set({...scen({modelo:'SUN2000-100KTL-M2',L:20,n:2}),invs:[20,24].map(L=>({modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L,S:'auto'}))});
   const [a,b]=E.solve().invC.map(c=>`${c.res.n}x${c.res.s} ${c.res.mat} ${c.res.cons}`);
   assert.equal(a,b);
+});
+
+test('sem secção que cumpra (B2 só até 120 mm²): mostra a de maior Iz e explica',()=>{
+  const E=engine();E.set(scen({modelo:'SUN2000-150K-MG0',L:5,n:2,ref:'3A'}));
+  const c=E.solve().pC[0],o=c.res;
+  assert.equal(c.noFit,true);assert.equal(o.term,false);
+  E.ctx.__c=c;const maxIz=E.ev('Math.max(...__c.opts.map(o=>calc(__c,o).Iz))');
+  assert.equal(o.Iz,maxIz,'escolhe a opção de maior Iz');assert.equal(`${o.n}x${o.s}`,'3x120');
+  assert.match(c.noFitMsg,/Iz \d+ A < In 630 A/);assert.match(c.noFitMsg,/52-C14\) só tem valores até 120 mm²/);assert.match(c.noFitMsg,/ref\. 13/);
+  /* a mesma carga em caminho de cabos (ref. 13) já tem solução */
+  E.set(scen({modelo:'SUN2000-150K-MG0',L:5,n:2,ref:'13'}));const d=E.solve().pC[0];
+  assert.equal(d.noFit,false);assert.equal(d.noFitMsg,null);assert.ok(d.res.term&&d.res.sob);
 });
 
 test('secção forçada pelo utilizador é respeitada',()=>{
