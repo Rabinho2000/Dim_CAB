@@ -1,4 +1,12 @@
 {
+  "private": true,
+  "scripts": {
+    "build": "python build.py",
+    "test:unit": "node --test tests/engine.test.js",
+    "test:calc": "node dumpcalc.js && python verify.py",
+    "test:ui": "node tests/separadores.js && node tests/cenarios_unifilar.js",
+    "test": "npm run build && npm run test:unit && npm run test:calc && npm run test:ui"
+  },
   "devDependencies": {
     "playwright": "^1.64.1"
   }

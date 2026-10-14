@@ -5,19 +5,22 @@ Ferramenta web (uma página HTML) para dimensionar cabos AC e escolher disjuntor
 ## Como gerar e testar
 
 ```bash
-python3 build.py                      # junta os módulos e gera cabos-rt.html
-node dumpcalc.js && python3 verify.py # verificação independente dos cálculos (tem de dar "ERROS 0")
+npm test                              # build + todos os testes abaixo, por esta ordem
+python build.py                       # junta os módulos e gera cabos-rt.html
+node --test tests/engine.test.js      # testes unitários do motor em Node, sem navegador (regras, fórmulas, exemplo)
+node dumpcalc.js && python verify.py  # verificação independente dos cálculos (tem de dar "ERROS 0")
 node tests/separadores.js             # abre todos os separadores; tem de dar "ERR []"
 node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/sem gateway, contagem)
 ```
-Os testes usam Playwright (`npm i -D playwright && npx playwright install chromium`).
-Correr sempre o build e os três testes depois de qualquer alteração.
+Os testes de interface usam Playwright (`npm i && npx playwright install chromium`).
+Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python` (não `python3`).
 
 ## Estrutura
 
 - `rt-template.html` — página, CSS (cores Solcor: verde #38D430, tinta #1A2028; fontes Syne / DM Sans / JetBrains Mono; fundo claro, faixa escura com o logótipo) e separadores. `rt-panes.html` — separadores Esquema unifilar, Quadros, Equipamentos, Projetos.
 - `rt-data.js` — tabelas RTIEBT (52-C1…C4, C9…C14, C30, D1, D2, E1…E6), modos de instalação 52H com imagens, `INVDB` (inversores, com dados DC), `PANELDB`.
-- `rt-app.js` — estado, fatores, `calc()` (Iz, In, ΔU), `solve()` (otimizador), tabela de resultados, gateways (`GWDB`), popup "Novo quadro", tipos de quadro.
+- `rt-engine.js` — motor de cálculo, sem DOM: constantes, `GWDB`, `example()`, fatores, `izBase`, `calc()` (Iz, In, ΔU), topologia, `solve()` (otimizador), `solveAll()`, `condSizes`, `cableParts`. Lê o estado global `S`. Testado em Node por `tests/engine.test.js` (carregado com `tests/engine-env.js`).
+- `rt-app.js` — interface: estado `S` e `localStorage`, tabelas, `render()`, popup "Novo quadro", tipos de quadro.
 - `rt-sc.js` — escada de disjuntores ABB (`BRK` de `brk.json`) e curto-circuito (desligado na interface, código mantido).
 - `rt-price.js` — preços de cabo (`jmm/prices.json`, compras 2026 JMM + Indusmelec).
 - `rt-sld.js` — esquema unifilar SVG e exportação SVG/PNG/PDF.
@@ -52,6 +55,7 @@ Correr sempre o build e os três testes depois de qualquer alteração.
 - Dados DC do inversor Sigen PV 150 M1 (marcado "a confirmar").
 - Nº de entradas do HomePro TP; calibres internos dos gateways além do C60-2.
 - Contador com gateway e vários inversores (hoje: indireto com TI por circuito).
+- Passagens em tubo (A2/B2, quadros 52-C13/C14): as tabelas só têm secções até 120 mm². Correntes altas ficam sem solução ("a rever") e o motor mostra a menor secção.
 
 ## Notas técnicas
 
