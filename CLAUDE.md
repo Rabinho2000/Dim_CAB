@@ -8,10 +8,13 @@ Ferramenta web (uma página HTML) para dimensionar cabos AC e escolher disjuntor
 npm test                              # build + todos os testes abaixo, por esta ordem
 python build.py                       # junta os módulos e gera cabos-rt.html
 node --test tests/engine.test.js      # testes unitários do motor em Node, sem navegador (regras, fórmulas, exemplo)
+node --test tests/api.test.js         # API do servidor (base em memória)
 node dumpcalc.js && python verify.py  # verificação independente dos cálculos (tem de dar "ERROS 0")
 node tests/separadores.js             # abre todos os separadores; tem de dar "ERR []"
 node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/sem gateway, contagem)
 node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
+node tests/partilha_servidor.js       # duas pessoas no servidor próprio: projeto e equipamento partilhados, permissões
+npm start                             # servidor em http://127.0.0.1:8080 (depois de npm run build)
 ```
 Os testes de interface usam Playwright (`npm i && npx playwright install chromium`).
 Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python` (não `python3`).
@@ -26,7 +29,9 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-price.js` — preços de cabo (`jmm/prices.json`, compras 2026 JMM + Indusmelec).
 - `rt-sld.js` — esquema unifilar SVG e exportação SVG/PNG/PDF.
 - `rt-board.js` — composição de cada quadro (`qfvParts`, `meterHost`) e separador Quadros (dimensão da envolvente, raio de curvatura).
-- `rt-share.js` — projetos e equipamentos partilhados (capacidade `db` dos artifacts do Claude), descargas.
+- `rt-share.js` — projetos e equipamentos partilhados, descargas. Usa `claude.use('db'|'user')` no claude.ai ou `apiConnect()` (`rt-api.js`) quando a página vem do servidor próprio; aberta como ficheiro, fica só o projeto local.
+- `rt-api.js` — adaptador do navegador para a API do servidor, com a mesma interface (`collection().doc().set/delete`, `onSnapshot` por consulta de `/api/rev` a cada 4 s).
+- `server/server.js` + `server/db.js` — servidor Node sem dependências (`node:http`, `node:sqlite`): serve `cabos-rt.html` e a API `/api/{projects,inversores,paineis,gateways,precos}[/id[/history]]`, `/api/me`, `/api/rev`, `/api/users`. Identidade pelos cabeçalhos do `tailscale serve` ou por `X-User-Name` (local). Projetos só podem ser apagados pelo autor ou por `ADMINS`. Arranque e alojamento: README.
 - `mkbrk.py` gera `brk.json` a partir da tabela ABB (`cat/`); `mkprice.py` gera `jmm/prices.json` a partir de `jmm/base.xlsx`.
 - `fontes/` — Excel original, quadros tipo e os dois DWG de esquemas unifilares de referência.
 
@@ -62,5 +67,6 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 ## Notas técnicas
 
 - O build junta tudo num único HTML (sem bundler). Bibliotecas externas só por CDN (jsPDF 2.5.1, JSZip 3.10.1 em cdnjs).
-- `rt-share.js` usa `window.claude.use('db'|'user'|'downloads')` (runtime dos artifacts do claude.ai). Fora do claude.ai devolve indisponível: as descargas caem para `<a download>` e os projetos partilhados ficam desligados — para alojar internamente, substituir por uma API/base de dados própria.
+- Partilha: claude.ai (`window.claude.use`) ou servidor próprio (`server/`, SQLite em `data/`, fora do git). Descargas: `claude.use('downloads')` ou `<a download>`.
+- `tests/partilha_mock.js` (modo claude.ai) já falhava antes do servidor, no passo do gateway (`#gw-body select[data-g=modelo]`); não está no `npm test`.
 - Estado guardado em `localStorage` (`cabosrt.v1`).

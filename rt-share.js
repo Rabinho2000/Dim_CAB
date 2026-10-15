@@ -58,7 +58,7 @@ async function eqSave(){
   const id=EQ==='pr'?docId(`${o.mat}_${o.form}_${o.s}_${o.data}`):docId(o.modelo);
   try{await DBX.collection(col).doc(id).set(o);EDIT=null;toast('Guardado na base da equipa');}catch(e){eqErr(e);}
 }
-function eqErr(e){if(e&&e.code==='invalid_argument'){RO=true;renderEq();toast('Sem permissão para alterar a base');}else if(e&&e.code==='quota_exceeded')toast('A base está cheia: apaga registos antigos');else toast('Não foi possível guardar. Tenta outra vez.');}
+function eqErr(e){if(e&&e.code==='invalid_argument'){RO=true;renderEq();toast('Sem permissão para alterar a base');}else if(e&&e.code==='forbidden')toast('Só o autor ou um administrador pode apagar este projeto');else if(e&&e.code==='quota_exceeded')toast('A base está cheia: apaga registos antigos');else toast('Não foi possível guardar. Tenta outra vez.');}
 function bindEq(){
   document.querySelector('.eqtabs').addEventListener('click',e=>{const b=e.target.closest('[data-eq]');if(!b)return;EQ=b.dataset.eq;EDIT=null;renderEq();});
   $('#eq-form').addEventListener('click',e=>{if(e.target.id==='eq-save')eqSave();if(e.target.id==='eq-cancel'){EDIT=null;renderEq();}});
@@ -103,8 +103,10 @@ function bindProj(){
 }
 async function initShare(){
   bindEq();bindProj();renderEq();renderProj();
-  if(typeof claude==='undefined'||!claude.use)return;
-  const [db,user]=await Promise.all([claude.use('db'),claude.use('user')]);
+  /* artifact do claude.ai ou servidor próprio (rt-api.js); aberto como ficheiro, fica só o projeto local */
+  let db=null,user=null;
+  if(typeof claude!=='undefined'&&claude.use)[db,user]=await Promise.all([claude.use('db'),claude.use('user')]);
+  else if(typeof apiConnect==='function')[db,user]=await apiConnect();
   DBX=db;USR=user;if(!DBX){renderEq();renderProj();return;}
   try{ME=USR?await USR.id():null;}catch(e){ME=null;}
   try{const c=USR&&USR.can?await USR.can('data.write'):null;if(c===false)RO=true;}catch(e){}

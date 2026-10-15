@@ -26,6 +26,21 @@ python3 mkprice.py                    # atualiza preços a partir de jmm/base.xl
 python3 mkbrk.py                      # atualiza disjuntores a partir de cat/cat.json
 ```
 
-## Alojar internamente
+## Servidor da equipa (projetos e equipamentos partilhados)
 
-A página funciona sozinha, mas os **projetos e equipamentos partilhados** usam a base de dados dos artifacts do claude.ai. Para pôr a ferramenta num servidor da Solcor (por exemplo junto a media.tail00ca9b.ts.net), pede ao Claude Code para substituir `rt-share.js` por uma API própria (ex.: SQLite/Postgres) — está indicado no `CLAUDE.md`.
+```bash
+npm run build
+npm start                  # http://127.0.0.1:8080
+```
+
+O servidor (`server/`) serve a página e guarda os projetos, equipamentos e preços da equipa numa base SQLite (`data/solcor.db`). Usa só o que vem com o Node 22.13 ou mais recente, sem dependências. Cada gravação fica no histórico do projeto.
+
+**Quem é quem**
+- **Com Tailscale (recomendado):** num computador sempre ligado da rede Tailscale da Solcor, corre `npm start` e depois `tailscale serve --bg 8080`. A ferramenta fica em `https://<máquina>.<tailnet>.ts.net` só para quem está na tailnet, e o servidor recebe o nome e o e-mail de cada pessoa a partir do Tailscale.
+- **Sem Tailscale (uso local):** a página pede o nome uma vez. Isto serve só para mostrar quem guardou o quê, não é uma palavra-passe.
+
+**Variáveis**: `PORT` (8080), `HOST` (127.0.0.1: deixa assim atrás do Tailscale), `DB_PATH` (data/solcor.db), `ADMINS` (e-mails separados por vírgulas; podem apagar projetos de outras pessoas).
+
+**Cópias de segurança**: copiar `data/solcor.db` com o servidor parado, ou usar `sqlite3 data/solcor.db ".backup copia.db"` com ele a correr. Não guardes a base numa pasta sincronizada (OneDrive): a sincronização pode estragar o ficheiro enquanto está a ser escrito.
+
+Aberto como ficheiro (`cabos-rt.html`) ou como artifact do claude.ai, a ferramenta continua a funcionar como antes.

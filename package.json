@@ -1,13 +1,17 @@
 {
   "private": true,
   "scripts": {
+    "start": "node server/server.js",
     "build": "python build.py",
-    "test:unit": "node --test tests/engine.test.js",
+    "test:unit": "node --test tests/engine.test.js tests/api.test.js",
     "test:calc": "node dumpcalc.js && python verify.py",
-    "test:ui": "node tests/separadores.js && node tests/cenarios_unifilar.js && node tests/sem_solucao.js",
+    "test:ui": "node tests/separadores.js && node tests/cenarios_unifilar.js && node tests/sem_solucao.js && node tests/partilha_servidor.js",
     "test": "npm run build && npm run test:unit && npm run test:calc && npm run test:ui"
   },
   "devDependencies": {
     "playwright": "^1.64.1"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }
