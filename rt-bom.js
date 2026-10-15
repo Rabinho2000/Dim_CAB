@@ -50,14 +50,13 @@ function bomData(R){
     if(gwOf(n)){if(!Q)return;const sp=Q.spec;
       quad.push({node:n,role:BOM_ROLE.GW,env:'Equipamento do fabricante',items:[{nome:'Gateway',txt:sp?`${sp.marca} ${sp.modelo}`:(gwOf(n).modelo||'gateway'),dif:sp?`rede ${gwMainA(sp)} A · ${sp.ports} entrada${sp.ports===1?'':'s'} de inversor ${gwPortA(sp)} A`:''}]});return;}
     const b=boardFor(n,R);if(!b)return;const e=b.best;
-    const ep=!b.isEnd&&e?envPrice(e.ref):null;
-    quad.push({node:n,envRef:ep?e.ref:null,envDes:ep?ep.des:null,envPvp:ep?ep.pvp:null,envNet:ep?ep.net:null,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
+    quad.push({node:n,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
       items:b.devs.map(d=>({nome:d.nome,txt:d.txt,dif:d.dif}))});});
   const tCab=cabos.reduce((a,x)=>a+(x.total||0),0),tProt=prot.reduce((a,x)=>a+x.total,0),tTerm=terms.reduce((a,x)=>a+x.total,0);
-  /* envolventes Hager dos quadros novos (PVP 2026 com o desconto descHager); quadros existentes e gateways não contam */
-  const envs=quad.filter(q=>q.envRef).map(q=>({node:q.node,ref:q.envRef,des:q.envDes,pvp:q.envPvp,total:q.envNet})),tEnv=envs.reduce((a,x)=>a+x.total,0);
+  /* quadros novos: componentes, acessórios e montagem como a Indusmelec os orçamenta (rt-indus.js); as proteções de saída já estão em tProt */
+  const qds=quadros().map(n=>indusParts(n,R)).filter(Boolean),tQd=qds.reduce((a,x)=>a+x.sub,0);
   return {rev:(S.obra&&S.obra.rev)||'A',aprov:(S.obra&&S.obra.aprov)||null,proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
-    descHager:+S.descHager||0,envs,tEnv,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tEnv,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
+    qds,tQd,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tQd,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
 }
 
 /* zip sem compressão (Office Open XML): usado pelo relatório Word (rt-docx.js) */
@@ -117,18 +116,20 @@ async function bomPdf(B){
   table([{t:'Tipo',w:28},{t:'Descrição / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
     B.prot.map(x=>({cells:[x.tipo,`${x.des}\n${x.ref}`,String(x.qty),eur2(x.pvp),eur2(x.total)]}))
       .concat([{bold:true,cells:['Total proteções',B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',eur2(B.tProt)]}]));
-  if(B.envs.length){title('Envolventes dos quadros (Hager)');
-    table([{t:'Quadro',w:28},{t:'Envolvente / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
-      B.envs.map(x=>({cells:[x.node,`Hager ${x.des}\n${x.ref}`,'1',eur2(x.pvp),eur2(x.total)]}))
-        .concat([{bold:true,cells:['Total envolventes',B.descHager?`PVP com desconto de ${B.descHager} %`:'PVP Hager 2026, sem desconto','','',eur2(B.tEnv)]}]));}
+  if(B.qds.length){title('Quadros elétricos (componentes e montagem)');
+    B.qds.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node} · ${BOM_ROLE[Q.role]||Q.role}`),M,y);y+=4;
+      table([{t:'Função',w:30},{t:'Referência',w:32},{t:'Descrição',w:66},{t:'Qtd.',w:12,a:'r'},{t:'Total',w:42,a:'r'}],
+        Q.items.map(x=>({cells:[x.papel,x.ref,x.des,String(x.q),x.prot?'em Proteções':x.total==null?(/incluído/.test(x.des)?'-':'sem preço'):eur2(x.total)]}))
+          .concat([{bold:true,cells:[`Subtotal ${Q.node}`,'','','',eur2(Q.sub)]}]));});
+    need(8);pdf.setFont('helvetica','bold');pdf.setFontSize(9);pdf.text(pdfTxt('Total quadros'),M+1,y);pdf.text(pdfTxt(eur2(B.tQd)),W-M-1,y,{align:'right'});y+=6;}
   need(10);pdf.setFont('helvetica','bold');pdf.setFontSize(11);pdf.setFillColor(56,212,48);pdf.rect(M,y-4.5,W-2*M,7,'F');
   pdf.text('Total geral',M+1,y);pdf.text(pdfTxt(eur2(B.total)),W-M-1,y,{align:'right'});y+=8;
   pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);
   const notes=[...(B.est?['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']:[]),
-    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Envolventes: só a caixa (sem placas de montagem nem acessórios); quadros existentes sem preço.'];
+    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Quadros: referências e preços líquidos dos orçamentos Indusmelec de 2025–2026 (indicativos); as proteções de saída contam em Disjuntores e diferenciais ABB; quadros existentes e gateways sem preço.'];
   notes.forEach(n=>{const l=pdf.splitTextToSize(pdfTxt(n),W-2*M);need(l.length*3.4);pdf.text(l,M,y);y+=l.length*3.4;});
-  title('Composição dos quadros');
-  B.quad.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node}${Q.role?" · "+Q.role:""}`),M,y);y+=4;
+  const rest=B.quad.filter(Q=>!B.qds.some(x=>x.node===Q.node));if(rest.length)title('Gateways e quadros existentes');
+  rest.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node}${Q.role?" · "+Q.role:""}`),M,y);y+=4;
     pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.text(pdfTxt(Q.env),M,y);y+=4;
     table([{t:'Aparelho',w:40},{t:'Descrição',w:80},{t:'Nota',w:62}],Q.items.map(d=>({cells:[d.nome,d.txt,d.dif||'']})));});
   foot();return pdf.output('blob');

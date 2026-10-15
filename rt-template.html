@@ -210,6 +210,13 @@ tr.cur td{background:var(--accent-soft)}
 .bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
 .bnotes{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink)}
 .bnotes li{margin-bottom:4px}
+.bind{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.bind h3 .hint{font-family:var(--f-body);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
+.bind table.bom{width:100%;table-layout:fixed;font-size:12.5px}
+.bind table.bom th:nth-child(1){width:17%}.bind table.bom th:nth-child(2){width:22%}.bind table.bom th:nth-child(4){width:7%}.bind table.bom th:nth-child(5){width:14%}
+.bind table.bom td{overflow-wrap:anywhere;vertical-align:top}
+.bind table.bom td.n{white-space:normal}.bind td.ref{font-family:var(--f-mono);font-size:11.5px;white-space:pre-line}.bind td .sub{font-size:11px}
+@media (max-width:760px){.bind table.bom{font-size:11.5px}.bind table.bom td{padding:4px 5px}}
 #res-body td:first-child{min-width:170px}
 #res-body td:nth-child(4){min-width:230px}
 #res-body td:nth-child(5){min-width:180px}
@@ -261,7 +268,6 @@ tr.cur td{background:var(--accent-soft)}
       <label>ΔU máx. por troço <span class="u">%</span><input id="limT" type="number" step="0.1" min="0.1"></label>
       <label title="Só aviso: a queda acumulada do inversor até à injeção é uma subida de tensão nos terminais do inversor">Aviso de ΔU acumulada <span class="u">%</span><input id="lim" type="number" step="0.1" min="0.1"></label>
       <label>Desconto ABB <span class="u">% s/ PVP</span><input id="descABB" type="number" step="1" min="0" max="90"></label>
-      <label>Desconto Hager <span class="u">% s/ PVP</span><input id="descHager" type="number" step="1" min="0" max="90"></label>
       <label title="Em branco: não incluir. Indica a potência a partir da qual se exige proteção de interface (regra do operador de rede).">Proteção de interface a partir de <span class="u">kW</span><input id="pint" type="number" step="1" min="0" placeholder="não incluir"></label>
       <label>Poder de corte dos disjuntores<select id="icu-modo"><option value="">Não verificar</option><option value="icc">Icc conhecida no ponto de ligação</option><option value="pt">A partir do PT</option></select></label>
       <label data-icu="icc" hidden>Icc no ponto de ligação <span class="u">kA</span><input id="icu-icc" type="number" step="0.1" min="0.1"></label>

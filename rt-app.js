@@ -165,7 +165,7 @@ function bind(){
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
   $('#folga').addEventListener('change',e=>{S.folga=e.target.checked;render();});
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
-  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager','pint'].forEach(k=>{const el=document.getElementById(k);
+  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
   /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
   const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
@@ -220,7 +220,7 @@ function scVis(){const on=S.sc.on!==false;document.querySelectorAll('#sc-fields 
 let TAB='ac';const HOOKS=[];
 function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
   document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t);if(last)HOOKS.forEach(f=>f(last));}
-function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
+function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
   S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';

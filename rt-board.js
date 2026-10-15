@@ -4,9 +4,6 @@ const DMONO={1.5:6,2.5:7,4:8,6:8.5,10:9.5,16:10.5,25:12,35:13,50:14.5,70:16.5,95
 const DMULTI={1.5:11,2.5:12.5,4:14,6:15.5,10:18.5,16:21,25:25,35:28,50:32,70:37,95:42};
 /* secção máx. aproximada que o borne do aparelho aceita (mm², por condutor) */
 const BORNE=b=>!b?95:/^S20/.test(b.s)?35:/^S80/.test(b.s)?95:/^XT1/.test(b.s)?95:/^XT3/.test(b.s)?185:/^XT5/.test(b.s)?240:400;
-/* preços Hager (tabela 2026, hager.json gerado por mkhager.py): {ref: [descrição, PVP]}; desconto S.descHager */
-const HAGER=__HAGER__;
-const envPrice=ref=>{const h=HAGER[ref];if(!h)return null;const d=(+S.descHager||0)/100;return {des:h[0],pvp:h[1],net:h[1]*(1-d)};};
 /* envolventes Hager Orion plus: [ref, alt., larg., prof., só modular] */
 const ORION=[['FL213B',500,400,200,1],['FL216B',650,400,200,1],['FL221B',650,500,250,1],['FL229B',800,600,300,1],['FL126A',950,600,300,1],['FL128A',950,800,300,1],['FL130A',1250,800,300,1],
   ['FL300B',550,600,300,0],['FL301B',850,600,300,0],['FL302B',1150,600,300,0],['FL342B',1450,600,300,0],['FL344B',1750,600,300,0],['FL348B',2050,600,300,0],
@@ -138,10 +135,11 @@ function renderBoards(R){
     return `<div class="board"><div class="panel-head"><div><h3 class="bname">${esc(b.node)}${b.isEnd?' · ponto de injeção':''}</h3>
       <span class="hint">${b.isEnd?'Quadro existente: confirma que tem este espaço livre para a chegada. ':''}${b.ins.length} entrada${b.ins.length===1?'':'s'} · ${fmt(b.Ib,0)} A${b.out?` · sai para ${esc(b.out.ref.dest)}`:''}</span></div>
       <span class="pill ${b.dif>=3?'bad':b.dif>=1?'warn':'ok'}">Trabalho do cabo: ${DIFL[b.dif]}</span></div>
-      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">Hager Orion plus ${e.ref} ou equivalente</span>${!b.isEnd&&envPrice(e.ref)?`<span class="sub">${eur0(envPrice(e.ref).net)} ${+S.descHager?`(PVP −${S.descHager}%)`:'PVP Hager 2026'}</span>`:''}`:'<b>Armário de chão</b><span class="sub">Não cabe numa Orion plus de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
+      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">espaço útil, como uma Hager Orion plus ${e.ref}</span>`:'<b>Armário de chão</b><span class="sub">Não cabe num quadro de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
       <div class="bcol"><h3>Aparelhagem</h3><table class="bom"><tbody>${b.devs.map(d=>`<tr><td>${esc(d.nome)}</td><td>${esc(d.txt)}${d.dif?`<span class="sub">${esc(d.dif)}</span>`:''}</td></tr>`).join('')}</tbody></table>
       <h3>Cabos a ligar</h3><table class="bom"><thead><tr><th>Circuito</th><th>Cabo</th><th class="r">Ø aprox.</th><th class="r">Raio mín.</th><th class="r">Condutores</th></tr></thead><tbody>${b.cables.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.cabo)}</td><td class="n r">${x.D} mm</td><td class="n r">${x.r} mm</td><td class="n r">${x.nCond}</td></tr>`).join('')}</tbody></table>
       <p class="hint">Zona livre por baixo da aparelhagem: <b>${b.zone} mm</b> (maior raio de curvatura + terminal). Bucins: ${Math.round(b.glandW)} mm de largura${e?` em ${e.gRows} fila${e.gRows===1?'':'s'}`:''}.${e?` ${b.mod} módulos com 30% de reserva.`:''}</p>
-      ${b.notes.length?`<ul class="bnotes">${b.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div></div></div>`;}).join('')||'<p class="hint">Liga inversores a um quadro para ver a sugestão.</p>';
+      ${b.notes.length?`<ul class="bnotes">${b.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div></div>
+      ${(P=>P?`<div class="bind"><h3>Componentes e montagem <span class="hint">como a Indusmelec orçamenta (2025–2026)</span></h3>${indusTable(P)}${P.notes.length?`<ul class="bnotes">${P.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`:'')(indusParts(b.node,R))}</div>`;}).join('')||'<p class="hint">Liga inversores a um quadro para ver a sugestão.</p>';
 }
 HOOKS.push(R=>{if(TAB==='brd')renderBoards(R);});

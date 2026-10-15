@@ -210,6 +210,13 @@ tr.cur td{background:var(--accent-soft)}
 .bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
 .bnotes{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink)}
 .bnotes li{margin-bottom:4px}
+.bind{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.bind h3 .hint{font-family:var(--f-body);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
+.bind table.bom{width:100%;table-layout:fixed;font-size:12.5px}
+.bind table.bom th:nth-child(1){width:17%}.bind table.bom th:nth-child(2){width:22%}.bind table.bom th:nth-child(4){width:7%}.bind table.bom th:nth-child(5){width:14%}
+.bind table.bom td{overflow-wrap:anywhere;vertical-align:top}
+.bind table.bom td.n{white-space:normal}.bind td.ref{font-family:var(--f-mono);font-size:11.5px;white-space:pre-line}.bind td .sub{font-size:11px}
+@media (max-width:760px){.bind table.bom{font-size:11.5px}.bind table.bom td{padding:4px 5px}}
 #res-body td:first-child{min-width:170px}
 #res-body td:nth-child(4){min-width:230px}
 #res-body td:nth-child(5){min-width:180px}
@@ -261,7 +268,6 @@ tr.cur td{background:var(--accent-soft)}
       <label>ΔU máx. por troço <span class="u">%</span><input id="limT" type="number" step="0.1" min="0.1"></label>
       <label title="Só aviso: a queda acumulada do inversor até à injeção é uma subida de tensão nos terminais do inversor">Aviso de ΔU acumulada <span class="u">%</span><input id="lim" type="number" step="0.1" min="0.1"></label>
       <label>Desconto ABB <span class="u">% s/ PVP</span><input id="descABB" type="number" step="1" min="0" max="90"></label>
-      <label>Desconto Hager <span class="u">% s/ PVP</span><input id="descHager" type="number" step="1" min="0" max="90"></label>
       <label title="Em branco: não incluir. Indica a potência a partir da qual se exige proteção de interface (regra do operador de rede).">Proteção de interface a partir de <span class="u">kW</span><input id="pint" type="number" step="1" min="0" placeholder="não incluir"></label>
       <label>Poder de corte dos disjuntores<select id="icu-modo"><option value="">Não verificar</option><option value="icc">Icc conhecida no ponto de ligação</option><option value="pt">A partir do PT</option></select></label>
       <label data-icu="icc" hidden>Icc no ponto de ligação <span class="u">kA</span><input id="icu-icc" type="number" step="0.1" min="0.1"></label>
@@ -1059,7 +1065,7 @@ function bind(){
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
   $('#folga').addEventListener('change',e=>{S.folga=e.target.checked;render();});
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
-  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager','pint'].forEach(k=>{const el=document.getElementById(k);
+  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
   /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
   const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
@@ -1114,7 +1120,7 @@ function scVis(){const on=S.sc.on!==false;document.querySelectorAll('#sc-fields 
 let TAB='ac';const HOOKS=[];
 function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
   document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t);if(last)HOOKS.forEach(f=>f(last));}
-function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
+function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
   S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';
@@ -1440,110 +1446,6 @@ const DMONO={1.5:6,2.5:7,4:8,6:8.5,10:9.5,16:10.5,25:12,35:13,50:14.5,70:16.5,95
 const DMULTI={1.5:11,2.5:12.5,4:14,6:15.5,10:18.5,16:21,25:25,35:28,50:32,70:37,95:42};
 /* secção máx. aproximada que o borne do aparelho aceita (mm², por condutor) */
 const BORNE=b=>!b?95:/^S20/.test(b.s)?35:/^S80/.test(b.s)?95:/^XT1/.test(b.s)?95:/^XT3/.test(b.s)?185:/^XT5/.test(b.s)?240:400;
-/* preços Hager (tabela 2026, hager.json gerado por mkhager.py): {ref: [descrição, PVP]}; desconto S.descHager */
-const HAGER={
-"FL126A": [
-"orion plus IP65 PO a.950 l.600 p.300",
-352.62
-],
-"FL128A": [
-"orion plus IP65 PO a.950 l.800 p.300",
-419.48
-],
-"FL130A": [
-"orion plus IP65 PO a.1250 l.800 p.300",
-497.14
-],
-"FL213B": [
-"orion plus IP66 PO a.500 l.400 p.200",
-218.94
-],
-"FL216B": [
-"orion plus IP66 PO a.650 l.400 p.200",
-253.11
-],
-"FL221B": [
-"orion plus IP66 PO a.650 l.500 p.250",
-329.81
-],
-"FL229B": [
-"orion plus IP66 PO a.800 l.600 p.300",
-434.63
-],
-"FL300B": [
-"orion plus IP65 PO a.550 l.600 p.300",
-390.3
-],
-"FL301B": [
-"orion plus IP65 PO a.850 l.600 p.300",
-444.28
-],
-"FL302B": [
-"orion plus IP65 PO a.1150 l.600 p.300",
-485.11
-],
-"FL305B": [
-"orion plus IP65 PO a.550 l.850 p.300",
-523.88
-],
-"FL306B": [
-"orion plus IP65 PO a.850 l.850 p.300",
-555.32
-],
-"FL307B": [
-"orion plus IP65 PO a.1150 l.850 p.300",
-592.96
-],
-"FL310B": [
-"orion plus IP65 PO a.550 l.1100 p.300",
-685.19
-],
-"FL311B": [
-"orion plus IP65 PO a.850 l.1100 p.300",
-806.34
-],
-"FL312B": [
-"orion plus IP65 PO a.1150 l.1100 p.300",
-889.84
-],
-"FL342B": [
-"orion plus IP65 PO a.1450 l.600 p.300",
-985.12
-],
-"FL344B": [
-"orion plus IP65 PO a.1750 l.600 p.300",
-1054.31
-],
-"FL348B": [
-"orion plus IP65 PO a.2050 l.600 p.300",
-1126.81
-],
-"FL352B": [
-"orion plus IP65 PO a.1450 l.850 p.300",
-1391.22
-],
-"FL354B": [
-"orion plus IP65 PO a.1750 l.850 p.300",
-1502.53
-],
-"FL358B": [
-"orion plus IP65 PO a.2050 l.850 p.300",
-1752.52
-],
-"FL362B": [
-"orion plus IP65 PO a.1450 l.1100 p.300",
-1502.53
-],
-"FL364B": [
-"orion plus IP65 PO a.1750 l.1100 p.300",
-1592.64
-],
-"FL368B": [
-"orion plus IP65 PO a.2050 l.1100 p.300",
-1857.7
-]
-};
-const envPrice=ref=>{const h=HAGER[ref];if(!h)return null;const d=(+S.descHager||0)/100;return {des:h[0],pvp:h[1],net:h[1]*(1-d)};};
 /* envolventes Hager Orion plus: [ref, alt., larg., prof., só modular] */
 const ORION=[['FL213B',500,400,200,1],['FL216B',650,400,200,1],['FL221B',650,500,250,1],['FL229B',800,600,300,1],['FL126A',950,600,300,1],['FL128A',950,800,300,1],['FL130A',1250,800,300,1],
   ['FL300B',550,600,300,0],['FL301B',850,600,300,0],['FL302B',1150,600,300,0],['FL342B',1450,600,300,0],['FL344B',1750,600,300,0],['FL348B',2050,600,300,0],
@@ -1675,13 +1577,91 @@ function renderBoards(R){
     return `<div class="board"><div class="panel-head"><div><h3 class="bname">${esc(b.node)}${b.isEnd?' · ponto de injeção':''}</h3>
       <span class="hint">${b.isEnd?'Quadro existente: confirma que tem este espaço livre para a chegada. ':''}${b.ins.length} entrada${b.ins.length===1?'':'s'} · ${fmt(b.Ib,0)} A${b.out?` · sai para ${esc(b.out.ref.dest)}`:''}</span></div>
       <span class="pill ${b.dif>=3?'bad':b.dif>=1?'warn':'ok'}">Trabalho do cabo: ${DIFL[b.dif]}</span></div>
-      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">Hager Orion plus ${e.ref} ou equivalente</span>${!b.isEnd&&envPrice(e.ref)?`<span class="sub">${eur0(envPrice(e.ref).net)} ${+S.descHager?`(PVP −${S.descHager}%)`:'PVP Hager 2026'}</span>`:''}`:'<b>Armário de chão</b><span class="sub">Não cabe numa Orion plus de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
+      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">espaço útil, como uma Hager Orion plus ${e.ref}</span>`:'<b>Armário de chão</b><span class="sub">Não cabe num quadro de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
       <div class="bcol"><h3>Aparelhagem</h3><table class="bom"><tbody>${b.devs.map(d=>`<tr><td>${esc(d.nome)}</td><td>${esc(d.txt)}${d.dif?`<span class="sub">${esc(d.dif)}</span>`:''}</td></tr>`).join('')}</tbody></table>
       <h3>Cabos a ligar</h3><table class="bom"><thead><tr><th>Circuito</th><th>Cabo</th><th class="r">Ø aprox.</th><th class="r">Raio mín.</th><th class="r">Condutores</th></tr></thead><tbody>${b.cables.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.cabo)}</td><td class="n r">${x.D} mm</td><td class="n r">${x.r} mm</td><td class="n r">${x.nCond}</td></tr>`).join('')}</tbody></table>
       <p class="hint">Zona livre por baixo da aparelhagem: <b>${b.zone} mm</b> (maior raio de curvatura + terminal). Bucins: ${Math.round(b.glandW)} mm de largura${e?` em ${e.gRows} fila${e.gRows===1?'':'s'}`:''}.${e?` ${b.mod} módulos com 30% de reserva.`:''}</p>
-      ${b.notes.length?`<ul class="bnotes">${b.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div></div></div>`;}).join('')||'<p class="hint">Liga inversores a um quadro para ver a sugestão.</p>';
+      ${b.notes.length?`<ul class="bnotes">${b.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div></div>
+      ${(P=>P?`<div class="bind"><h3>Componentes e montagem <span class="hint">como a Indusmelec orçamenta (2025–2026)</span></h3>${indusTable(P)}${P.notes.length?`<ul class="bnotes">${P.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`:'')(indusParts(b.node,R))}</div>`;}).join('')||'<p class="hint">Liga inversores a um quadro para ver a sugestão.</p>';
 }
 HOOKS.push(R=>{if(TAB==='brd')renderBoards(R);});
+
+/* ---------- componentes de cada quadro como a Indusmelec os orçamenta (orçamentos 2025–2026 das pastas de projeto) ----------
+   Os aparelhos são os de qfvParts/boardFor (regras Solcor do unifilar); daqui vêm as referências, a envolvente, os acessórios e a
+   montagem. Preço = líquido do último orçamento Indusmelec 2025–2026 com essa referência (indicativo). Os disjuntores e diferenciais
+   dos circuitos já estão em "Disjuntores e diferenciais ABB" (brkTot): aqui aparecem com prot:true e não entram no subtotal. */
+const INDUS={ /* ref: [descrição, € líquido, data do orçamento] */
+  'GW40104BS':['Gewiss 40 CDK 24M (12×2) IP65',45.60,'2026-03'],'GW40105BD':['Gewiss 40 CDK 36M (12×3) IP65',73.94,'2026-01'],'GW40108BD':['Gewiss 40 CDK 54M (18×3) IP65',82.00,'2025-11'],
+  'FL52S':['Hager univers IP65 850 × 600 × 300 mm',397.22,'2025-08'],'UN05A':['Hager univers: jogo de 2 montantes a.750',20.37,'2025-08'],'UE21D2':['Hager univers: unidade de barramento vertical 250 A',118.48,'2025-08'],
+  'UD12B4A':['Hager univers: unidade p/ modulares 1×24 M a.225',41.56,'2025-01'],'UD12F1':['Hager univers: unidade c/ tampa opaca a.150',21.24,'2025-01'],'UT92S':['Hager univers: travessa de terra l.500',20.76,'2025-01'],
+  'MCS20086PER5':['Eldon MCS 2000 × 800 × 600 PE',534.22,'2026-02'],'MCS20046R5':['Eldon MF 2000 × 400 × 600',482.31,'2026-02'],'CCI06':['Eldon: suporte de união interna',30.63,'2026-02'],'CCM04':['Eldon: kit de união interna de esquina',22.11,'2026-02'],
+  'PF1080':['Eldon: esquadro frontal 100 × 800',41.87,'2026-02'],'PF1040':['Eldon: rodapé lateral',38.24,'2026-02'],
+  'NSYCRN108250':['Schneider Spacial CRN 1000 × 800 × 250',209.92,'2025-12'],'NSYMM108':['Schneider: platina 1000 × 800',70.00,'2025-12'],'NSYCRN128300':['Schneider Spacial CRN 1200 × 800 × 300',336.68,'2026-02'],'NSYMM128':['Schneider: platina 1200 × 800',121.89,'2026-02'],
+  '2CDE284001R0125':['ABB E204/125 interruptor-seccionador 4P 125 A',55.93,'2025-11'],'1SCA022753R5250':['ABB OT800 interruptor-seccionador 4P 800 A, comando frontal',420.50,'2025-05'],'1SCA022871R5870':['ABB OT1250 interruptor-seccionador 4P 1250 A, comando frontal',612.17,'2026-02'],
+  '7P.24.8.275.0020':['Finder 7P.24 descarregador de sobretensões tipo 2, 3F+N',90.00,'2026-03'],'2CTB815710R4000':['ABB OVR T1+T2 25 kA descarregador de sobretensões 3F+N',354.20,'2026-02'],
+  '015.563820':['Repartidor tetrapolar TD 125 A',15.00,'2026-01'],'WPD 130':['Weidmüller WPD 130 1×50/1×50 (borne de passagem)',6.28,'2025-12'],
+  '2CSM200893R1801':['ABB porta-fusíveis seccionável 1P+N 32 A 10×38',5.76,'2026-02'],'2CSM200923R1801':['ABB porta-fusíveis seccionável 1P 32 A 10×38',2.90,'2026-02'],'LF302G':['Fusível 10×38 gG 2 A',0.40,'2026-03'],
+  '2CSR275080R1254':['ABB DS201 disjuntor diferencial 1P+N C25',56.70,'2026-02'],'2CDS251001R0104':['ABB S201 disjuntor 1P C10',5.74,'2026-02'],'7U.00.8.230.0010':['Finder tomada Schuko com LED',4.09,'2026-02'],
+  'XB7EV03MP':['Sinalizador LED verde 230 V',3.50,'2026-02'],'XB7EV04MP':['Sinalizador LED vermelho 230 V',3.50,'2026-02'],'XB7EV05MP':['Sinalizador LED amarelo 230 V',3.50,'2026-02'],
+  '7T.81':['Finder termóstato de painel',9.50,'2026-02'],'7F.20':['Finder ventilador com filtro',44.37,'2026-02'],'7F.02':['Finder grelha com filtro 150 × 150 IP54',6.50,'2026-02'],
+  'CTD1X1255AXXX':['TI CTD 125/5 A',12.50,'2026-01'],'TM3200A5':['TI TM3 200/5 A',11.00,'2025-11'],'TS00850800X05':['TI TS85 800/5 A (barra)',28.70,'2025-12'],'CTD8S12505AXXX':['TI CTD8S 1250/5 A, abrir',148.86,'2026-02']};
+/* corte geral: referência pelo calibre (as que aparecem nos orçamentos; as outras ficam a escolher) */
+const INDUS_CORTE={125:'2CDE284001R0125',800:'1SCA022753R5250',1000:'1SCA022871R5870',1250:'1SCA022871R5870'};
+const INDUS_TI={125:'CTD1X1255AXXX',150:'TM3200A5',200:'TM3200A5',800:'TS00850800X05',1000:'CTD8S12505AXXX',1250:'CTD8S12505AXXX'};
+function indusParts(node,R){
+  const Q=qfvParts(node,R);if(!Q||Q.gw||Q.existing||Q.role==='CONT')return null;
+  const items=[],notes=[];
+  const add=(papel,ref,q,o={})=>{if(!q)return;const c=INDUS[ref];items.push({papel,ref:o.semRef?'':ref,des:o.des||(c?c[0]:ref),q,pu:o.prot?null:c?c[1]:null,data:c?c[2]:'',prot:!!o.prot});};
+  const fs_=Q.feeders,mccb=fs_.filter(f=>f.rele),nInv=fs_.filter(f=>f.c.kind==='inv').length;
+  const kW=(Q.outs||[Q.out]).reduce((a,c)=>a+(c?c.p:0),0);
+  const sumIn=fs_.reduce((a,f)=>a+f.In,0),maxIn=Math.max(...fs_.map(f=>f.In));
+  /* envolvente e montagem (regras dos orçamentos 2025–2026) */
+  let encl,mont=0,small=false;
+  if(Q.role==='INT'&&!mccb.length&&Q.out.res.In<=125){encl='GW40104BS';small=true;mont=0;add('Envolvente','GW40104BS',1);}
+  else if(Q.role==='INT'){const big=Q.out.res.In>800;encl=big?'NSYCRN128300':'NSYCRN108250';add('Envolvente',encl,1);add('Envolvente',big?'NSYMM128':'NSYMM108',1);mont=big?300:250;}
+  else if(mccb.length){encl='MCS20086PER5';add('Envolvente','MCS20086PER5',1);
+    if(fs_.length>2){add('Envolvente','MCS20046R5',1);add('Envolvente','CCI06',1);add('Envolvente','CCM04',1);}
+    add('Envolvente','PF1080',1);add('Envolvente','PF1040',2);
+    mont=Math.round(1950+1.75*kW);notes.push('Armário de chão: na Indusmelec o barramento, a estrutura de espelhos, a cablagem e o transporte estão incluídos na montagem.');
+    if(fs_.length>4)notes.push(`${fs_.length} saídas com caixa moldada: os orçamentos de referência têm 4; confirmar o número de colunas do armário.`);}
+  else if(fs_.length===1){encl=maxIn<=63?'GW40104BS':maxIn<=100?'GW40105BD':'GW40108BD';small=maxIn<=63;add('Envolvente',encl,1);mont=maxIn<=63?80:maxIn<=100?90:125;}
+  else{encl='FL52S';add('Envolvente','FL52S',1);add('Envolvente','UN05A',1);add('Envolvente','UD12B4A',Math.ceil(fs_.length/2)+1);add('Envolvente','UD12F1',1);add('Envolvente','UT92S',1);
+    mont=105+135*fs_.length;if(fs_.length>3)notes.push(`${fs_.length} saídas modulares: os orçamentos de referência em Hager univers têm até 2; confirmar a dimensão.`);}
+  /* corte geral */
+  if(Q.corte){const r=INDUS_CORTE[Q.corte.In];
+    if(r)add('Corte geral',r,1);else add('Corte geral','',1,{semRef:true,des:`Interruptor-seccionador 4P ${Q.corte.In} A (${Q.corte.In<=125?'ABB E200':'ABB OT'}; referência a escolher)`});}
+  /* saídas: disjuntor e diferencial do motor (já em Proteções) */
+  const bm=new Map();fs_.forEach(f=>{if(!f.b)return;const k=f.b.ref;const g=bm.get(k);if(g)g.q++;else bm.set(k,{b:f.b,q:1});});
+  bm.forEach(({b,q})=>{add('Proteção de saída',b.ref.replace(/^58\./,''),q,{prot:true,des:b.name||b.d});
+    if(b.dif)add('Proteção de saída',b.dif.refs.join(' + '),q,{prot:true,des:b.dif.name});});
+  const nr=mccb.length;if(nr){add('Alimentação dos relés','2CSM200893R1801',nr);add('Alimentação dos relés','LF302G',2*nr);}
+  /* DST */
+  if(Q.dst){const dref=mccb.length||Q.role==='INT'&&!small?'2CTB815710R4000':'7P.24.8.275.0020';add('Sobretensões',dref,Q.dst.per?fs_.length:1);
+    if(Q.dst.fus){add('Sobretensões','',1,{semRef:true,des:`Porta-fusíveis 3F+N com fusíveis gG ${Q.dst.fus} A (proteção do DST)`});
+      notes.push(`DST: a Indusmelec protege o OVR T1+T2 com um disjuntor S800P 3P 100 A (2CCG001233R0001) em vez de fusíveis; aqui fica a regra Solcor (fusíveis gG ${Q.dst.fus} A).`);}}
+  /* repartição */
+  if(!Q.split){if(mccb.length)items.push({papel:'Barramento',ref:'',des:'Barramento 3F+N (incluído na montagem)',q:1,pu:null,prot:false});
+    else if(encl==='FL52S')add('Barramento','UE21D2',1);
+    else if(!small||fs_.length>1)add('Barramento','015.563820',1);}
+  /* bornes de passagem para o cabo de saída (WPD 130 até 50 mm²) */
+  if(!small&&!mccb.length){(Q.outs||[Q.out]).forEach(c=>{if(c&&c.res.cons!=='multi'&&c.res.s<=50)add('Bornes',`WPD 130`,5*c.res.n);});}
+  /* serviços auxiliares e sinalização (quadros com relés) */
+  if(Q.aux){add('Serviços auxiliares','2CSR275080R1254',1);add('Serviços auxiliares','',1,{semRef:true,des:'ABB S201 disjuntor 1P C16'});add('Serviços auxiliares','2CDS251001R0104',1);add('Serviços auxiliares','7U.00.8.230.0010',1);
+    add('Sinalização','2CSM200923R1801',3);add('Sinalização','LF302G',3);['XB7EV03MP','XB7EV04MP','XB7EV05MP'].forEach(r=>add('Sinalização',r,1));
+    add('Ventilação','7T.81',1);add('Ventilação','7F.20',1);add('Ventilação','7F.02',1);}
+  /* contagem: TI no quadro que tem a contagem */
+  if(Q.meter&&Q.meter.type==='indireta'){const n=3*(Q.meter.perCircuit?(Q.outs||[Q.out]).length:1),r=INDUS_TI[Q.meter.ti];
+    if(r)add('Contagem',r,n);else add('Contagem','',n,{semRef:true,des:`TI ${Q.meter.ti}/5 A`});}
+  if(mont)items.push({papel:'Montagem',ref:'',des:'Montagem do quadro (mão de obra Indusmelec)',q:1,pu:mont,data:'',prot:false});
+  items.forEach(x=>{x.total=x.pu==null?null:x.pu*x.q;});
+  const sub=items.reduce((a,x)=>a+(x.total||0),0);
+  return {node,role:Q.role,encl,encDes:INDUS[encl]?INDUS[encl][0]:'',items,mont,sub,notes,semPreco:items.some(x=>!x.prot&&x.pu==null&&!/incluído/.test(x.des))};
+}
+function indusTable(P){
+  return `<table class="bom"><thead><tr><th>Função</th><th>Referência</th><th>Descrição</th><th class="r">Qtd.</th><th class="r">€ líq.</th></tr></thead><tbody>${P.items.map(x=>
+    `<tr><td>${esc(x.papel)}</td><td class="ref">${esc(x.ref.replace(/ \+ /g,'\n'))}</td><td>${esc(x.des)}</td><td class="n r">${x.q}</td><td class="n r">${x.prot?'<span class="sub">em Proteções</span>':x.total==null?(/incluído/.test(x.des)?'—':'<span class="sub">sem preço</span>'):eur0(x.total)}</td></tr>`).join('')}
+    <tr><td colspan="4"><b>Subtotal do quadro</b><span class="sub">sem as proteções de saída, que estão no custo das proteções</span></td><td class="n r"><b>${eur0(P.sub)}</b></td></tr></tbody></table>`;
+}
 
 /* ---------- lista de materiais e orçamento do projeto aberto (PDF) ----------
    Cabos: fases, neutro e terra em separado, metros = comprimento de cálculo (com folga) de cada circuito e €/m como em costPerM,
@@ -1735,14 +1715,13 @@ function bomData(R){
     if(gwOf(n)){if(!Q)return;const sp=Q.spec;
       quad.push({node:n,role:BOM_ROLE.GW,env:'Equipamento do fabricante',items:[{nome:'Gateway',txt:sp?`${sp.marca} ${sp.modelo}`:(gwOf(n).modelo||'gateway'),dif:sp?`rede ${gwMainA(sp)} A · ${sp.ports} entrada${sp.ports===1?'':'s'} de inversor ${gwPortA(sp)} A`:''}]});return;}
     const b=boardFor(n,R);if(!b)return;const e=b.best;
-    const ep=!b.isEnd&&e?envPrice(e.ref):null;
-    quad.push({node:n,envRef:ep?e.ref:null,envDes:ep?ep.des:null,envPvp:ep?ep.pvp:null,envNet:ep?ep.net:null,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
+    quad.push({node:n,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
       items:b.devs.map(d=>({nome:d.nome,txt:d.txt,dif:d.dif}))});});
   const tCab=cabos.reduce((a,x)=>a+(x.total||0),0),tProt=prot.reduce((a,x)=>a+x.total,0),tTerm=terms.reduce((a,x)=>a+x.total,0);
-  /* envolventes Hager dos quadros novos (PVP 2026 com o desconto descHager); quadros existentes e gateways não contam */
-  const envs=quad.filter(q=>q.envRef).map(q=>({node:q.node,ref:q.envRef,des:q.envDes,pvp:q.envPvp,total:q.envNet})),tEnv=envs.reduce((a,x)=>a+x.total,0);
+  /* quadros novos: componentes, acessórios e montagem como a Indusmelec os orçamenta (rt-indus.js); as proteções de saída já estão em tProt */
+  const qds=quadros().map(n=>indusParts(n,R)).filter(Boolean),tQd=qds.reduce((a,x)=>a+x.sub,0);
   return {rev:(S.obra&&S.obra.rev)||'A',aprov:(S.obra&&S.obra.aprov)||null,proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
-    descHager:+S.descHager||0,envs,tEnv,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tEnv,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
+    qds,tQd,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tQd,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
 }
 
 /* zip sem compressão (Office Open XML): usado pelo relatório Word (rt-docx.js) */
@@ -1802,18 +1781,20 @@ async function bomPdf(B){
   table([{t:'Tipo',w:28},{t:'Descrição / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
     B.prot.map(x=>({cells:[x.tipo,`${x.des}\n${x.ref}`,String(x.qty),eur2(x.pvp),eur2(x.total)]}))
       .concat([{bold:true,cells:['Total proteções',B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',eur2(B.tProt)]}]));
-  if(B.envs.length){title('Envolventes dos quadros (Hager)');
-    table([{t:'Quadro',w:28},{t:'Envolvente / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
-      B.envs.map(x=>({cells:[x.node,`Hager ${x.des}\n${x.ref}`,'1',eur2(x.pvp),eur2(x.total)]}))
-        .concat([{bold:true,cells:['Total envolventes',B.descHager?`PVP com desconto de ${B.descHager} %`:'PVP Hager 2026, sem desconto','','',eur2(B.tEnv)]}]));}
+  if(B.qds.length){title('Quadros elétricos (componentes e montagem)');
+    B.qds.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node} · ${BOM_ROLE[Q.role]||Q.role}`),M,y);y+=4;
+      table([{t:'Função',w:30},{t:'Referência',w:32},{t:'Descrição',w:66},{t:'Qtd.',w:12,a:'r'},{t:'Total',w:42,a:'r'}],
+        Q.items.map(x=>({cells:[x.papel,x.ref,x.des,String(x.q),x.prot?'em Proteções':x.total==null?(/incluído/.test(x.des)?'-':'sem preço'):eur2(x.total)]}))
+          .concat([{bold:true,cells:[`Subtotal ${Q.node}`,'','','',eur2(Q.sub)]}]));});
+    need(8);pdf.setFont('helvetica','bold');pdf.setFontSize(9);pdf.text(pdfTxt('Total quadros'),M+1,y);pdf.text(pdfTxt(eur2(B.tQd)),W-M-1,y,{align:'right'});y+=6;}
   need(10);pdf.setFont('helvetica','bold');pdf.setFontSize(11);pdf.setFillColor(56,212,48);pdf.rect(M,y-4.5,W-2*M,7,'F');
   pdf.text('Total geral',M+1,y);pdf.text(pdfTxt(eur2(B.total)),W-M-1,y,{align:'right'});y+=8;
   pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);
   const notes=[...(B.est?['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']:[]),
-    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Envolventes: só a caixa (sem placas de montagem nem acessórios); quadros existentes sem preço.'];
+    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Quadros: referências e preços líquidos dos orçamentos Indusmelec de 2025–2026 (indicativos); as proteções de saída contam em Disjuntores e diferenciais ABB; quadros existentes e gateways sem preço.'];
   notes.forEach(n=>{const l=pdf.splitTextToSize(pdfTxt(n),W-2*M);need(l.length*3.4);pdf.text(l,M,y);y+=l.length*3.4;});
-  title('Composição dos quadros');
-  B.quad.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node}${Q.role?" · "+Q.role:""}`),M,y);y+=4;
+  const rest=B.quad.filter(Q=>!B.qds.some(x=>x.node===Q.node));if(rest.length)title('Gateways e quadros existentes');
+  rest.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node}${Q.role?" · "+Q.role:""}`),M,y);y+=4;
     pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.text(pdfTxt(Q.env),M,y);y+=4;
     table([{t:'Aparelho',w:40},{t:'Descrição',w:80},{t:'Nota',w:62}],Q.items.map(d=>({cells:[d.nome,d.txt,d.dif||'']})));});
   foot();return pdf.output('blob');

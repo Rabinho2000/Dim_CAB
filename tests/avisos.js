@@ -1,4 +1,4 @@
-/* avisos e opções novas na interface (exemplo de origem): preço Hager no separador Quadros, coluna Esteira, outros circuitos na
+/* avisos e opções novas na interface (exemplo de origem): componentes Indusmelec no separador Quadros, coluna Esteira, outros circuitos na
    esteira de um percurso, aviso de ΔU acumulada, aviso de seletividade e proteção de interface. Avisos não mudam o estado "OK".
    Gera tests/avisos.png. Tem de dar "ERR []". */
 const { chromium } = require('playwright');const fs=require('fs');
@@ -7,11 +7,9 @@ const b=await chromium.launch();const p=await b.newPage({viewport:{width:1400,he
 await p.setContent('<!doctype html><meta charset=utf-8><body>'+fs.readFileSync(__dirname+'/../cabos-rt.html','utf8').replace(/<link[^>]*fonts[^>]*>/g,''));
 const rowTxt=async re=>(await p.$$eval('#res-body tr',t=>t.map(r=>r.innerText.replace(/\s+/g,' ')))).find(r=>re.test(r))||'';
 const kpis=()=>p.$eval('#kpis',e=>e.innerText.replace(/\s+/g,' '));
-/* Hager */
+/* componentes Indusmelec no separador Quadros */
 await p.click('[data-tab=brd]');
-check(await p.$eval('[data-pane=brd]',e=>/FL348B ou equivalente\s*1\s?127\s?€\s*PVP Hager 2026/.test(e.innerText)),'Quadros: QFV com a Orion plus FL348B a 1127 € PVP');
-await p.click('[data-tab=ac]');await p.fill('#descHager','30');await p.click('[data-tab=brd]');
-check(await p.$eval('[data-pane=brd]',e=>/FL348B ou equivalente\s*789\s?€\s*\(PVP −30%\)/.test(e.innerText)),'com 30 % de desconto Hager: 789 €');
+check(await p.$eval('[data-pane=brd]',e=>/Eldon MCS 2000 × 800 × 600/.test(e.innerText)&&/1SCA022871R5870/.test(e.innerText)&&/em Proteções/.test(e.innerText)&&/Montagem do quadro/.test(e.innerText)),'Quadros: QFV com armário Eldon, OT1250, proteções e montagem');
 await p.click('[data-tab=ac]');
 /* seletividade (o exemplo tem 1000 A + 1000 A em série) */
 check(/Seletividade a confirmar: 1000 A a montante < 1,6 × 1000 A a jusante \(C5\)/.test(await rowTxt(/^C6 /)),'C6: aviso de seletividade com C5');
