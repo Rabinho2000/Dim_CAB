@@ -49,6 +49,7 @@ async function apiConnect(){
       return {id,
         set:async(data,o)=>{const r=await call('PUT',u,data,{...(o&&o.ifMatch?{'If-Match':o.ifMatch}:{}),...(o&&o.newRevision?{'X-New-Revision':'1'}:{})});soon();return r;},
         estado:async v=>{const r=await call('POST',u+'/estado',{estado:v});soon();return r;},
+        track:async(code,step,done)=>{const r=await call('POST',u+'/track',{code,step,done});soon();return r;},
         delete:async()=>{await call('DELETE',u);soon();},
         history:async()=>(await call('GET',u+'/history')).history};},
     onSnapshot:fn=>{if(!subs.has(col))subs.set(col,[]);subs.get(col).push(fn);soon();

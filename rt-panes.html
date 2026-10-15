@@ -62,12 +62,17 @@
     <label>Nº do desenho<input data-obra="desenho" maxlength="40"></label>
     <label>Estado<select data-obra="estado"></select></label>
   </div>
+  <details class="trkbox"><summary><b>Acompanhamento em obra</b> <span class="trkprog" id="trk-prog"></span></summary>
+    <p class="hint" id="trk-hint"></p>
+    <div class="tablewrap"><table class="trktab"><thead><tr><th>Cabo</th><th>Circuito</th><th>Lançado</th><th>Ligado</th><th>Ensaiado</th></tr></thead><tbody id="trk-body"></tbody></table></div>
+  </details>
   <div class="obrarev"><p class="hint" id="obra-rev"></p><div class="actions"><button class="pri" id="obra-aprov">Aprovar revisão A</button><button id="obra-newrev" hidden>Nova revisão</button></div></div>
 </section>
 <section class="panel">
   <div class="panel-head"><h2>Projetos da equipa</h2><div class="actions"><button id="pj-save" class="pri">Guardar projeto atual</button><button id="pj-new">Guardar como novo</button><button id="pj-exp" title="Descarrega o projeto aberto num ficheiro .json">Exportar</button><button id="pj-imp" title="Abre um projeto de um ficheiro .json (como projeto novo)">Importar</button><button id="pj-expall" hidden title="Descarrega todos os projetos da equipa num ficheiro .json">Exportar todos</button><input type="file" id="pj-impf" accept=".json,application/json" hidden></div></div>
   <p class="hint" id="pj-user" hidden></p>
   <p class="hint" id="pj-status"></p>
+  <div id="pj-sum"></div>
   <div class="pjtools"><label class="grow pjsearch">Procurar<input id="pj-q" placeholder="Projeto, cliente ou autor"></label><label>Estado<select id="pj-est"></select></label></div>
   <div class="tablewrap"><table id="pj-table"><thead><tr><th>Projeto</th><th>Estado</th><th>Inversores</th><th class="r">Potência</th><th>Guardado por</th><th>Atualizado</th><th></th></tr></thead><tbody id="pj-body"></tbody></table></div>
 </section>

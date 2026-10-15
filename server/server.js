@@ -69,12 +69,21 @@ function createServer(opts={}){
         res.writeHead(200,{'Content-Type':'application/vnd.sqlite3','Content-Disposition':`attachment; filename="solcor-${stamp()}.db"`,'Cache-Control':'no-store'});
         const st=fs.createReadStream(tmp);st.pipe(res);st.on('close',()=>fs.unlink(tmp,()=>{}));return;}
       if(p==='/api/users')return send(res,200,db.names((url.searchParams.get('ids')||'').split(',').filter(Boolean).slice(0,200)));
-      const m=p.match(/^\/api\/([a-z]+)(?:\/([^/]+))?(?:\/(history|estado))?$/);
+      const m=p.match(/^\/api\/([a-z]+)(?:\/([^/]+))?(?:\/(history|estado|track))?$/);
       if(!m||!COLS.has(m[1]))return send(res,404,{error:'not_found'});
       const col=m[1],id=m[2]?decodeURIComponent(m[2]):null;
       if(id&&(id.length>150||!/^[A-Za-z0-9_.~:@+-]+$/.test(id)))return send(res,400,{error:'invalid_argument'});
       if(req.method==='GET'&&!id)return send(res,200,{rev:db.rev(),docs:db.list(col)});
       if(req.method==='GET'&&id&&m[3]==='history')return send(res,200,{history:db.history(col,id)});
+      /* acompanhamento em obra: marcar um cabo como lançado / ligado / ensaiado (também com a revisão aprovada; não mexe no resto) */
+      if(req.method==='POST'&&id&&m[3]==='track'&&col==='projects'){
+        const body=await readBody(req);const old=db.get(col,id);if(!old)return send(res,404,{error:'not_found'});
+        const code=String((body&&body.code)||''),step=body&&body.step;
+        if(!/^[CD]\d{1,4}$/.test(code)||!['lan','lig','ens'].includes(step))return send(res,400,{error:'invalid_argument'});
+        const s=JSON.parse(JSON.stringify(old.data.s||{}));s.obra=s.obra||{};const tr=s.obra.track=s.obra.track||{};const t=tr[code]=tr[code]||{};
+        if(body.done)t[step]={id:me.id,nome:me.name,em:new Date().toISOString()};else delete t[step];if(!Object.keys(t).length)delete tr[code];
+        const data={...old.data,s,upd:new Date().toISOString(),edit:me.id};
+        db.put(col,id,data,me.id);return send(res,200,{id,rev:db.rev(),upd:data.upd,mark:t[step]||null});}
       /* revisão aprovada: só o estado avança (aprovado → em obra → concluído), sem tocar no resto do projeto */
       if(req.method==='POST'&&id&&m[3]==='estado'&&col==='projects'){
         const body=await readBody(req);const old=db.get(col,id);if(!old)return send(res,404,{error:'not_found'});

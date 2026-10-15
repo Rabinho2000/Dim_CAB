@@ -137,6 +137,7 @@ function renderProj(){
   ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);$('#pj-expall').hidden=!DBX||!PROJ.length;$('#pj-save').classList.toggle('pri',!(CUR&&isLocked()));
   const est=$('#pj-est').value;
   const list=PROJ.filter(p=>(!est||(p.estado||'rascunho')===est)&&(!q||[p.nome,p.cliente,NAMES[p.autor]].some(x=>(x||'').toLowerCase().includes(q))));
+  if(typeof renderSummary==='function'){renderSummary();if(TAB==='proj')renderTrack();}
   $('#proj-badge').hidden=!PROJ.length;$('#proj-badge').textContent=PROJ.length;
   $('#pj-body').innerHTML=list.length?list.map(p=>`<tr class="${p.id===CUR?'cur':''}"><td><b>${esc(p.nome||'Sem nome')}</b>${p.cliente||p.loc?`<span class="sub">${esc([p.cliente,p.loc].filter(Boolean).join(' · '))}</span>`:''}</td><td>${estPill(p.estado)}<span class="sub">Rev. ${esc(p.rev||'A')}</span></td><td class="n">${p.nInv??'—'}</td><td class="n r">${p.P!=null?fmt(p.P,1)+' kW':'—'}</td>
     <td>${esc(who(p.autor))}${p.edit&&p.edit!==p.autor?`<span class="sub">alterado por ${esc(who(p.edit))}</span>`:''}</td><td class="n">${dtxt(p.upd)}</td>
@@ -151,7 +152,9 @@ async function projSave(asNew,force,opt={}){
   syncObra();
   if(asNew){S.obra.aprov=null;S.obra.rev='A';if(POS.includes(S.obra.estado))S.obra.estado='rascunho';}
   else if(isLocked()&&!opt.newRev)return lockedDlg();
-  const body={nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,rev:S.obra.rev||'A',...(opt.approve?{lock:true}:{}),nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
+  /* para o resumo dos projetos: custo (cabos + terminais + proteções + envolventes + DC) e potência DC */
+  let custo=null,kwp=null;try{const Bm=bomData(R);custo=Math.round(Bm.total);kwp=typeof solveDC==='function'?Math.round(solveDC().pdc*10)/10:null;}catch(e){}
+  const body={custo,kwp,nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,rev:S.obra.rev||'A',...(opt.approve?{lock:true}:{}),nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
   try{if(CUR&&!asNew){const old=PROJ.find(p=>p.id===CUR);if(old&&old.autor)body.autor=old.autor;body.edit=ME;
       /* no servidor próprio, grava só se ninguém tiver gravado depois da versão aberta (salvo "substituir") */
       const o=DBX.versioned?{...(CURUPD&&!force?{ifMatch:CURUPD}:{}),...(opt.newRev?{newRevision:true}:{})}:undefined;

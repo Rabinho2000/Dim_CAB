@@ -181,6 +181,8 @@ button.pri:hover{border-color:#2DB327;background:#2DB327}
 .obrarev{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-top:10px}
 .ccode{display:inline-block;min-width:26px;font-family:var(--mono,monospace);color:var(--accent-ink)}
 .okt{color:var(--ok)}
+.sumgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0 12px} .sumcard{position:relative;border:1px solid var(--line);border-radius:6px;padding:8px 10px 12px;display:grid;gap:2px;overflow:hidden} .sumcard b{font-size:20px} .sumcard small{color:var(--muted);font-size:11.5px} .sumcard i{position:absolute;left:0;bottom:0;height:3px;background:var(--accent,#38D430)}
+.trkbox{margin-top:12px;border:1px solid var(--line);border-radius:6px;padding:8px 12px} .trkbox summary{cursor:pointer} .trkprog{position:relative;display:inline-block;min-width:220px;height:16px;margin-left:10px;vertical-align:middle;background:var(--sunk);border-radius:8px;overflow:hidden;font-size:11px} .trkprog i{position:absolute;inset:0 auto 0 0;background:var(--ok-soft)} .trkprog span{position:relative;padding:0 8px} .trktab td.trk .check{font-size:14px} .trktab input[type=checkbox]{width:20px;height:20px}
 .w-est{width:4.5em;text-transform:uppercase;text-align:center}
 .pjtools{display:flex;flex-wrap:wrap;gap:10px;align-items:end} .pjtools .pjsearch{flex:1 1 260px}
 .fields.obra{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
@@ -402,12 +404,17 @@ tr.cur td{background:var(--accent-soft)}
     <label>Nº do desenho<input data-obra="desenho" maxlength="40"></label>
     <label>Estado<select data-obra="estado"></select></label>
   </div>
+  <details class="trkbox"><summary><b>Acompanhamento em obra</b> <span class="trkprog" id="trk-prog"></span></summary>
+    <p class="hint" id="trk-hint"></p>
+    <div class="tablewrap"><table class="trktab"><thead><tr><th>Cabo</th><th>Circuito</th><th>Lançado</th><th>Ligado</th><th>Ensaiado</th></tr></thead><tbody id="trk-body"></tbody></table></div>
+  </details>
   <div class="obrarev"><p class="hint" id="obra-rev"></p><div class="actions"><button class="pri" id="obra-aprov">Aprovar revisão A</button><button id="obra-newrev" hidden>Nova revisão</button></div></div>
 </section>
 <section class="panel">
   <div class="panel-head"><h2>Projetos da equipa</h2><div class="actions"><button id="pj-save" class="pri">Guardar projeto atual</button><button id="pj-new">Guardar como novo</button><button id="pj-exp" title="Descarrega o projeto aberto num ficheiro .json">Exportar</button><button id="pj-imp" title="Abre um projeto de um ficheiro .json (como projeto novo)">Importar</button><button id="pj-expall" hidden title="Descarrega todos os projetos da equipa num ficheiro .json">Exportar todos</button><input type="file" id="pj-impf" accept=".json,application/json" hidden></div></div>
   <p class="hint" id="pj-user" hidden></p>
   <p class="hint" id="pj-status"></p>
+  <div id="pj-sum"></div>
   <div class="pjtools"><label class="grow pjsearch">Procurar<input id="pj-q" placeholder="Projeto, cliente ou autor"></label><label>Estado<select id="pj-est"></select></label></div>
   <div class="tablewrap"><table id="pj-table"><thead><tr><th>Projeto</th><th>Estado</th><th>Inversores</th><th class="r">Potência</th><th>Guardado por</th><th>Atualizado</th><th></th></tr></thead><tbody id="pj-body"></tbody></table></div>
 </section>
@@ -2263,6 +2270,7 @@ async function apiConnect(){
       return {id,
         set:async(data,o)=>{const r=await call('PUT',u,data,{...(o&&o.ifMatch?{'If-Match':o.ifMatch}:{}),...(o&&o.newRevision?{'X-New-Revision':'1'}:{})});soon();return r;},
         estado:async v=>{const r=await call('POST',u+'/estado',{estado:v});soon();return r;},
+        track:async(code,step,done)=>{const r=await call('POST',u+'/track',{code,step,done});soon();return r;},
         delete:async()=>{await call('DELETE',u);soon();},
         history:async()=>(await call('GET',u+'/history')).history};},
     onSnapshot:fn=>{if(!subs.has(col))subs.set(col,[]);subs.get(col).push(fn);soon();
@@ -2413,6 +2421,7 @@ function renderProj(){
   ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);$('#pj-expall').hidden=!DBX||!PROJ.length;$('#pj-save').classList.toggle('pri',!(CUR&&isLocked()));
   const est=$('#pj-est').value;
   const list=PROJ.filter(p=>(!est||(p.estado||'rascunho')===est)&&(!q||[p.nome,p.cliente,NAMES[p.autor]].some(x=>(x||'').toLowerCase().includes(q))));
+  if(typeof renderSummary==='function'){renderSummary();if(TAB==='proj')renderTrack();}
   $('#proj-badge').hidden=!PROJ.length;$('#proj-badge').textContent=PROJ.length;
   $('#pj-body').innerHTML=list.length?list.map(p=>`<tr class="${p.id===CUR?'cur':''}"><td><b>${esc(p.nome||'Sem nome')}</b>${p.cliente||p.loc?`<span class="sub">${esc([p.cliente,p.loc].filter(Boolean).join(' · '))}</span>`:''}</td><td>${estPill(p.estado)}<span class="sub">Rev. ${esc(p.rev||'A')}</span></td><td class="n">${p.nInv??'—'}</td><td class="n r">${p.P!=null?fmt(p.P,1)+' kW':'—'}</td>
     <td>${esc(who(p.autor))}${p.edit&&p.edit!==p.autor?`<span class="sub">alterado por ${esc(who(p.edit))}</span>`:''}</td><td class="n">${dtxt(p.upd)}</td>
@@ -2427,7 +2436,9 @@ async function projSave(asNew,force,opt={}){
   syncObra();
   if(asNew){S.obra.aprov=null;S.obra.rev='A';if(POS.includes(S.obra.estado))S.obra.estado='rascunho';}
   else if(isLocked()&&!opt.newRev)return lockedDlg();
-  const body={nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,rev:S.obra.rev||'A',...(opt.approve?{lock:true}:{}),nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
+  /* para o resumo dos projetos: custo (cabos + terminais + proteções + envolventes + DC) e potência DC */
+  let custo=null,kwp=null;try{const Bm=bomData(R);custo=Math.round(Bm.total);kwp=typeof solveDC==='function'?Math.round(solveDC().pdc*10)/10:null;}catch(e){}
+  const body={custo,kwp,nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,rev:S.obra.rev||'A',...(opt.approve?{lock:true}:{}),nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
   try{if(CUR&&!asNew){const old=PROJ.find(p=>p.id===CUR);if(old&&old.autor)body.autor=old.autor;body.edit=ME;
       /* no servidor próprio, grava só se ninguém tiver gravado depois da versão aberta (salvo "substituir") */
       const o=DBX.versioned?{...(CURUPD&&!force?{ifMatch:CURUPD}:{}),...(opt.newRev?{newRevision:true}:{})}:undefined;
@@ -2624,6 +2635,44 @@ function bindPriceImport(){
   document.querySelector('.eqtabs').addEventListener('click',()=>setTimeout(renderPriceImport));
   HOOKS.push(()=>{if(PIMP)renderPriceImport();});renderPriceImport();
 }
+
+/* ---------- resumo dos projetos da equipa e acompanhamento em obra (separador Projetos) ---------- */
+const TSTEPS=[['lan','Lançado'],['lig','Ligado'],['ens','Ensaiado']];
+/* resumo: por estado, nº de projetos, kW AC, kWp DC e custo por kW (dos projetos guardados com custo) */
+function renderSummary(){
+  const box=$('#pj-sum');if(!box)return;if(!PROJ.length){box.innerHTML='';return;}
+  const by=ESTADOS.map(([k,l,cls])=>{const L=PROJ.filter(p=>(p.estado||'rascunho')===k);return {k,l,cls,n:L.length,P:L.reduce((a,p)=>a+(+p.P||0),0),kwp:L.reduce((a,p)=>a+(+p.kwp||0),0)};});
+  const wc=PROJ.filter(p=>+p.custo>0&&+p.P>0),cpk=wc.length?wc.reduce((a,p)=>a+ +p.custo,0)/wc.reduce((a,p)=>a+ +p.P,0):null,mx=Math.max(1,...by.map(x=>x.P));
+  box.innerHTML=`<div class="sumgrid">${by.map(x=>`<div class="sumcard"><span class="pill ${x.cls}">${x.l}</span><b>${x.n}</b><small>${fmt(x.P,0)} kW AC${x.kwp?` · ${fmt(x.kwp,0)} kWp DC`:''}</small><i style="width:${Math.round(100*x.P/mx)}%"></i></div>`).join('')}
+    <div class="sumcard"><span class="pill neu">Total</span><b>${PROJ.length}</b><small>${fmt(by.reduce((a,x)=>a+x.P,0),0)} kW AC${cpk!=null?` · ${fmt(cpk,0)} €/kW (cabos, proteções e quadros; ${wc.length} projeto${wc.length===1?'':'s'})`:''}</small></div></div>`;
+}
+/* acompanhamento: uma linha por cabo (C… do AC, D… do DC) com lançado / ligado / ensaiado, quem e quando */
+/* com o projeto na equipa, as marcas vêm da versão mais recente da equipa (outras pessoas marcam em obra ao mesmo tempo) */
+function trackState(){obraDef();
+  if(DBX&&DBX.versioned&&CUR){const p=PROJ.find(q=>q.id===CUR);const t=p&&p.s&&p.s.obra?p.s.obra.track:undefined;
+    if(p&&String(p.upd)>=String(S.obra.trackUpd||''))S.obra.track=JSON.parse(JSON.stringify(t||{})),S.obra.trackUpd=p.upd;}
+  S.obra.track=S.obra.track||{};return S.obra.track;}
+function renderTrack(){
+  const box=$('#trk-body');if(!box||!last)return;const tr=trackState(),rows=cableMapData(last);
+  const done=rows.reduce((a,r)=>a+TSTEPS.filter(([k])=>tr[r.code]&&tr[r.code][k]).length,0),tot=rows.length*TSTEPS.length;
+  $('#trk-prog').innerHTML=tot?`<i style="width:${Math.round(100*done/tot)}%"></i><span>${done} de ${tot} passos (${Math.round(100*done/tot)} %)</span>`:'';
+  $('#trk-hint').textContent=DBX&&DBX.versioned?(CUR?'As marcas ficam guardadas no projeto da equipa (também numa revisão aprovada).':'Guarda o projeto na equipa para partilhar o acompanhamento.'):'Base partilhada indisponível nesta vista: as marcas ficam só neste navegador.';
+  box.innerHTML=rows.map(r=>`<tr><td><b class="ccode">${esc(r.code)}</b></td><td>${esc(r.orig)} → ${esc(r.dest)}<span class="sub">${esc(r.cabo)} · ${fmt(r.L,0)} m</span></td>${
+    TSTEPS.map(([k,l])=>{const m=tr[r.code]&&tr[r.code][k];return `<td class="trk"><label class="check" title="${m?esc(`${l} por ${m.nome||who(m.id)} em ${dtxt(m.em)}`):l}"><input type="checkbox" data-trk="${esc(r.code)}|${k}"${m?' checked':''}> ${l}</label>${m?`<span class="sub">${esc(m.nome||who(m.id))} · ${dtxt(m.em)}</span>`:''}</td>`;}).join('')}</tr>`).join('')
+    ||'<tr><td colspan="5" class="hint">Sem cabos.</td></tr>';
+}
+async function trackSet(code,step,done){
+  const tr=trackState(),t=tr[code]=tr[code]||{};
+  if(DBX&&DBX.versioned&&CUR){try{const r=await DBX.collection('projects').doc(CUR).track(code,step,done);CURUPD=r.upd;S.obra.trackUpd=r.upd;if(r.mark)t[step]=r.mark;else delete t[step];}
+    catch(e){eqErr(e);renderTrack();return;}}
+  else{if(done)t[step]={id:ME,nome:(USR&&USR.name)||'',em:isoNow()};else delete t[step];}
+  if(!Object.keys(t).length)delete tr[code];save();renderTrack();
+}
+(function bindTrack(){
+  const box=$('#trk-body');if(!box)return;
+  box.addEventListener('change',e=>{const el=e.target.closest('[data-trk]');if(!el)return;const [code,step]=el.dataset.trk.split('|');trackSet(code,step,el.checked);});
+  HOOKS.push(()=>{if(TAB==='proj'){renderTrack();renderSummary();}});
+})();
 
 /* ---------- relatório de cálculo em PDF (base da memória descritiva de licenciamento) ----------
    Texto vetorial com as fontes base do jsPDF: o Helvetica só tem Latin-1, por isso Δ, φ, ≤, → … saem na fonte Symbol
