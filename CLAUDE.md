@@ -13,6 +13,7 @@ node dumpcalc.js && python verify.py  # verificação independente dos cálculos
 node tests/separadores.js             # abre todos os separadores; tem de dar "ERR []"
 node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/sem gateway, contagem)
 node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
+node tests/relatorio.js               # relatório de cálculo PDF (botão) para o exemplo e o caso sem secção: tests/relatorio_*.pdf e _pN.png
 node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
 npm start                             # servidor em http://127.0.0.1:8080 (depois de npm run build)
 ```
@@ -28,6 +29,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-sc.js` — escada de disjuntores ABB (`BRK` de `brk.json`) e curto-circuito (desligado na interface, código mantido).
 - `rt-price.js` — preços de cabo (`jmm/prices.json`, compras 2026 JMM + Indusmelec).
 - `rt-sld.js` — esquema unifilar SVG e exportação SVG/PNG/PDF.
+- `rt-report.js` — relatório de cálculo em PDF (botão "Relatório de cálculo (PDF)" no topo): identificação, dados gerais, quadro resumo, cálculo de cada circuito (modo e quadro RTIEBT, fatores, Iz, In, I₂, ΔU, cabo, disjuntor), circuitos a rever e o unifilar em A3. Texto vetorial jsPDF; Δ, φ, ≤, → na fonte Symbol (Helvetica só tem Latin-1).
 - `rt-board.js` — composição de cada quadro (`qfvParts`, `meterHost`) e separador Quadros (dimensão da envolvente, raio de curvatura).
 - `rt-share.js` — projetos e equipamentos partilhados, descargas. Usa `claude.use('db'|'user')` no claude.ai ou `apiConnect()` (`rt-api.js`) quando a página vem do servidor próprio; aberta como ficheiro, fica só o projeto local.
 - `rt-api.js` — adaptador do navegador para a API do servidor, com a mesma interface (`collection().doc().set/delete`, `onSnapshot` por consulta de `/api/rev` a cada 4 s).

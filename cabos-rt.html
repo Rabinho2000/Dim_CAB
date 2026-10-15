@@ -206,7 +206,7 @@ tr.cur td{background:var(--accent-soft)}
     <div class="ttl"><h1>Dimensionamento de Cabos FV</h1><small>Circuitos AC e disjuntores · RTIEBT (Portaria 949-A/2006)</small></div>
   </div>
   <label class="grow">Projeto<input id="proj" placeholder="Nome do projeto ou cliente"></label>
-  <div class="actions"><button id="copy">Copiar tabela</button><button id="reset">Repor exemplo</button></div>
+  <div class="actions"><button id="report" class="pri" title="Relatório de cálculo para a memória descritiva: dados gerais, cálculo de cada circuito e esquema unifilar">Relatório de cálculo (PDF)</button><button id="copy">Copiar tabela</button><button id="reset">Repor exemplo</button></div>
 </header>
 
 <nav class="tabs" role="tablist" aria-label="Secções">
@@ -820,6 +820,11 @@ function renderPercTable(){
 const eur0=v=>v==null?'—':v.toLocaleString('pt-PT',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 function altName(o,loaded){const P=cableParts(o,loaded);return P.multi?P.cabo:`fases ${P.fase} · neutro ${P.neutro} · terra ${P.terra}`;}
 let last;
+/* estado de um circuito (tabela e relatório de cálculo): 'ok' ou 'bad' e o motivo */
+function verdict(c){const o=c.res;
+  const st=!o?'bad':(passes(o)&&o.icuOk!==false&&o.du<=S.limT&&!c.gwErr)?'ok':'bad';
+  const why=!o?'Sem tabela':c.gwErr?c.gwErr:!o.term?(c.Ib>o.In?'In < Ib':'In > Iz'):!o.sob?'I₂ > 1,45 Iz':o.du>S.limT?'ΔU troço':o.icuOk===false?'Poder de corte':o.trip===false?'Icc mín < Im':o.therm===false?'I²t > k²S²':'OK';
+  return {st,why};}
 function render(){
   const R=solveAll();last=R;
   const maxN=Math.max(1,...R.invC.map(c=>c.nAgr));
@@ -835,8 +840,7 @@ function render(){
   const rowHTML=c=>{
     const o=c.res;
     if(c.Ib<=0)return `<tr class="${c.kind==='perc'?'feeder':''}"><td>${esc(c.nome)}<span class="sub">${c.L} m</span></td><td class="n r">0,0</td><td colspan="8" class="hint">${c.kind==='perc'?'Nenhum inversor passa por este percurso. Confirma os nomes dos quadros.':'Indica a potência.'}</td></tr>`;
-    const st=!o?'bad':(passes(o)&&o.icuOk!==false&&o.du<=S.limT&&!c.gwErr)?'ok':'bad';
-    const why=!o?'Sem tabela':c.gwErr?c.gwErr:!o.term?(c.Ib>o.In?'In < Ib':'In > Iz'):!o.sob?'I₂ > 1,45 Iz':o.du>S.limT?'ΔU troço':o.icuOk===false?'Poder de corte':o.trip===false?'Icc mín < Im':o.therm===false?'I²t > k²S²':'OK';
+    const {st,why}=verdict(c);
     const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção"><option value="auto">Auto</option>${c.opts.map(x=>{const v=`${x.n}x${x.s}|${x.mat}|${x.cons}`;return `<option value="${v}"${c.ref.S===v?' selected':''}>${x.n>1?x.n+'×':''}${fs(x.s)} ${x.mat}${x.cons==='multi'?' multi':''}</option>`;}).join('')}</select>`;
     const label=c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome);
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;
@@ -1525,6 +1529,149 @@ async function initShare(){
   sub('precos',snap=>{CUST.pr=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(d=>d.s&&d.p);rebuildEquip();});
   renderEq();renderProj();
 }
+
+/* ---------- relatório de cálculo em PDF (base da memória descritiva de licenciamento) ----------
+   Texto vetorial com as fontes base do jsPDF: o Helvetica só tem Latin-1, por isso Δ, φ, ≤, → … saem na fonte Symbol
+   e os índices (I₂, k₂) em tamanho menor. Usa solveAll() (rt-engine.js), verdict() (rt-app.js), sldSVG/svgToPng (rt-sld.js). */
+const RSYM={'Δ':'D','φ':'f','≤':'£','≥':'³','→':'®','≈':'»','Ω':'W','√':'Ö','ρ':'r','−':'-','π':'p'};
+/* larguras da fonte Symbol (AFM, /1000 em): as do jsPDF não correspondem ao que se desenha */
+const RSW={'D':612,'f':521,'£':549,'³':549,'®':987,'»':549,'W':768,'Ö':549,'r':549,'-':549,'p':549};
+const RSUB={'₀':'0','₁':'1','₂':'2','₃':'3'};
+const LOGO='data:image/png;base64,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';
+const RC={ink:[26,32,40],mut:[90,102,114],line:[214,220,226],acc:[56,212,48],accD:[30,138,25],red:[191,51,40],soft:[244,246,248],redS:[252,236,234]};
+function reportPDF(R){
+  const {jsPDF}=window.jspdf;const mk=()=>new jsPDF({unit:'mm',format:'a4',compress:true});const doc=mk();let pdf=doc,dry=false;
+  const PW=210,PH=297,M=16,CW=PW-2*M,TOP=30,BOT=PH-16;let y=TOP;
+  /* ----- texto com troca de fonte nos símbolos ----- */
+  const runs=s=>{const out=[];for(const ch of String(s)){const k=RSYM[ch]!=null?'s':RSUB[ch]!=null?'i':'h',t=k==='s'?RSYM[ch]:k==='i'?RSUB[ch]:ch;
+    const l=out[out.length-1];if(l&&l.k===k)l.t+=t;else out.push({k,t});}return out;};
+  const setF=(k,o)=>{if(k==='s')pdf.setFont('symbol','normal');else pdf.setFont('helvetica',o.b?'bold':o.i?'italic':'normal');pdf.setFontSize(k==='i'?o.fs*0.72:o.fs);};
+  const rw=(r,o)=>{setF(r.k,o);return r.k==='s'?[...r.t].reduce((a,ch)=>a+(RSW[ch]||600),0)/1000*o.fs/pdf.internal.scaleFactor:pdf.getTextWidth(r.t);};
+  const width=(s,o)=>runs(s).reduce((a,r)=>a+rw(r,o),0);
+  const T=(s,x,yy,o={})=>{o={fs:9,...o};const w=width(s,o);let cx=o.a==='r'?x-w:o.a==='c'?x-w/2:x;pdf.setTextColor(...(o.c||RC.ink));
+    runs(s).forEach(r=>{const d=rw(r,o);pdf.text(r.t,cx,r.k==='i'?yy+o.fs*0.06:yy);cx+=d;});return w;};
+  const wrap=(s,w,o)=>{o={fs:9,...o};const L=[];String(s).split('\n').forEach(par=>{let cur='';par.split(' ').forEach(wd=>{const t=cur?cur+' '+wd:wd;if(cur&&width(t,o)>w){L.push(cur);cur=wd;}else cur=t;});L.push(cur);});return L;};
+  const lh=fsz=>fsz*0.42;
+  const need=h=>{if(!dry&&y+h>BOT){pdf.addPage('a4','portrait');y=TOP;}};
+  /* altura de um bloco: desenha-o num documento de rascunho */
+  const measure=fn=>{const keep=[pdf,y];pdf=mk();y=0;dry=true;try{fn();}finally{dry=false;}const h=y;[pdf,y]=keep;return h;};
+  const block=fn=>{const h=measure(fn);need(h);fn();};
+  const para=(s,o={})=>{o={fs:9,...o};const x=o.x??M,w=o.w??CW;wrap(s,w,o).forEach(l=>{need(lh(o.fs));T(l,x,y+lh(o.fs)*0.8,o);y+=lh(o.fs);});};
+  const h2=(s,more=0)=>{need(16+more);y+=4;pdf.setFillColor(...RC.acc);pdf.rect(M,y,1.4,5.2,'F');T(s,M+4,y+4.2,{fs:12.5,b:1});y+=9;};
+  /* tabela de pares rótulo / valor; cada linha [rótulo, valor] ou [rótulo, valor, rótulo, valor] */
+  const kv=(rows,o={})=>{const lw=o.lw||40,half=CW/2,fsz=8.6;
+    rows.forEach((r,i)=>{const cells=r.length>2?[[r[0],r[1],M,half],[r[2],r[3],M+half,half]]:[[r[0],r[1],M,CW]];
+      const ls=cells.map(([l,v,x,w])=>({l:wrap(l,lw-3,{fs:fsz,c:RC.mut}),v:wrap(v,w-lw-3,{fs:fsz,b:o.bold}),x}));
+      const h=Math.max(...ls.map(c=>Math.max(c.l.length,c.v.length)))*lh(fsz)+2.4;need(h);
+      if(i%2===0){pdf.setFillColor(...RC.soft);pdf.rect(M,y,CW,h,'F');}
+      ls.forEach(c=>{c.l.forEach((t,j)=>T(t,c.x+2,y+1.2+lh(fsz)*(j+0.8),{fs:fsz,c:RC.mut}));c.v.forEach((t,j)=>T(t,c.x+lw,y+1.2+lh(fsz)*(j+0.8),{fs:fsz}));});
+      y+=h;});};
+  const n0=v=>fmt(v,0),n1=v=>fmt(v,1),n2=v=>fmt(v,2);
+  const metLab=m=>({EF:'E/F',D61:'D'}[m]||m);
+  const all=R.invC.concat(R.pC).filter(c=>c.Ib>0);
+  const dt=new Date().toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'});
+
+  /* ----- 1. identificação ----- */
+  pdf.setFillColor(...RC.ink);pdf.rect(0,0,PW,44,'F');pdf.setFillColor(...RC.acc);pdf.rect(0,44,PW,1.4,'F');
+  try{pdf.addImage(LOGO,'PNG',M,11,58,58*96/329);}catch(e){T('SOLCOR',M,22,{fs:18,b:1,c:[255,255,255]});}
+  T('Relatório de cálculo',PW-M,19,{fs:17,b:1,c:[255,255,255],a:'r'});
+  T('Cabos AC e proteções · instalação fotovoltaica',PW-M,26,{fs:9.5,c:[200,208,214],a:'r'});
+  T('RTIEBT (Portaria 949-A/2006)',PW-M,32,{fs:9.5,c:[200,208,214],a:'r'});
+  y=54;
+  h2('1. Identificação da obra');
+  kv([['Projeto',S.proj||'—'],['Local',S.loc||'—','Data',dt],['Potência AC',`${n1(R.Ptot)} kW`,'Inversores',String(S.invs.length)],
+    ['Corrente total',`${n0(R.IbTot)} A`,'Circuitos',String(all.length)]],{lw:34});
+
+  /* ----- 2. dados gerais ----- */
+  h2('2. Dados gerais e critérios');
+  const e6=E6.find(x=>x[0]===+S.rsolo);
+  const matTxt=S.mat==='auto'?`Automático: alumínio quando L > ${fs(+S.alThr||0)} m e P > ${fs(+S.alPmin||0)} kW (sempre monocondutor, nunca abaixo de 16 mm²); nos restantes, cobre`:S.mat==='Cu'?'Sempre cobre':'Sempre alumínio (monocondutor, mínimo 16 mm²)';
+  kv([['Temperatura do ar',`${S.tair} °C`,'Temperatura do solo',`${S.tsoil} °C`],
+    ['Resistividade do solo',e6?`${fs(e6[0])} K·m/W · ${e6[2]} (52-E6: ${n2(e6[1])})`:String(S.rsolo),'Isolamento',S.isol==='XLPE'?'XLPE / EPR (90 °C)':'PVC (70 °C)'],
+    ['Material',matTxt],
+    ['ΔU máx. por troço',`${fs(S.limT)} % (verificada só por troço, não acumulada)`,'cos φ',n2(Math.min(Math.max(+S.cos||1,0.5),1))],
+    ['Comprimento de cálculo',S.folga===false?"L' = L (sem folga)":"L' = L + 20 % (L < 30 m) ou L + 10 % (L ≥ 30 m)"]],{lw:38});
+  y+=2;
+  [`Corrente admissível: Iz = Iz tabelado × n × fT × fsolo × fagrup, com Iz tabelado nos quadros 52-C da RTIEBT para o método de referência da instalação, fT nos quadros 52-D1 (ar) / 52-D2 (solo), fsolo no 52-E6 e fagrup nos quadros 52-E1 a 52-E5; n = nº de cabos em paralelo por fase (máximo 3).`,
+   `Proteção contra sobrecargas: Ib ≤ In ≤ Iz e I₂ ≤ 1,45·Iz, com I₂ = k₂·In (k₂ = 1,45 nos disjuntores modulares até 125 A e 1,30 nos de caixa moldada). Ib dos inversores = corrente AC máxima da ficha técnica.`,
+   `Queda de tensão: u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n e ΔU % = u/230 × 100, com b = 1 em trifásico e 2 em monofásico, ρ = 0,0225 (Cu) e 0,036 (Al) Ω·mm²/m e X a reatância linear do cabo.`,
+   `Neutro segundo a RTIEBT 524.2 (igual à fase até 16 mm² Cu / 25 mm² Al e em monofásico; acima, metade da fase) e condutor de proteção segundo o quadro 54F.`]
+   .forEach(t=>{para(t,{fs:8.6,c:RC.mut});y+=1.2;});
+
+  /* ----- 3. quadro resumo ----- */
+  h2('3. Quadro resumo dos circuitos');
+  const cols=[['Circuito',50],['P kW',13,'r'],['Ib A',13,'r'],['Cabo',50],['In A',12,'r'],['ΔU %',13,'r'],['Estado',27]];
+  const hdr=()=>{need(7);pdf.setFillColor(...RC.ink);pdf.rect(M,y,CW,6,'F');let x=M;cols.forEach(([t,w,a])=>{T(t,a?x+w-1.5:x+1.5,y+4.2,{fs:8,b:1,c:[255,255,255],a:a?'r':undefined});x+=w;});y+=6;};
+  hdr();
+  all.forEach((c,i)=>{const o=c.res,v=verdict(c);const cd=o?cableDwg(c).replace(/^Cabo /,''):'—';
+    const cells=[c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome,n1(c.p),n1(c.Ib),cd,o?String(o.In):'—',o?n2(o.du):'—',v.st==='ok'?'OK':`A rever: ${v.why}`];
+    const ls=cells.map((t,j)=>wrap(t,cols[j][1]-3,{fs:7.8}));const h=Math.max(...ls.map(l=>l.length))*lh(7.8)+2.2;
+    if(y+h>BOT){pdf.addPage('a4','portrait');y=TOP;hdr();}
+    if(v.st!=='ok'){pdf.setFillColor(...RC.redS);pdf.rect(M,y,CW,h,'F');}else if(i%2){pdf.setFillColor(...RC.soft);pdf.rect(M,y,CW,h,'F');}
+    let x=M;ls.forEach((l,j)=>{const [,w,a]=cols[j];l.forEach((t,k)=>T(t,a?x+w-1.5:x+1.5,y+1.1+lh(7.8)*(k+0.8),{fs:7.8,a:a?'r':undefined,c:j===6?(v.st==='ok'?RC.accD:RC.red):RC.ink,b:j===6}));x+=w;});
+    y+=h;pdf.setDrawColor(...RC.line);pdf.setLineWidth(0.15);pdf.line(M,y,M+CW,y);});
+
+  /* ----- 4. cálculo por circuito ----- */
+  const circ=c=>{const o=c.res,v=verdict(c),r=c.r,mode=MODE[r.ref],ti=c.ti;
+    y+=1;
+    pdf.setFillColor(...RC.ink);pdf.rect(M,y,CW,7.5,'F');
+    T(c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome,M+2.5,y+5.1,{fs:10,b:1,c:[255,255,255]});
+    const pill=v.st==='ok'?'OK':'A rever';pdf.setFillColor(...(v.st==='ok'?RC.acc:RC.red));const pw=width(pill,{fs:8,b:1})+6;pdf.roundedRect(M+CW-pw-2,y+1.4,pw,4.7,1.2,1.2,'F');
+    T(pill,M+CW-2-pw/2,y+4.75,{fs:8,b:1,a:'c',c:v.st==='ok'?RC.ink:[255,255,255]});y+=7.5;
+    const sub=[c.kind==='inv'?c.modelo:`${c.nInv} inversor${c.nInv===1?'':'es'} a montante`,`${n1(c.p)} kW`,c.fases===1?'monofásico 230 V':'trifásico 400 V',
+      `L = ${fs(c.L)} m${c.Lc!==c.L?` (cálculo L' = ${n1(c.Lc)} m)`:''}`].join(' · ');
+    y+=1;para(sub,{fs:8.6,c:RC.mut,x:M+2.5,w:CW-5});y+=1;
+    if(!o){para('Sem valores tabelados para este modo de instalação e cabo.',{fs:9,c:RC.red});y+=3;return;}
+    const lay=o.cons==='multi'?'multicondutor':`monocondutores${mode.m==='EF'?` em ${({trevo:'trevo',esteira:'esteira sem afastamento',afh:'esteira com afastamento (H)',afv:'esteira com afastamento (V)'})[r.disp]||'trevo'}`:''}`;
+    const trays=mode.m==='EF'?`, ${o.trays} esteira${o.trays>1?'s':''}`:'';
+    const ibSrc=c.kind==='inv'?c.ibSrc:c.gw&&c.gw.dimNom!==false&&c.Ib>c.IbInv?`corrente nominal do gateway ${c.gw.In} A`:c.split?'inversor servido por este cabo':'soma dos inversores a jusante';
+    const P=cableParts(o,c.loaded);
+    const gwInt=c.split||gwOf(c.ref.dest);
+    const tSrc=ti.buried?`52-D2, solo a ${ti.t} °C`:`52-D1, ar a ${ti.t} °C${r.sol?' (exposto ao sol: +10 °C)':''}`;
+    kv([['Modo de instalação',`Ref. ${r.ref} · método de referência ${metLab(mode.m)} — ${mode.d}`],
+      ['Tipo de cabo',`${o.mat==='Cu'?'Cobre':'Alumínio'} · ${S.isol} · ${lay}${trays}`,'Condutores carregados',String(c.loaded)],
+      ['Quadro RTIEBT',`${o.q} col. ${o.qcol}`,'Iz tabelado',`${n0(o.iz0)} A (${fs(o.s)} mm²)`],
+      ['Fator de temperatura',`${n2(ti.ft)} (${tSrc})`,'Fator de solo',ti.buried?`${n2(ti.fsolo)} (52-E6)${ti.ftubo!==1?` · em tubo × ${n2(ti.ftubo)}`:''}`:'1,00 (ao ar)'],
+      ['Fator de agrupamento',`${n2(o.fg)} (${o.fgSrc}; ${o.nEff} circuito${o.nEff>1?'s':''}${o.trays>1?`, ${o.perTray} por esteira`:''})`,'Fator total f',n2(o.f)],
+      ['Iz',`${n0(o.iz0)} × ${o.n} × ${n2(o.f)} = ${n0(o.Iz)} A`,'Ib',`${n1(c.Ib)} A (${ibSrc})`],
+      ['In',`${o.In} A · Ib ≤ In ≤ Iz: ${n1(c.Ib)} ≤ ${o.In} ≤ ${n0(o.Iz)} ${o.term?'cumpre':'NÃO cumpre'}`,'I₂ ≤ 1,45·Iz',`I₂ = ${n2(k2(o.In))} × ${o.In} = ${n0(o.I2)} A ≤ ${n0(1.45*o.Iz)} A ${o.sob?'cumpre':'NÃO cumpre'}`],
+      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} % (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} % (informativa)`],
+      ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
+      ['Designação no unifilar',cableDwg(c)],
+      ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`:`${o.In} A (sem referência no catálogo)`]],{lw:36});
+    const notes=[c.gwErr,c.noFitMsg,v.st!=='ok'&&!c.gwErr&&!c.noFitMsg?`A rever: ${v.why}.`:null].filter(Boolean);
+    notes.forEach(t=>{const ls=wrap(t,CW-8,{fs:8.6});const h=ls.length*lh(8.6)+3;need(h);pdf.setFillColor(...RC.redS);pdf.rect(M,y,CW,h,'F');pdf.setFillColor(...RC.red);pdf.rect(M,y,1.2,h,'F');
+      ls.forEach((l,j)=>T(l,M+4,y+1.5+lh(8.6)*(j+0.8),{fs:8.6,c:RC.red}));y+=h;});
+    y+=5;};
+  h2('4. Cálculo por circuito',all.length?measure(()=>circ(all[0])):0);
+  all.forEach(c=>block(()=>circ(c)));
+
+  /* ----- 5. circuitos a rever ----- */
+  h2('5. Circuitos a rever');
+  const bad=all.filter(c=>verdict(c).st!=='ok');
+  if(!bad.length)para('Todos os circuitos cumprem Ib ≤ In ≤ Iz, I₂ ≤ 1,45·Iz e a queda de tensão máxima por troço.',{fs:9});
+  else bad.forEach(c=>{const v=verdict(c);para(`${c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome}: ${c.noFitMsg||c.gwErr||v.why}`,{fs:9,c:RC.red});y+=1.5;});
+  return doc;
+}
+/* esquema unifilar numa página A3 no fim do relatório (a mesma imagem do PDF do separador Esquema unifilar) */
+async function reportSld(pdf,R){
+  const cv=await svgToPng(sldSVG(R),2);const land=cv.width>=cv.height;pdf.addPage('a3',land?'landscape':'portrait');
+  const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),m=12,top=22;
+  pdf.setFont('helvetica','bold');pdf.setFontSize(12.5);pdf.setTextColor(...RC.ink);pdf.setFillColor(...RC.acc);pdf.rect(m,12,1.4,5.2,'F');pdf.text('6. Esquema unifilar',m+4,16.2);
+  const r=Math.min((pw-2*m)/cv.width,(ph-top-m-6)/cv.height);pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',m,top,cv.width*r,cv.height*r);
+}
+function reportFooter(pdf){const n=pdf.getNumberOfPages();
+  for(let i=1;i<=n;i++){pdf.setPage(i);const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+    pdf.setDrawColor(...RC.line);pdf.setLineWidth(0.2);pdf.line(16,ph-11,pw-16,ph-11);pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);pdf.setTextColor(...RC.mut);
+    pdf.text(`Solcor · Relatório de cálculo de cabos AC · ${S.proj||'Projeto sem nome'}`,16,ph-7);pdf.text(`Página ${i} de ${n}`,pw-16,ph-7,{align:'right'});}}
+async function makeReport(){
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const R=solveAll();const pdf=reportPDF(R);await reportSld(pdf,R);reportFooter(pdf);return pdf;
+}
+document.addEventListener('click',async e=>{if(!e.target.closest('#report'))return;
+  try{const pdf=await makeReport();await saveFile(`${fileBase()}_relatorio_calculo.pdf`,pdf.output('blob'));}
+  catch(err){console.warn(err);toast('Não foi possível gerar o relatório');}
+});
 
 renderPrices();
 bind();bindGw();load();
