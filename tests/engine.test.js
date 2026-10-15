@@ -103,6 +103,41 @@ test('sem secção que cumpra (B2 só até 120 mm²): mostra a de maior Iz e exp
   assert.equal(d.noFit,false);assert.equal(d.noFitMsg,null);assert.ok(d.res.term&&d.res.sob);
 });
 
+/* regra do utilizador: o que não está nos quadros da RTIEBT não se usa nesse contexto (não se extrapola) */
+const invs=(k,L=20)=>Array.from({length:k},()=>({modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L,S:'auto'}));
+const ui=(over)=>({percs:[{orig:'QFV',dest:'Qentrada',L:5,S:'auto',...route('13','mono')}],gws:[],...over});
+
+test('fora do quadro: mais de 3 circuitos monocondutores por esteira com esteiras sobrepostas',()=>{
+  const E=engine();
+  E.set(ui({invs:invs(6),rInv:{...route('13','mono'),trays:2}}));let c=E.solve().invC[0];
+  assert.equal(c.res.perTray,3);assert.ok(c.res.fg>0&&!c.noFit,'3 por esteira: 52-E5');
+  E.set(ui({invs:invs(8),rInv:{...route('13','mono'),trays:2}}));c=E.solve().invC[0];
+  assert.equal(c.res.perTray,4);assert.equal(c.res.fg,null);assert.equal(c.noFit,true);
+  assert.match(c.noFitMsg,/Não há fator de agrupamento.*52-E5.*até 3 circuitos por esteira/);
+  E.set(ui({invs:invs(8),rInv:route('13','mono')}));c=E.solve().invC[0];
+  assert.equal(c.res.fgSrc,'52-E1 (4)','numa só esteira usa o 52-E1 ref. 4, como a folha Excel');assert.equal(c.res.fg,0.72);
+});
+
+test('fora do quadro: mais de 3 esteiras sobrepostas',()=>{
+  const E=engine();
+  for(const cons of ['mono','multi']){E.set(ui({invs:invs(2),rInv:{...route('13',cons),trays:4}}));const c=E.solve().invC[0];
+    assert.equal(c.noFit,true,cons);assert.match(c.noFitMsg,/só há valores até 3 esteiras sobrepostas/,cons);}
+  E.set(ui({invs:invs(2),rInv:{...route('13','mono'),trays:3}}));assert.equal(E.solve().invC[0].noFit,false,'3 esteiras está no quadro');
+});
+
+test('fora do quadro: temperatura acima do 52-D1',()=>{
+  const E=engine();E.set({tair:85});const c=E.solve().invC[0];
+  assert.equal(c.ti.ft,null);assert.equal(c.noFit,true);assert.match(c.noFitMsg,/85 °C está fora do quadro 52-D1 para XLPE \(máximo 80 °C\)/);
+  E.set({tair:60});assert.equal(E.solve().invC[0].noFit,false,'60 °C está no quadro');
+});
+
+test('secção escolhida à mão que não existe no quadro volta a automático (sem erro)',()=>{
+  const E=engine();const st=ui({invs:invs(1),rInv:route('3A','mono')});st.invs[0].S='1x240|Cu|mono';E.set(st);
+  const c=E.solve().invC[0];
+  assert.equal(c.auto,true);assert.ok(c.res.s<=120,'só secções do 52-C14');assert.match(c.dropMsg,/240 mm² Cu\) não existe no quadro/);
+  assert.equal(E.ev('S.invs[0].S'),'auto');
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

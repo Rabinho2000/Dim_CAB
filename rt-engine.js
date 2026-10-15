@@ -62,11 +62,14 @@ function groupFactor(r,n,t){
     case 'E1c':return [pick([.95,.81,.72,.68,.66,.64,.63,.62,.61],r9,n),'52-E1 (3)'];
     case 'tray':case 'ladder':{
       const L=g==='ladder';
+      /* fora dos quadros RTIEBT não há fator: [null, explicação] e o circuito fica "a rever" (não se extrapola) */
+      if(t>3)return [null,`${mono?'52-E5':'52-E4'}: só há valores até 3 esteiras sobrepostas`];
       if(!mono)return [pick((L?E4L:E4T)[ti],k6,n),'52-E4'+lay];
       const tb=(L?E5L:E5T)[r.disp==='esteira'?'esteira':'trevo'];const dl=r.disp==='esteira'?'esteira sem afastamento':r.disp==='trevo'?'trevo':'com afastamento';
       if(n<=3)return [tb[ti][n-1],`52-E5 (${dl})`+lay];
-      /* mais de 3 circuitos por esteira: 52-E1, corrigido pela redução das esteiras sobrepostas do 52-E5 */
-      const base=L?E1r5(n):E1r4(n);return [base*tb[ti][2]/tb[0][2],`52-E1 (${L?5:4})`+lay];}
+      /* mais de 3 circuitos numa só esteira: 52-E1 ref. 4/5 (como a folha Excel); com esteiras sobrepostas não há quadro */
+      if(t>1)return [null,`52-E5: com esteiras sobrepostas só há valores até 3 circuitos por esteira (aqui ${n})`];
+      return [L?E1r5(n):E1r4(n),`52-E1 (${L?5:4})`];}
     case 'E3':return [pick([1,.87,.77,.72,.68,.65],[1,2,3,4,5,6],n),'52-E3'];
     case 'E2':return [pick([1,.85,.78,.72,.62,.55],k6,n),'52-E2'];
   }
@@ -111,7 +114,8 @@ function calc(c,o){
   const nEff=c.nAgr+o.n-1; /* cada conjunto em paralelo conta como um circuito (nota 1 do 52-E5) */
   const trays=MODE[rr.ref].m==='EF'?Math.max(1,+rr.trays||1):1;const perTray=Math.ceil(nEff/trays);
   const [fg,fgSrc]=groupFactor(rr,perTray,trays);
-  const ti=c.ti;const f=ti.ft*ti.fsolo*ti.ftubo*fg;
+  /* sem fator de temperatura ou de agrupamento nos quadros: Iz = 0 (nenhuma secção cumpre; ver noFitMsg) */
+  const ti=c.ti;const f=ti.ft==null||fg==null?0:ti.ft*ti.fsolo*ti.ftubo*fg;
   const Iz=z.v*o.n*f;
   const In=c.forceIn||INSTD.find(x=>x>=c.Ib);const I2=k2(In)*In;
   const rho=o.mat==='Cu'?0.0225:0.036,b=c.loaded===2?2:1;
@@ -133,6 +137,9 @@ const passes=x=>x.term&&x.sob&&x.scOk!==false;
 /* explicação para um circuito em que nenhuma secção tabelada cumpre In ≤ Iz (ex.: B2 só tabelado até 120 mm²) */
 function noFitMsg(c){
   const o=c.res;if(!o||!(o.In>o.Iz))return null;
+  if(c.ti.ft==null){const D=c.ti.buried?D2:D1,tmax=Math.max(...Object.keys(D[S.isol]).map(Number));
+    return `A temperatura de ${c.ti.t} °C está fora do quadro ${c.ti.buried?'52-D2':'52-D1'} para ${S.isol} (máximo ${tmax} °C): não há fator de correção, por isso este cabo não pode ser dimensionado. Revê a temperatura${c.ti.buried?'':' ou tira a exposição ao sol'}.`;}
+  if(o.fg==null)return `Não há fator de agrupamento nos quadros da RTIEBT para esta passagem (${o.fgSrc}). Reduz o nº de esteiras sobrepostas ou de circuitos por esteira, ou escolhe outra disposição.`;
   const m=MODE[c.r.ref].m,lab={EF:'E/F',D61:'D'}[m]||m,smax=Math.max(...c.opts.map(x=>x.s));
   const head=`Nenhuma secção cumpre In ≤ Iz: ${c.auto?'a maior possível':'a escolhida'}, ${o.n} × ${fs(o.s)} mm² ${o.mat}, dá Iz ${fmt(o.Iz,0)} A < In ${o.In} A.`;
   return smax<300?`${head} No método ${lab} a RTIEBT (${o.q}) só tem valores até ${fs(smax)} mm²: escolhe outra passagem (por exemplo caminho de cabos, ref. 13) ou divide o circuito.`
@@ -168,7 +175,11 @@ function solve(zf){
     c.opts=good.length?good:tb.length?tb:every;c.noFit=!good.length&&!tb.length&&every.length>0;
     const okey=o=>`${o.n}x${o.s}|${o.mat}|${o.cons}`;
     if(c.ref.S!=='auto'&&!c.ref.S.includes('|')){const f=c.opts.find(o=>`${o.n}x${o.s}`===c.ref.S)||every.find(o=>`${o.n}x${o.s}`===c.ref.S);c.ref.S=f?okey(f):'auto';}
-    if(c.ref.S!=='auto'&&!c.opts.some(o=>okey(o)===c.ref.S)){const [ns,mat,cons]=c.ref.S.split('|');const [n,s]=ns.split('x').map(Number);c.opts=c.opts.concat([{n,s,mat,cons}]);}
+    /* secção escolhida à mão que não está nas opções: entra se existir no quadro do método; senão volta a automático com aviso */
+    c.dropMsg=null;
+    if(c.ref.S!=='auto'&&!c.opts.some(o=>okey(o)===c.ref.S)){const [ns,mat,cons]=c.ref.S.split('|');const [n,s]=ns.split('x').map(Number);
+      if(izBase({...c.r,cons},mat,s,c.loaded))c.opts=c.opts.concat([{n,s,mat,cons}]);
+      else{c.dropMsg=`A secção escolhida (${n>1?n+' × ':''}${fs(s)} mm² ${mat}${cons==='multi'?' multicondutor':''}) não existe no quadro da RTIEBT para esta passagem: voltou a automático.`;c.ref.S='auto';}}
     /* sem nenhuma secção que cumpra In ≤ Iz: mostra-se a de maior Iz (a que fica mais perto), não a menor */
     const big=()=>c.opts.reduce((bi,o,j)=>calc(c,o).Iz>calc(c,c.opts[bi]).Iz?j:bi,0);
     const fx=c.ref.S!=='auto'?c.opts.findIndex(o=>okey(o)===c.ref.S):-1;c.auto=fx<0;c.i=c.auto?(c.noFit?big():0):fx;c.min=c.i;});

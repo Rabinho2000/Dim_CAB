@@ -46,6 +46,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - Apresentação do cabo: Fases / Neutro / Terra (neutro RTIEBT 524.2, PE quadro 54F). No unifilar: notação dos desenhos, ex. "Cabo (LXV) 3x(1x120)+1x(1x70)+1G70 mm²".
 - Preços: só compras de 2026, a mais recente de cada cabo; mostrar alternativa mais barata sem a aplicar.
 - Curto-circuito: retirado da interface a pedido (o código fica em `rt-sc.js`).
+- **Nunca extrapolar os quadros da RTIEBT**: se um cabo, fator de temperatura ou fator de agrupamento não está no quadro, não se usa nesse contexto. O circuito fica "a rever" com a explicação (`noFitMsg`) e a indicação do que mudar. Casos tratados: secções acima de 120 mm² nos métodos B/B2; mais de 3 esteiras sobrepostas (52-E4/E5); mais de 3 circuitos monocondutores por esteira com esteiras sobrepostas (52-E5; numa só esteira usa-se o 52-E1 ref. 4/5, como na folha Excel); temperaturas fora do 52-D1/D2; secção escolhida à mão que não existe no quadro (volta a automático, `dropMsg`).
 
 ## Regras de quadros e esquema unifilar (estilo dos DWG em `fontes/`)
 
@@ -62,6 +63,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - Nº de entradas do HomePro TP; calibres internos dos gateways além do C60-2.
 - Contador com gateway e vários inversores (hoje: indireto com TI por circuito).
 - Métodos B e B2 (quadros 52-C1…C4, 52-C13/C14) só têm valores até 120 mm² na RTIEBT (confirmado na folha Excel; não extrapolar). Sem secção que cumpra, o motor mostra a opção de maior Iz e `noFitMsg` explica o limite e sugere outra passagem (decisão do utilizador, out. 2026).
+- A confirmar na RTIEBT: nº de circuitos acima da última coluna dos quadros de agrupamento (52-E1 refs. 2–5 acima de 9, ref. 1 acima de 20, 52-E2/E3/E4). Hoje usa-se o valor da última coluna; só está certo se o quadro tiver a nota "sem redução adicional acima de N".
 - A folha Excel tem um erro no 52-C13 (Cu 95 mm², B2, 2 condutores: 291 A; o correto é 201 A, que é o valor usado na app).
 
 ## Notas técnicas
