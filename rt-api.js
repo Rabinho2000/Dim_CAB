@@ -1,4 +1,14 @@
 /* ---------- base partilhada no servidor próprio (server/server.js), com a mesma interface que claude.use('db'|'user') ---------- */
+/* janela "Quem está a usar a ferramenta?": devolve o nome, ou '' com "Agora não" (fica só o projeto local) */
+function askName(){return new Promise(ok=>{
+  const d=document.createElement('div');d.className='modal';d.id='namedlg';
+  d.innerHTML=`<div class="panel namedlg" role="dialog" aria-labelledby="namedlg-t"><div class="panel-head"><h2 id="namedlg-t">Quem está a usar a ferramenta?</h2></div>
+    <p class="hint">O teu nome aparece nos projetos e equipamentos que guardares para a equipa e fica guardado neste navegador.</p>
+    <form id="namedlg-f"><label>Nome<input id="namedlg-n" autocomplete="name" maxlength="80" required></label>
+    <div class="actions"><button class="pri" type="submit">Continuar</button><button class="ghost" type="button" id="namedlg-skip">Agora não</button></div></form></div>`;
+  document.body.appendChild(d);const n=d.querySelector('#namedlg-n');setTimeout(()=>n.focus(),0);
+  d.querySelector('#namedlg-f').addEventListener('submit',e=>{e.preventDefault();const v=n.value.trim();if(!v)return;d.remove();ok(v);});
+  d.querySelector('#namedlg-skip').addEventListener('click',()=>{d.remove();ok('');});});}
 /* devolve [db, user] ou [null, null] se a página não estiver a ser servida pelo servidor da ferramenta */
 async function apiConnect(){
   if(!/^https?:$/.test(location.protocol))return [null,null];
@@ -15,7 +25,7 @@ async function apiConnect(){
     let r=await fetch('/api/me',{headers:hdr()});
     if(r.status===401){
       /* sem Tailscale (uso local): pede o nome uma vez; serve só para identificar quem guardou, não é autenticação */
-      name=(prompt('Para guardar projetos e equipamentos da equipa, indica o teu nome:')||'').trim();if(!name)return [null,null];
+      name=await askName();if(!name)return [null,null];
       try{localStorage.setItem(LS,name);}catch(e){}
       r=await fetch('/api/me',{headers:hdr()});}
     if(!r.ok||!/json/.test(r.headers.get('content-type')||''))return [null,null];
@@ -43,6 +53,8 @@ async function apiConnect(){
     onSnapshot:fn=>{if(!subs.has(col))subs.set(col,[]);subs.get(col).push(fn);soon();
       return ()=>{const a=subs.get(col);a.splice(a.indexOf(fn),1);};}})};
   const user={id:async()=>me.id,can:async()=>true,isOwner:()=>!!me.admin,name:me.name,verified:me.verified,
+    /* só sem Tailscale: esquece o nome guardado e volta a perguntar */
+    changeName:me.verified?null:()=>{try{localStorage.removeItem(LS);}catch(e){}location.reload();},
     profiles:async ids=>call('GET','/api/users?ids='+ids.map(encodeURIComponent).join(','))};
   return [db,user];
 }

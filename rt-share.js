@@ -147,6 +147,10 @@ async function initShare(){
   if(typeof claude!=='undefined'&&claude.use)[db,user]=await Promise.all([claude.use('db'),claude.use('user')]);
   else if(typeof apiConnect==='function')[db,user]=await apiConnect();
   DBX=db;USR=user;if(!DBX){renderEq();renderProj();return;}
+  /* quem está ligado (no servidor próprio): nome do Tailscale ou o nome indicado neste navegador, que se pode mudar */
+  if(USR&&USR.name){const u=$('#pj-user');u.hidden=false;
+    u.innerHTML=`Ligado como <b>${esc(USR.name)}</b>${USR.verified?' (Tailscale)':''}${USR.changeName?' · <button class="linkb" id="pj-chname">Não és tu?</button>':''}`;
+    u.addEventListener('click',e=>{if(e.target.id==='pj-chname')USR.changeName();});}
   try{ME=USR?await USR.id():null;}catch(e){ME=null;}
   try{const c=USR&&USR.can?await USR.can('data.write'):null;if(c===false)RO=true;}catch(e){}
   const sub=(col,fn)=>DBX.collection(col).onSnapshot(fn,()=>{});

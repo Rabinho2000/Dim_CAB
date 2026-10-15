@@ -63,8 +63,12 @@ await ana.fill('[data-ef=marca]','Sigenergy');await ana.fill('[data-ef=modelo]',
 await rui.click('[data-tab=eq]');await rui.click('[data-eq=gw]');
 check(await rui.waitForFunction(()=>document.querySelector('#eq-table').innerText.includes('Gateway Teste 3F'),null,{timeout:10000}).then(()=>true,()=>false),'o Rui vê o gateway que a Ana acrescentou');
 
-const ze=await open(null);let asked=false;ze.on('dialog',d=>{asked=true;d.accept('Zé');});await ze.goto(url);
+const ze=await open(null);await ze.goto(url);
+const asked=await until(ze,()=>!!document.querySelector('#namedlg'));
+await ze.screenshot({path:'tests/nome.png'});
+await ze.fill('#namedlg-n','Zé');await ze.click('#namedlg button[type=submit]');
 await ze.click('[data-tab=proj]');
+check(await until(ze,()=>/Ligado como Zé/.test(document.querySelector('#pj-user').innerText)),'mostra "Ligado como Zé"');
 check(await ze.waitForFunction(()=>document.querySelector('#pj-body').innerText.includes('Obra Servidor'),null,{timeout:10000}).then(()=>true,()=>false)&&asked,'sem nome, a página pede-o e depois mostra os projetos');
 await ze.screenshot({path:'tests/partilha_servidor.png'});
 
