@@ -15,6 +15,7 @@ node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/s
 node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
 node tests/relatorio.js               # relatório de cálculo PDF (botão) para o exemplo e o caso sem secção: tests/relatorio_*.pdf e _pN.png
 node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
+node tests/orcamento.js               # descarrega o orçamento (Excel e PDF) do exemplo e confere os totais com solveAll()
 npm start                             # servidor em http://127.0.0.1:8080 (depois de npm run build)
 ```
 Os testes de interface usam Playwright (`npm i && npx playwright install chromium`).
@@ -30,6 +31,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-price.js` — preços de cabo (`jmm/prices.json`, compras 2026 JMM + Indusmelec).
 - `rt-sld.js` — esquema unifilar SVG e exportação SVG/PNG/PDF.
 - `rt-report.js` — relatório de cálculo em PDF (botão "Relatório de cálculo (PDF)" no topo): identificação, dados gerais, quadro resumo, cálculo de cada circuito (modo e quadro RTIEBT, fatores, Iz, In, I₂, ΔU, cabo, disjuntor), circuitos a rever e o unifilar em A3. Texto vetorial jsPDF; Δ, φ, ≤, → na fonte Symbol (Helvetica só tem Latin-1).
+- `rt-bom.js` — lista de materiais e orçamento (`bomData`: cabos por função/secção com o modelo de `costPerM`, total = `costTot`; proteções ABB como `brkTot`; composição dos quadros de `boardFor`). Exporta .xlsx gerado à mão (zip sem compressão, sem biblioteca nem rede) e PDF com jsPDF. Botões `data-bom` nos separadores Cabos AC e Quadros.
 - `rt-board.js` — composição de cada quadro (`qfvParts`, `meterHost`) e separador Quadros (dimensão da envolvente, raio de curvatura).
 - `rt-share.js` — projetos e equipamentos partilhados, descargas. Usa `claude.use('db'|'user')` no claude.ai ou `apiConnect()` (`rt-api.js`) quando a página vem do servidor próprio; aberta como ficheiro, fica só o projeto local.
 - `rt-api.js` — adaptador do navegador para a API do servidor, com a mesma interface (`collection().doc().set/delete`, `onSnapshot` por consulta de `/api/rev` a cada 4 s).

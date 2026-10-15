@@ -4,3 +4,5 @@ tests/*.png
 tab_*.png
 data/
 tests/*.pdf
+tests/orcamento*.xlsx
+tests/orcamento*.pdf
