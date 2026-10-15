@@ -160,7 +160,9 @@ test('poder de corte insuficiente: circuito a rever, sem mudar o disjuntor, e in
   assert.equal(inv.icuOk,true);
   E.set({icu:{modo:'pt',sn:2500}});const P=E.solve();
   const f=P.pC.find(c=>c.nome==='QInterligação → Qentrada').res;
-  assert.equal(f.icuOk,false,'E1.2 42 kA < Icc de um PT de 2500 kVA');assert.ok(f.ikmax>42);assert.equal(f.icuAlt,null,'a tabela da ferramenta não tem 1000 A acima de 42 kA');
+  assert.equal(f.icuOk,false,'E1.2 42 kA < Icc de um PT de 2500 kVA');assert.ok(f.ikmax>42);assert.equal(f.icuAlt&&f.icuAlt.s,'E1.2N 1000','indica o E1.2N (66 kA), o mais barato que chega');assert.equal(f.icuAlt.icu,66);
+  E.set({icu:{modo:'icc',icc:80}});const X=E.solve().pC.find(c=>c.nome==='QInterligação → Qentrada').res;
+  assert.equal(X.icuOk,false);assert.equal(X.icuAlt,null,'acima de 66 kA não há E1.2 na tabela da ferramenta');
   assert.deepEqual([...P.invC.concat(P.pC).map(c=>c.res.brk.ref)],[...base.invC.concat(base.pC).map(c=>c.res.brk.ref)],'os disjuntores escolhidos não mudam');
   /* calibre com série de maior poder de corte na tabela: indica-a */
   E.set({icu:{modo:'icc',icc:45},invs:[{modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:1,S:'auto'}],percs:[{orig:'QFV',dest:'Qentrada',L:1,S:'auto',...route('13','mono')}],gws:[]});

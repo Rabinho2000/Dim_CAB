@@ -13,7 +13,7 @@ check(!(await p.$eval('[data-icu=pt]',e=>e.hidden)),'aparece a potência do PT')
 check(/Icc no ponto de ligação 57,9 ?kA/i.test(await kpis()),`KPI com a Icc do PT (${(await kpis()).match(/Icc[^A-Z]*kA/i)})`);
 const rows=await p.$$eval('#res-body tr',t=>t.map(r=>r.innerText.replace(/\s+/g,' ')));
 const f=rows.find(r=>/QInterligação → Qentrada/.test(r))||'';
-check(/Poder de corte insuficiente: Icc no local 57,9 kA > Icu 42 kA/.test(f)&&/PODER DE CORTE/i.test(f),'o E1.2 de 42 kA fica a rever com a explicação');
+check(/Poder de corte insuficiente: Icc no local 57,9 kA > Icu 42 kA\. Usar E1\.2N 1000 Ekip Dip LI \(66 kA/.test(f)&&/PODER DE CORTE/i.test(f),'o E1.2B de 42 kA fica a rever e indica o E1.2N de 66 kA');
 check(/Icc no local [\d,]+ kA ≤ Icu 36 kA/.test(rows.find(r=>/Inversor 1/.test(r))||''),'os disjuntores dos inversores mostram a Icc no local e cumprem');
 check(/A REVER [1-9]/i.test(await kpis()),'conta nos circuitos a rever');
 await (await p.$('#res-body')).screenshot({path:__dirname+'/poder_corte.png'});
