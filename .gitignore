@@ -3,3 +3,5 @@ calc_dump.json
 tests/*.png
 tab_*.png
 data/
+tests/orcamento*.xlsx
+tests/orcamento*.pdf
