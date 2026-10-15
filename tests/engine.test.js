@@ -227,6 +227,16 @@ test('cos φ por inversor: entra na queda de tensão; nos percursos conta o meno
   assert.equal(R.pC[0].cos,0.9,'percurso: o menor dos inversores a montante');
 });
 
+test('Indusmelec: modular S804P-C125 + F204 até 125 A; caixas moldadas com toroide WGC e unidade central 4 E/S por 4 circuitos',()=>{
+  const E=engine();E.set(scen({modelo:'PV 60 M1',L:10}));let R=E.ev('solveAll()');const c=R.invC[0];
+  assert.equal(c.res.In,125);assert.equal(c.res.brk.s,'S804P');assert.equal(c.res.brk.k2,1.45);assert.match(c.res.brk.dif.name,/^F204A-125\/0,5/);
+  E.set(scen({modelo:'SUN2000-150K-MG0',L:20,n:5}));R=E.ev('solveAll()');
+  assert.equal(JSON.stringify(R.central),JSON.stringify([{node:'QFV',k:5,n:2}]),'5 caixas moldadas no QFV: 2 unidades centrais');
+  const o=R.invC[0].res;assert.match(o.brk.dif.name,/^toroide WGC Ø110 \+ bobina de abertura/);assert.ok(o.brk.dif.refs.includes('2CSG319001R0202'));
+  const sum=R.invC.concat(R.pC).reduce((a,x)=>a+(x.res&&x.res.brk?x.res.brk.p+x.res.brk.dif.p:0),0);
+  assert.ok(Math.abs(R.brkTot-(sum+2*E.ev('BRK.acc.central[1]')))<1e-6,'brkTot = disjuntores + toroides/bobinas + 2 unidades centrais');
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

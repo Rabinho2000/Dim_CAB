@@ -30,9 +30,9 @@ function sldSVG(R){
     if(port){Lh(x,y,x,y+20);brkS(x,y+20);T(x-14,y+38,`${f.In}A`,{fs:10,c:blue,b:1,a:'end'});T(x-14,y+50,'entrada INV',{fs:9,c:blue,a:'end'});return y+54;}
     if(f.rele){/* toroide e relé por cima do disjuntor, como no desenho do relé */
       out.push(`<circle cx="${x}" cy="${y+20}" r="8" fill="none" stroke="${ink}" stroke-width="1.3"/>`);Lh(x,y+28,x,y+36);
-      out.push(`<rect x="${x+20}" y="${y+40}" width="34" height="24" fill="#fff" stroke="${ink}" stroke-width="1.2"/>`);T(x+37,y+56,'RGU',{fs:8.5,a:'middle'});
+      out.push(`<rect x="${x+20}" y="${y+40}" width="34" height="24" fill="#fff" stroke="${ink}" stroke-width="1.2"/>`);const cen=b&&b.dif&&b.dif.central;T(x+37,y+56,cen?'CBS-4':'RGU',{fs:8.5,a:'middle'});
       Lh(x+8,y+20,x+37,y+20,{w:1});Lh(x+37,y+20,x+37,y+40,{w:1});Lh(x+20,y+56,x+4,y+56,{w:1,d:'3 2'});
-      T(x+60,y+14,'Relé diferencial',{fs:9,c:blue});T(x+60,y+25,'tipo A · 300 mA',{fs:9,c:blue});T(x+60,y+36,'sens. regulável',{fs:9,c:blue});T(x+60,y+47,'bobine de emissão',{fs:9,c:blue});
+      T(x+60,y+14,cen?'Unid. central 4 E/S':'Relé diferencial',{fs:9,c:blue});T(x+60,y+25,'tipo A · 300 mA',{fs:9,c:blue});T(x+60,y+36,'sens. regulável',{fs:9,c:blue});T(x+60,y+47,'bobine de emissão',{fs:9,c:blue});
       y+=36;brkS(x,y,bad?red:ink);const fa=frameA(b);T(x+14,y+56,`${fa&&fa!==f.In?fa+'A/'+f.In+'A*':f.In+'A'}`,{fs:10,c:blue,b:1});T(x+14,y+68,`Icc ${icuTxt(b)} · ${f.poles}P`,{fs:9,c:blue});y+=34;}
     else{/* bloco diferencial (oval) por cima do disjuntor modular, como no desenho do bloco diferencial */
       if(b&&b.dif){const m=/-(\d+)\/([\d,]+)/.exec(b.dif.name);const mA=m?(m[2]==='0,3'||m[2]==='03'?'300':m[2]==='0,5'?'500':m[2]):'300';
@@ -122,7 +122,7 @@ function sldSVG(R){
       else{const child=f.c.ref.orig.trim(),bx=x0+W+70+leftNeed(child),ry=cy-40;if(isNew)peX.push(cx);
         routeTo(cx,ye,bx+60,cy,ry,f.c);const r=drawBoard(child,bx,cy);cy=r.bot+110;}});
     if(isNew&&!cont){if(!spl){const dx=sx+SW/2;Lh(dx,yb,dx,yb+16);let y=yb+16;
-      if(q.dst.fus){fuseS(dx,y);T(dx+12,y+10,'3F + N',{fs:9,c:blue});T(dx+12,y+21,`${q.dst.fus}A gG`,{fs:9.5,c:blue,b:1});y+=24;Lh(dx,y,dx,y+16);y+=16;}else{Lh(dx,y,dx,y+40);y+=40;}
+      if(q.dst.brk){brkS(dx,y);T(dx+12,y+16,`${q.dst.brk}A`,{fs:9.5,c:blue,b:1});T(dx+12,y+28,'3P · S800P',{fs:9,c:blue});y+=34;Lh(dx,y,dx,y+6);y+=6;}else{Lh(dx,y,dx,y+40);y+=40;}
       dstS(dx,y);T(dx+18,y+16,'DST',{b:1,fs:10,c:blue});T(dx+18,y+28,'Tipo 2',{fs:9.5,c:blue});T(dx+18,y+40,'230/3+1',{fs:9.5,c:blue});Lh(dx,y+52,dx,ype);peX.push(dx);sx+=SW;}
       if(q.aux&&!spl){const ax=sx+40;Lh(ax,yb,ax,yb+12);brkS(ax,yb+12);out.push(`<ellipse cx="${ax}" cy="${yb+52}" rx="9" ry="5" fill="none" stroke="${ink}" stroke-width="1.2"/>`);T(ax+14,yb+30,'25A',{fs:10,c:blue,b:1});T(ax+14,yb+42,'300mA',{fs:9,c:blue});
         Lh(ax,yb+46,ax,yb+80);Lh(ax,yb+80,ax+60,yb+80);[[ax,'16A'],[ax+60,'10A']].forEach(([x,l])=>{Lh(x,yb+80,x,yb+92);brkS(x,yb+92);Lh(x,yb+126,x,ype+14);T(x+6,yb+144,l,{fs:10,c:blue,b:1});});

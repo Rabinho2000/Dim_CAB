@@ -1,13 +1,15 @@
 /* ---------- disjuntores ABB (tabela ABB abr. 2026) e curto-circuito (RTIEBT 434) ---------- */
 const BRK=__BRK__; /* BRK[polos][calibre] = séries do menor para o maior poder de corte: {s, icu kA, ref, d, p PVP €, k2, mod, dif:{name, refs, p}, reg} */
 const brkCost=b=>b?(b.p+(b.dif?b.dif.p:0))*(1-(+S.descABB||0)/100):0;
-/* o disjuntor mais barato da escada com poder de corte ≥ Icc máx. no local; sem Icc, o de série base */
+/* o disjuntor mais barato da escada com poder de corte ≥ Icc máx. no local; sem Icc, o de série base.
+   Havendo modular que cumpra (até 125 A, como a Indusmelec), escolhe-se o modular */
 function pickBreaker(In,poles,ikmax){
   const P=poles===2?2:4;let L=BRK[P][In];
   if(!L||!L.length){const k=INSTD.find(x=>x>=In&&BRK[P][x]&&BRK[P][x].length);L=k?BRK[P][k]:null;}
   if(!L||!L.length)return null;
   const ok=ikmax?L.filter(b=>b.icu>=ikmax-1e-9):L;
-  const b=ok.length?ok.reduce((a,x)=>x.p<a.p?x:a):L[L.length-1];
+  const mods=ok.filter(x=>x.mod),pool=mods.length?mods:ok;
+  const b=pool.length?pool.reduce((a,x)=>x.p<a.p?x:a):L[L.length-1];
   return {...b,icuOk:!ikmax||b.icu>=ikmax-1e-9,name:b.mod?`${b.s}-C${In}`:b.d.replace(/ Disj \d+| Di f/g,'').replace(/ F F.*| 4p.*| 4P.*/,'')+(b.reg?` (regular para ${b.reg} A)`:'')};
 }
 const RHO20={Cu:0.018,Al:0.029};          /* Ω·mm²/m a 20 °C: Icc máximo */

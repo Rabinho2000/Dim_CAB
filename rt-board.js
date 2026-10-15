@@ -1,7 +1,4 @@
 /* ---------- sugestão de quadro: dimensões da envolvente e espaço para trabalhar o cabo ---------- */
-/* diâmetro exterior aproximado (mm) de cabos 0,6/1 kV XLPE: monocondutor e multicondutor 5G/3G */
-const DMONO={1.5:6,2.5:7,4:8,6:8.5,10:9.5,16:10.5,25:12,35:13,50:14.5,70:16.5,95:18.5,120:20,150:22,185:24.5,240:27.5,300:30.5};
-const DMULTI={1.5:11,2.5:12.5,4:14,6:15.5,10:18.5,16:21,25:25,35:28,50:32,70:37,95:42};
 /* secção máx. aproximada que o borne do aparelho aceita (mm², por condutor) */
 const BORNE=b=>!b?95:/^S20/.test(b.s)?35:/^S80/.test(b.s)?95:/^XT1/.test(b.s)?95:/^XT3/.test(b.s)?185:/^XT5/.test(b.s)?240:400;
 /* envolventes Hager Orion plus: [ref, alt., larg., prof., só modular] */
@@ -20,7 +17,7 @@ const SECCB=[[40,4,null],[63,4,null],[100,4,null],[125,4,null],[160,0,[150,300]]
 /* composição de um quadro, conforme os esquemas tipo Solcor:
    QGFV novo = interruptor de corte geral 4P + (contagem) + barramento 3F+N + uma saída por inversor
    (bloco diferencial + disjuntor modular, ou disjuntor de caixa moldada + relé diferencial com toroide, bobine de emissão e fusível 2 A)
-   + DST tipo 2 (com porta-fusíveis gG acima de 125 A) + serviços auxiliares nos quadros com relés + barra de terra.
+   + DST tipo 2 (protegido por disjuntor S800P 3P 100 A acima de 125 A, como a Indusmelec) + serviços auxiliares nos quadros com relés + barra de terra.
    Quadro de injeção existente: só as proteções das chegadas. Gateway: equipamento do fabricante. */
 const SECCI=[40,63,100,125,160,250,400,630,800,1000,1250,1600];
 const TIS=[100,150,200,250,300,400,500,600,800,1000,1250,1500,2000];
@@ -50,12 +47,15 @@ function qfvParts(node,R){
   const aux=feeders.some(f=>f.rele&&f.c.kind==='inv');
   if(role==='CONT')return {node,gw:null,existing:false,feeders,out,corte:null,meter:meterFor({p:kW,res:{In:out.res.In}}),meterIn:true,dst:null,aux:false,role};
   /* QFV antes de um gateway: cada inversor segue no seu cabo até à entrada do gateway; não há corte geral nem barramento comum */
-  if(outs.every(c=>c.split))return {node,gw:null,existing:false,feeders,out,outs,split:true,corte:null,meter:mk(),dst:{fus:null,per:true},aux:false,role};
+  if(outs.every(c=>c.split))return {node,gw:null,existing:false,feeders,out,outs,split:true,corte:null,meter:mk(),dst:{brk:null,per:true},aux:false,role};
   const corteIn=SECCI.find(x=>x>=out.res.In)||out.res.In;
-  return {node,gw:null,existing:false,feeders,out,corte:{In:corteIn},meter:mk(),dst:{fus:corteIn>125?125:null},aux,role};
+  return {node,gw:null,existing:false,feeders,out,corte:{In:corteIn},meter:mk(),dst:{brk:corteIn>125?100:null},aux,role};
 }
 /* proteção de interface (desacoplamento): só se o utilizador indicar a potência a partir da qual se aplica (S.pint, kW).
    Fica no quadro de interligação; sem interligação, no primeiro QFV. A regra e o aparelho são da responsabilidade do projetista. */
+/* relés diferenciais de um quadro: uma unidade central 4 E/S por cada 4 caixas moldadas (XT) e um relé por E1.2 */
+function relays(feeders){const cen=feeders.filter(f=>f.rele&&f.b&&f.b.dif&&f.b.dif.central).length,ind=feeders.filter(f=>f.rele&&!(f.b&&f.b.dif&&f.b.dif.central)).length;
+  return {cen,nCen:Math.ceil(cen/4),ind,n:Math.ceil(cen/4)+ind};}
 function pintNode(R){
   if(!(+S.pint>0)||!R||R.Ptot<+S.pint-1e-9)return null;const qs=quadros(),role=n=>(qfvParts(n,R)||{}).role;
   return qs.find(n=>role(n)==='INT')||qs.find(n=>role(n)==='QFV')||null;
@@ -72,15 +72,14 @@ function boardFor(node,R){
   const Q=qfvParts(node,R);
   if(Q&&Q.meter&&!Q.corte)devs.unshift({nome:Q.meterIn?'Contador':'Contagem',txt:Q.meter.type==='indireta'?`${Q.meter.name} com TI ${Q.meter.ti}/5 A${Q.meter.perCircuit?' em cada circuito':''}`:Q.meter.name,dif:Q.meterIn?'':'em quadro de contagem próprio'});
   if(Q&&Q.split){devs.push({nome:'Proteção contra sobretensões',txt:`${Q.feeders.length} × DST tipo 2 (um por circuito)`,dif:'cada inversor segue no seu cabo até ao gateway'});mod+=4*Q.feeders.length;
-    const nr=Q.feeders.filter(f=>f.rele).length;if(nr){devs.push({nome:'Alimentação dos relés',txt:`${nr} × fusível 2 A`,dif:''});mod+=nr;}
+    const rl=relays(Q.feeders);if(rl.nCen){devs.push({nome:'Relés diferenciais',txt:`${rl.nCen} × unidade central diferencial 4 E/S (CBS-4)`,dif:`${rl.cen} toroide${rl.cen===1?'':'s'} WGC, um por caixa moldada`});mod+=6*rl.nCen;}if(rl.n){devs.push({nome:'Alimentação dos relés',txt:`${rl.n} × fusível 2 A`,dif:''});mod+=2*rl.n;}
     if(Q.aux){devs.push({nome:'Serviços auxiliares',txt:'diferencial 25 A 300 mA + disjuntores 16 A e 10 A',dif:''});mod+=6;}}
   if(Q&&Q.corte){const s=SECCB.find(x=>x[0]>=Q.corte.In);devs.unshift({nome:'Corte geral',txt:`interruptor de corte ${Q.corte.In} A 4P`,dif:''});
     if(s){mod+=s[1];if(s[2])plates.push(s[2]);}else plates.push([300,450]);
     if(Q.meter)devs.splice(1,0,{nome:'Contagem',txt:Q.meter.type==='indireta'?`${Q.meter.name} com TI ${Q.meter.ti}/5 A`:Q.meter.name,dif:'em quadro de contagem próprio'});
-    devs.push({nome:'Proteção contra sobretensões',txt:'DST tipo 2, 230/400 V, 3F+N',dif:Q.dst.fus?`porta-fusíveis 3F+N com fusíveis gG ${Q.dst.fus} A`:'protegido pelo corte geral'});mod+=4;
-    if(Q.dst.fus)plates.push([130,150]);
-    const nr=Q.feeders.filter(f=>f.rele).length;
-    if(nr){devs.push({nome:'Alimentação dos relés',txt:`${nr} × fusível 2 A`,dif:''});mod+=nr;}
+    devs.push({nome:'Proteção contra sobretensões',txt:'DST tipo 2, 230/400 V, 3F+N',dif:Q.dst.brk?`protegido por disjuntor S800P 3P ${Q.dst.brk} A`:'protegido pelo corte geral'});mod+=4;
+    if(Q.dst.brk)mod+=4.5;
+    const rl=relays(Q.feeders);if(rl.nCen){devs.push({nome:'Relés diferenciais',txt:`${rl.nCen} × unidade central diferencial 4 E/S (CBS-4)`,dif:`${rl.cen} toroide${rl.cen===1?'':'s'} WGC, um por caixa moldada`});mod+=6*rl.nCen;}if(rl.n){devs.push({nome:'Alimentação dos relés',txt:`${rl.n} × fusível 2 A`,dif:''});mod+=2*rl.n;}
     if(Q.aux){devs.push({nome:'Serviços auxiliares',txt:'diferencial 25 A 300 mA + disjuntores 16 A e 10 A',dif:''});mod+=6;}
     if(pintNode(R)===node){devs.push({nome:'Proteção de interface',txt:'relé de proteção de interface (desacoplamento), atuando no corte geral por bobina ou contactor',dif:'a especificar conforme as condições de ligação do operador de rede'});mod+=8;
       notes.add(`Proteção de interface: instalação com ${fmt(R.Ptot,1)} kW ≥ ${fs(S.pint)} kW (limite indicado nos Critérios).`);}

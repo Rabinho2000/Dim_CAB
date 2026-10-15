@@ -10,7 +10,7 @@ const INDUS={ /* ref: [descrição, € líquido, data do orçamento] */
   'PF1080':['Eldon: esquadro frontal 100 × 800',41.87,'2026-02'],'PF1040':['Eldon: rodapé lateral',38.24,'2026-02'],
   'NSYCRN108250':['Schneider Spacial CRN 1000 × 800 × 250',209.92,'2025-12'],'NSYMM108':['Schneider: platina 1000 × 800',70.00,'2025-12'],'NSYCRN128300':['Schneider Spacial CRN 1200 × 800 × 300',336.68,'2026-02'],'NSYMM128':['Schneider: platina 1200 × 800',121.89,'2026-02'],
   '2CDE284001R0125':['ABB E204/125 interruptor-seccionador 4P 125 A',55.93,'2025-11'],'1SCA022753R5250':['ABB OT800 interruptor-seccionador 4P 800 A, comando frontal',420.50,'2025-05'],'1SCA022871R5870':['ABB OT1250 interruptor-seccionador 4P 1250 A, comando frontal',612.17,'2026-02'],
-  '7P.24.8.275.0020':['Finder 7P.24 descarregador de sobretensões tipo 2, 3F+N',90.00,'2026-03'],'2CTB815710R4000':['ABB OVR T1+T2 25 kA descarregador de sobretensões 3F+N',354.20,'2026-02'],
+  '7P.24.8.275.0020':['Finder 7P.24 descarregador de sobretensões tipo 2, 3F+N',90.00,'2026-03'],'2CTB815710R4000':['ABB OVR T1+T2 25 kA descarregador de sobretensões 3F+N',354.20,'2026-02'],'2CCG001233R0001':['ABB S803P-C100 disjuntor 3P 100 A 50 kA (proteção do DST)',104.71,'2026-02'],
   '015.563820':['Repartidor tetrapolar TD 125 A',15.00,'2026-01'],'WPD 130':['Weidmüller WPD 130 1×50/1×50 (borne de passagem)',6.28,'2025-12'],
   '2CSM200893R1801':['ABB porta-fusíveis seccionável 1P+N 32 A 10×38',5.76,'2026-02'],'2CSM200923R1801':['ABB porta-fusíveis seccionável 1P 32 A 10×38',2.90,'2026-02'],'LF302G':['Fusível 10×38 gG 2 A',0.40,'2026-03'],
   '2CSR275080R1254':['ABB DS201 disjuntor diferencial 1P+N C25',56.70,'2026-02'],'2CDS251001R0104':['ABB S201 disjuntor 1P C10',5.74,'2026-02'],'7U.00.8.230.0010':['Finder tomada Schuko com LED',4.09,'2026-02'],
@@ -46,11 +46,11 @@ function indusParts(node,R){
   const bm=new Map();fs_.forEach(f=>{if(!f.b)return;const k=f.b.ref;const g=bm.get(k);if(g)g.q++;else bm.set(k,{b:f.b,q:1});});
   bm.forEach(({b,q})=>{add('Proteção de saída',b.ref.replace(/^58\./,''),q,{prot:true,des:b.name||b.d});
     if(b.dif)add('Proteção de saída',b.dif.refs.join(' + '),q,{prot:true,des:b.dif.name});});
-  const nr=mccb.length;if(nr){add('Alimentação dos relés','2CSM200893R1801',nr);add('Alimentação dos relés','LF302G',2*nr);}
+  const rl=relays(fs_);if(rl.nCen)add('Relés diferenciais','2CSJ341001R0202',rl.nCen,{prot:true,des:'ABB unidade central diferencial 4 E/S (CBS-4)'});
+  if(rl.n){add('Alimentação dos relés','2CSM200893R1801',rl.n);add('Alimentação dos relés','LF302G',2*rl.n);}
   /* DST */
   if(Q.dst){const dref=mccb.length||Q.role==='INT'&&!small?'2CTB815710R4000':'7P.24.8.275.0020';add('Sobretensões',dref,Q.dst.per?fs_.length:1);
-    if(Q.dst.fus){add('Sobretensões','',1,{semRef:true,des:`Porta-fusíveis 3F+N com fusíveis gG ${Q.dst.fus} A (proteção do DST)`});
-      notes.push(`DST: a Indusmelec protege o OVR T1+T2 com um disjuntor S800P 3P 100 A (2CCG001233R0001) em vez de fusíveis; aqui fica a regra Solcor (fusíveis gG ${Q.dst.fus} A).`);}}
+    if(Q.dst.brk)add('Sobretensões','2CCG001233R0001',1);}
   /* repartição */
   if(!Q.split){if(mccb.length)items.push({papel:'Barramento',ref:'',des:'Barramento 3F+N (incluído na montagem)',q:1,pu:null,prot:false});
     else if(encl==='FL52S')add('Barramento','UE21D2',1);

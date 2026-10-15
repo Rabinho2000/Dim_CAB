@@ -8,7 +8,7 @@ const parts=()=>p.evaluate(()=>{const R=solveAll();return quadros().map(n=>indus
   refs:P.items.map(x=>x.ref).join(' '),prot:P.items.filter(x=>x.prot).every(x=>x.total==null),sum:P.items.reduce((a,x)=>a+(x.prot?0:x.total||0),0)}));});
 const tpl=async id=>{await p.click('#reset');await p.click(`[data-tpl=${id}]`);return parts();};
 let Q=await tpl('exemplo');const qfv=Q.find(x=>x.role==='QFV'),int=Q.find(x=>x.role==='INT');
-check(qfv.encl==='MCS20086PER5'&&/MCS20046R5/.test(qfv.refs)&&/2CTB815710R4000/.test(qfv.refs)&&/7F\.20/.test(qfv.refs),'exemplo: QFV com caixa moldada em armário Eldon de chão, OVR T1+T2, ventilação');
+check(qfv.encl==='MCS20086PER5'&&/MCS20046R5/.test(qfv.refs)&&/2CTB815710R4000/.test(qfv.refs)&&/7F\.20/.test(qfv.refs)&&/2CCG001233R0001/.test(qfv.refs)&&/2CSJ341001R0202/.test(qfv.refs)&&!/RGU/.test(qfv.refs),'exemplo: QFV em armário Eldon de chão, OVR T1+T2 protegido por S800P 3P 100 A, unidade central 4 E/S, ventilação');
 check(int&&/NSYCRN/.test(int.encl)&&int.mont>=250,'exemplo: interligação em armário Schneider CRN com montagem');
 check(Q.every(x=>x.prot&&Math.abs(x.sum-x.sub)<1e-6),'proteções de saída fora do subtotal');
 Q=await tpl('cliente');

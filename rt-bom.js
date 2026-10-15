@@ -43,6 +43,7 @@ function bomData(R){
   R.invC.concat(R.pC).forEach(c=>{if(!(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)))return;const b=c.res.brk,lab=bomCircLabel(c);
     add('d|'+b.ref,{tipo:'Disjuntor',des:b.name||b.d,ref:b.ref,pvp:b.p,circ:lab});
     if(b.dif)add('f|'+b.dif.refs.join('+'),{tipo:'Diferencial',des:b.dif.name,ref:b.dif.refs.join(' + '),pvp:b.dif.p,circ:lab});});
+  (R.central||[]).forEach(x=>{for(let i=0;i<x.n;i++)add('c|central',{tipo:'Diferencial',des:'Unidade central diferencial 4 E/S (CBS-4)',ref:BRK.acc.central[0],pvp:BRK.acc.central[1],circ:`${x.node} (${x.k} caixas moldadas)`});});
   const prot=[...bm.values()].sort((a,b)=>a.tipo.localeCompare(b.tipo)||a.pvp-b.pvp).map(x=>({...x,net:x.pvp*(1-desc),total:x.qty*x.pvp*(1-desc)}));
   /* quadros: a mesma composição do separador Quadros */
   const quad=[];

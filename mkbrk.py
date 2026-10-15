@@ -28,13 +28,19 @@ def dda(P,In,fam):
         return {'name':'DDA20%dA-%d/0,3 tipo A 300 mA'%(P,k),'refs':[r[0]],'p':r[2]} if r else None
     if fam=='S800':
         if In<=63: r=find(r'^DDA80%dA-63/03 '%P); n='DDA80%dA-63/0,3 tipo A 300 mA'%P
-        else: r=find(r'^DDA80%dA-100/0,5 '%P); n='DDA80%dA-100/0,5 tipo A 500 mA'%P
+        elif In<=100: r=find(r'^DDA80%dA-100/0,5 '%P); n='DDA80%dA-100/0,5 tipo A 500 mA'%P
+        else: r=find(r'^F20%dA-125/05 '%P); n='F20%dA-125/0,5 tipo A 500 mA'%P  # não há bloco DDA acima de 100 A: interruptor diferencial (Indusmelec)
         return {'name':n,'refs':[r[0]],'p':r[2]} if r else None
     return None
+# diferencial das caixas moldadas como a Indusmelec (2025–2026): XT1/XT3/XT5 com bobina de abertura e toroide WGC, e uma unidade
+# central 4 E/S (CBS-4) por cada 4 circuitos do quadro; o toroide escolhe-se no motor pelo cabo (ACC.tor) e a unidade central conta-se
+# por quadro (central:True). E1.2: relé RGU-10 + toroide 105 × 220 + bobina de mínima tensão.
 def mccbdif(frame):
-    bob={'XT1':'1SDA066325R1','XT3':'1SDA066325R1','XT5':'1SDA054873R1','E1.2':'1SDA073700R1'}[frame]
-    refs=['2CSJ331001R0202','2CSG110100R1211',bob]
-    return {'name':'relé RGU-10 + toroide TR4 + bobina de abertura','refs':refs,'p':round(sum(c[r][1] for r in refs),2)}
+    if frame=='E1.2':
+        refs=['2CSJ331001R0202','2CSG322001R0202','1SDA073700R1']
+        return {'name':'relé RGU-10 + toroide WGC 105×220 + bobina de mínima tensão','refs':refs,'p':round(sum(c[r][1] for r in refs),2)}
+    bob={'XT1':'1SDA066325R1','XT3':'1SDA066325R1','XT5':'1SDA054873R1'}[frame]
+    return {'name':'bobina de abertura','refs':[bob],'p':c[bob][1],'central':True}
 out={2:{},4:{}}
 for P in (2,4):
     for In in CAL:
@@ -51,6 +57,7 @@ for P in (2,4):
         elif In<=100:
             add(find(r'S80%dP-C%d %dp'%(P,In,P)),'S80%dP'%P,50,1.45,'S800')
         else:
+            if In==125 and P==4: add(find(r'S804P-C125 4p'),'S804P',50,1.45,'S800')  # modular até 125 A com F204 (Indusmelec); 2P: sem F202 125 A na tabela
             k=next((x for x in (125,160,200,250,320,400,630,1000,1250,1600) if x>=In),None)
             reg=None if k==In else In
             if k in(125,160):
@@ -69,6 +76,9 @@ for P in (2,4):
         L.sort(key=lambda x:(x['icu'],x['p']))
         out[P][In]=L
 miss=[(P,In) for P in out for In in out[P] if not out[P][In]]
+# acessórios: toroides WGC (diâmetro interior mm), unidade central diferencial 4 E/S e disjuntor de proteção do DST
+out['acc']={'tor':[[d,r,c[r][1]] for d,r in ((55,'2CSG317001R0202'),(80,'2CSG318001R0202'),(110,'2CSG319001R0202'),(140,'2CSG320001R0202'),(180,'2CSG321001R0202'),(220,'2CSG322001R0202'))],
+  'central':['2CSJ341001R0202',c['2CSJ341001R0202'][1]],'dst':['2CCG001233R0001',c['2CCG001233R0001'][1]]}
 print('sem disjuntor:',miss)
 json.dump(out,open('brk.json','w',encoding='utf-8'),ensure_ascii=False)
-print({P:{In:[x['s'] for x in out[P][In]] for In in (6,32,63,100,125,250,630,1000)} for P in out})
+print({P:{In:[x['s'] for x in out[P][In]] for In in (6,32,63,100,125,250,630,1000)} for P in (2,4)})

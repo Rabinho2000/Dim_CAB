@@ -308,6 +308,27 @@ function solveProject(state){
   const keep=S;S=Object.assign(example(),JSON.parse(JSON.stringify(state||{})));
   try{return solveAll();}finally{S=keep;}
 }
+/* diâmetro exterior aproximado dos cabos (mm, catálogo típico): toroides diferenciais e separador Quadros */
+const DMONO={1.5:6,2.5:7,4:8,6:8.5,10:9.5,16:10.5,25:12,35:13,50:14.5,70:16.5,95:18.5,120:20,150:22,185:24.5,240:27.5,300:30.5};
+const DMULTI={1.5:11,2.5:12.5,4:14,6:15.5,10:18.5,16:21,25:25,35:28,50:32,70:37,95:42};
+/* diferencial das caixas moldadas (prática Indusmelec 2025–2026): toroide WGC escolhido pelo feixe de fases + neutro que passa
+   por dentro (folga de 30 %), bobina de abertura, e uma unidade central diferencial 4 E/S por cada 4 circuitos do mesmo quadro */
+const ACC=()=>BRK.acc; /* BRK vem de rt-sc.js, carregado depois */
+function toroidFor(o,loaded){
+  let k,D;if(o.cons==='multi'){k=o.n;D=DMULTI[o.s]||45;}else{const {sn}=condSizes(o,loaded);k=o.n*((loaded===2?1:3)+1);D=Math.max(DMONO[o.s]||32,DMONO[sn]||32);}
+  const need=D*Math.sqrt(k/0.6)*1.3;const t=ACC().tor.find(x=>x[0]>=need)||ACC().tor[ACC().tor.length-1];
+  return {d:t[0],ref:t[1],p:t[2],need};
+}
+const brkNode=c=>String(c.kind==='inv'?c.para:c.ref.dest).trim();
+function applyCentral(R){
+  const cnt=new Map();
+  R.invC.concat(R.pC).forEach(c=>{const o=c.res;if(!o||!o.brk||!o.brk.dif||!o.brk.dif.central||c.split||(c.kind==='perc'&&gwOf(c.ref.dest)))return;
+    const tr=toroidFor(o,c.loaded),bob=o.brk.dif;
+    o.brk={...o.brk,dif:{name:`toroide WGC ${tr.d===220?'105×220':'Ø'+tr.d} + ${bob.name} (unidade central 4 E/S)`,refs:[tr.ref,...bob.refs],p:Math.round((tr.p+bob.p)*100)/100,central:true,tor:tr}};
+    const n=brkNode(c);cnt.set(n,(cnt.get(n)||0)+1);});
+  R.central=[...cnt].map(([node,k])=>({node,k,n:Math.ceil(k/4)}));
+  return R.central.reduce((a,x)=>a+x.n,0)*ACC().central[1];
+}
 function solveAll(){
   let R=solve(null);
   if(S.sc&&S.sc.on!==false){let sig='';for(let k=0;k<5;k++){R=solve(nodeZ(R.pC));const s2=R.pC.map(c=>c.res?c.res.n+'x'+c.res.s+c.res.mat:'').join();if(s2===sig)break;sig=s2;}}
@@ -316,6 +337,7 @@ function solveAll(){
   /* identificação dos cabos (acompanhamento em obra, unifilar, relatório, orçamento): ordem da tabela de resultados */
   R.invC.concat(R.pC).forEach((c,i)=>{c.code='C'+(i+1);});
   applySel(R);
-  R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0);
+  const cen=applyCentral(R);
+  R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0)+cen*(1-(+S.descABB||0)/100);
   return R;
 }
