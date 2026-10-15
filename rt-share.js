@@ -69,37 +69,76 @@ function bindEq(){
       try{await DBX.collection(col).doc(EQ==='pr'?key:docId(key)).delete();toast('Apagado');}catch(err){eqErr(err);}}});
 }
 /* projetos */
+/* CURUPD: versão (upd) do projeto aberto sobre a qual se está a trabalhar; SEENUPD: última versão alheia já avisada */
+let CURUPD=null,SEENUPD=null,CONFLICT=null,HIST=null;
+const who=id=>NAMES[id]||(id&&id===ME?'Eu':'Alguém da equipa');
+const hhmm=s=>{try{return new Date(s).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
 function projState(){const s=JSON.parse(JSON.stringify(S));return s;}
+/* o projeto aberto tem uma versão mais recente gravada por outra pessoa (só no servidor próprio) */
+function newerCur(){if(!CUR||!CURUPD||!DBX||!DBX.versioned)return null;const p=PROJ.find(q=>q.id===CUR);return p&&p.upd!==CURUPD?p:null;}
 function renderProj(){
-  const q=($('#pj-q').value||'').toLowerCase();
-  $('#pj-status').textContent=!DBX?'Os projetos partilhados não estão disponíveis nesta vista. O projeto atual continua guardado neste navegador.':CUR?`Projeto aberto: ${(PROJ.find(p=>p.id===CUR)||{}).nome||S.proj||'sem nome'}. “Guardar projeto atual” atualiza-o para toda a equipa.`:'O projeto atual ainda não foi guardado na equipa.';
+  const q=($('#pj-q').value||'').toLowerCase();const nv=newerCur();
+  if(nv){$('#pj-status').innerHTML=`<span class="limt">${esc(who(nv.edit||nv.autor))} guardou uma versão mais recente deste projeto às ${hhmm(nv.upd)}.</span> <button class="linkb" id="pj-latest">Abrir a versão mais recente</button>`;
+    if(SEENUPD!==nv.upd){SEENUPD=nv.upd;toast(`${who(nv.edit||nv.autor)} guardou uma versão mais recente do projeto aberto`);}}
+  else $('#pj-status').textContent=!DBX?'Os projetos partilhados não estão disponíveis nesta vista. O projeto atual continua guardado neste navegador.':CUR?`Projeto aberto: ${(PROJ.find(p=>p.id===CUR)||{}).nome||S.proj||'sem nome'}. “Guardar projeto atual” atualiza-o para toda a equipa.`:'O projeto atual ainda não foi guardado na equipa.';
   ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);
   const list=PROJ.filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(NAMES[p.autor]||'').toLowerCase().includes(q));
   $('#proj-badge').hidden=!PROJ.length;$('#proj-badge').textContent=PROJ.length;
   $('#pj-body').innerHTML=list.length?list.map(p=>`<tr class="${p.id===CUR?'cur':''}"><td><b>${esc(p.nome||'Sem nome')}</b>${p.loc?`<span class="sub">${esc(p.loc)}</span>`:''}</td><td class="n">${p.nInv??'—'}</td><td class="n r">${p.P!=null?fmt(p.P,1)+' kW':'—'}</td>
-    <td>${esc(NAMES[p.autor]||(p.autor===ME?'Eu':'Alguém da equipa'))}</td><td class="n">${dtxt(p.upd)}</td>
-    <td class="r"><button class="ghost" data-popen="${p.id}">Abrir</button><button class="ghost" data-pdup="${p.id}">Duplicar</button>${p.autor===ME||(USR&&USR.isOwner())?`<button class="ghost del" data-pdel="${p.id}">Apagar</button>`:''}</td></tr>`).join('')
+    <td>${esc(who(p.autor))}${p.edit&&p.edit!==p.autor?`<span class="sub">alterado por ${esc(who(p.edit))}</span>`:''}</td><td class="n">${dtxt(p.upd)}</td>
+    <td class="r"><button class="ghost" data-popen="${p.id}">Abrir</button><button class="ghost" data-pdup="${p.id}">Duplicar</button>${DBX&&DBX.versioned?`<button class="ghost" data-pver="${p.id}">Versões</button>`:''}${p.autor===ME||(USR&&USR.isOwner())?`<button class="ghost del" data-pdel="${p.id}">Apagar</button>`:''}</td></tr>`).join('')
     :`<tr><td colspan="6" class="hint">${DBX?(PROJ.length?'Nenhum projeto corresponde à procura.':'Ainda não há projetos guardados.'):'—'}</td></tr>`;
 }
-async function resolveNames(){if(!USR||!USR.profiles)return;const ids=[...new Set(PROJ.map(p=>p.autor).filter(Boolean))].filter(i=>!(i in NAMES));if(!ids.length)return;
+async function resolveNames(extra){if(!USR||!USR.profiles)return;
+  const ids=[...new Set(PROJ.flatMap(p=>[p.autor,p.edit]).concat(extra||[]).filter(Boolean))].filter(i=>!(i in NAMES));if(!ids.length)return;
   try{const ps=await USR.profiles(ids);ids.forEach(i=>{NAMES[i]=(ps&&ps[i]&&ps[i].name)||'';});renderProj();}catch(e){}}
-async function projSave(asNew){
+async function projSave(asNew,force){
   if(!DBX)return;const R=last;const nome=(S.proj||'').trim()||'Sem nome';
   const body={nome,loc:S.loc,nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
-  try{if(CUR&&!asNew){const old=PROJ.find(p=>p.id===CUR);if(old&&old.autor)body.autor=old.autor;body.edit=ME;await DBX.collection('projects').doc(CUR).set(body);}
-    else{const ref=DBX.collection('projects').doc();await ref.set(body);CUR=ref.id;}
-    toast(`Projeto “${nome}” guardado para a equipa`);renderProj();}catch(e){eqErr(e);}
+  try{if(CUR&&!asNew){const old=PROJ.find(p=>p.id===CUR);if(old&&old.autor)body.autor=old.autor;body.edit=ME;
+      /* no servidor próprio, grava só se ninguém tiver gravado depois da versão aberta (salvo "substituir") */
+      const r=await DBX.collection('projects').doc(CUR).set(body,DBX.versioned&&CURUPD&&!force?{ifMatch:CURUPD}:undefined);CURUPD=(r&&r.upd)||body.upd;}
+    else{const ref=DBX.collection('projects').doc();const r=await ref.set(body);CUR=ref.id;CURUPD=(r&&r.upd)||body.upd;}
+    closeDlg();toast(`Projeto “${nome}” guardado para a equipa`);renderProj();}
+  catch(e){if(e&&e.code==='conflict'&&e.current)return conflictDlg(e.current);eqErr(e);}
 }
 function openState(s){const o=JSON.parse(JSON.stringify(s));S=Object.assign(example(),o);(S.gws||[]).forEach(g=>g.id=uid++);S.invs.forEach(i=>i.id=uid++);S.percs.forEach(p=>p.id=uid++);(S.dc.arr||[]).forEach(a=>a.id=uid++);load();}
+/* janela dos projetos: conflito ao gravar e versões anteriores */
+function openDlg(title,html){$('#pjdlg-t').textContent=title;$('#pjdlg-body').innerHTML=html;$('#pjdlg').hidden=false;}
+function closeDlg(){$('#pjdlg').hidden=true;CONFLICT=null;HIST=null;}
+async function conflictDlg(cur){
+  await resolveNames([cur.edit,cur.autor]);CONFLICT=cur;const w=esc(who(cur.edit||cur.autor));
+  openDlg('Este projeto foi alterado por outra pessoa',`<p>${w} guardou “${esc(cur.nome||'Sem nome')}” às ${hhmm(cur.upd)}, depois de o abrires. Se guardares a tua versão, as alterações de ${w} deixam de ser a versão atual (ficam nas versões do projeto).</p>
+    <div class="actions"><button class="pri" data-cf="theirs">Abrir a versão de ${w}</button><button data-cf="mine">Substituir pela minha versão</button><button class="ghost" data-cf="cancel">Cancelar</button></div>`);
+}
+async function historyDlg(p){
+  openDlg(`Versões de “${p.nome||'Sem nome'}”`,'<p class="hint">A carregar…</p>');
+  try{const h=(await DBX.collection('projects').doc(p.id).history()).filter(v=>v.op==='put'&&v.data&&v.data.s);HIST={p,h};
+    await resolveNames(h.map(v=>v.autor));
+    $('#pjdlg-body').innerHTML=`<p class="hint">Abrir uma versão anterior carrega-a como projeto atual; “Guardar projeto atual” repõe-na. A versão atual continua nesta lista.</p>
+      <div class="tablewrap"><table><thead><tr><th>Guardado</th><th>Por</th><th>Nome</th><th>Inversores</th><th class="r">Potência</th><th></th></tr></thead><tbody>${h.map((v,i)=>`<tr${i===0?' class="cur"':''}><td class="n">${dtxt(v.ts)}${i===0?'<span class="sub">versão atual</span>':''}</td><td>${esc(who(v.autor))}</td><td>${esc(v.data.nome||'')}</td><td class="n">${v.data.nInv??'—'}</td><td class="n r">${v.data.P!=null?fmt(v.data.P,1)+' kW':'—'}</td><td class="r"><button class="ghost" data-vopen="${i}">Abrir</button></td></tr>`).join('')}</tbody></table></div>`;
+  }catch(e){$('#pjdlg-body').innerHTML='<p class="hint">Não foi possível carregar as versões. Tenta outra vez.</p>';}
+}
 function bindProj(){
   $('#pj-save').addEventListener('click',()=>projSave(false));$('#pj-new').addEventListener('click',()=>projSave(true));
   $('#pj-q').addEventListener('input',renderProj);
-  $('#pj-body').addEventListener('click',async e=>{const o=e.target.closest('[data-popen]'),d=e.target.closest('[data-pdup]'),x=e.target.closest('[data-pdel]');
-    const p=PROJ.find(q=>q.id===(o||d||x||{}).dataset?.[o?'popen':d?'pdup':'pdel']);if(!p)return;
-    if(o){openState(p.s);CUR=p.id;showTab('ac');toast(`Projeto “${p.nome}” aberto`);}
-    if(d){openState({...p.s,proj:(p.s.proj||p.nome)+' (cópia)'});CUR=null;showTab('ac');toast('Cópia aberta: guarda-a para a criar na equipa');}
+  $('#pj-status').addEventListener('click',e=>{if(e.target.id!=='pj-latest')return;const p=newerCur();if(!p)return;
+    openState(p.s);CURUPD=p.upd;showTab('ac');toast(`Versão de ${who(p.edit||p.autor)} aberta`);});
+  $('#pjdlg').addEventListener('click',e=>{
+    if(e.target.id==='pjdlg'||e.target.id==='pjdlg-close')return closeDlg();
+    const cf=e.target.closest('[data-cf]'),vo=e.target.closest('[data-vopen]');
+    if(cf&&CONFLICT){const c=CONFLICT;if(cf.dataset.cf==='mine')projSave(false,true);
+      else if(cf.dataset.cf==='theirs'){openState(c.s);CURUPD=c.upd;closeDlg();showTab('ac');toast(`Versão de ${who(c.edit||c.autor)} aberta`);}
+      else closeDlg();}
+    if(vo&&HIST){const {p,h}=HIST,v=h[+vo.dataset.vopen];openState(v.data.s);CUR=p.id;CURUPD=h[0].data.upd;closeDlg();showTab('ac');
+      toast(+vo.dataset.vopen===0?`Projeto “${p.nome}” aberto`:`Versão de ${dtxt(v.ts)} aberta: “Guardar projeto atual” repõe-na`);}});
+  $('#pj-body').addEventListener('click',async e=>{const o=e.target.closest('[data-popen]'),d=e.target.closest('[data-pdup]'),x=e.target.closest('[data-pdel]'),v=e.target.closest('[data-pver]');
+    const p=PROJ.find(q=>q.id===(o||d||x||v||{}).dataset?.[o?'popen':d?'pdup':x?'pdel':'pver']);if(!p)return;
+    if(o){openState(p.s);CUR=p.id;CURUPD=p.upd;showTab('ac');toast(`Projeto “${p.nome}” aberto`);}
+    if(d){openState({...p.s,proj:(p.s.proj||p.nome)+' (cópia)'});CUR=null;CURUPD=null;showTab('ac');toast('Cópia aberta: guarda-a para a criar na equipa');}
+    if(v)historyDlg(p);
     if(x){if(x.dataset.armed!=='1'){x.dataset.armed='1';x.textContent='Confirmar';setTimeout(()=>{if(x.isConnected){x.dataset.armed='';x.textContent='Apagar';}},3000);return;}
-      try{await DBX.collection('projects').doc(p.id).delete();if(CUR===p.id)CUR=null;toast('Projeto apagado');}catch(err){eqErr(err);}}});
+      try{await DBX.collection('projects').doc(p.id).delete();if(CUR===p.id){CUR=null;CURUPD=null;}toast('Projeto apagado');}catch(err){eqErr(err);}}});
 }
 async function initShare(){
   bindEq();bindProj();renderEq();renderProj();

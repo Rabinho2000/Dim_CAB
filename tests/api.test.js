@@ -35,6 +35,17 @@ test('projeto: criar, listar, atualizar mantém o autor, histórico',async()=>{
   assert.deepEqual(h.map(x=>[x.op,x.autor,x.data.nome]),[['put','local:rui','Obra A v2'],['put','local:ana','Obra A']]);
 });
 
+test('conflito: gravar sobre uma versão antiga dá 409 com a versão atual',async()=>{
+  const v1=(await api('PUT','/api/projects/c1',{user:'Ana',body:{nome:'V1'}})).json.upd;assert.ok(v1);
+  const v2=(await api('PUT','/api/projects/c1',{user:'Rui',body:{nome:'V2'},headers:{'If-Match':v1}}));
+  assert.equal(v2.status,200,'a versão certa grava');
+  const c=await api('PUT','/api/projects/c1',{user:'Ana',body:{nome:'V3'},headers:{'If-Match':v1}});
+  assert.equal(c.status,409);assert.equal(c.json.current.nome,'V2');assert.equal(c.json.current.edit,'local:rui');
+  assert.equal((await api('GET','/api/projects/c1',{user:'Ana'})).json.data.nome,'V2','nada foi gravado');
+  assert.equal((await api('PUT','/api/projects/c1',{user:'Ana',body:{nome:'V3'}})).status,200,'sem If-Match substitui');
+  assert.equal((await api('PUT','/api/projects/novo',{user:'Ana',body:{nome:'N'},headers:{'If-Match':'qualquer'}})).status,200,'documento novo não tem conflito');
+});
+
 test('apagar projeto: só o autor ou um administrador',async()=>{
   await api('PUT','/api/projects/p2',{user:'Ana',body:{nome:'Obra B'}});
   assert.equal((await api('DELETE','/api/projects/p2',{user:'Rui'})).status,403);

@@ -4,9 +4,11 @@ async function apiConnect(){
   if(!/^https?:$/.test(location.protocol))return [null,null];
   const LS='cabosrt.user';let name=null;try{name=localStorage.getItem(LS);}catch(e){}
   const hdr=()=>name?{'X-User-Name':encodeURIComponent(name)}:{};
-  const call=async(method,url,body)=>{
-    const r=await fetch(url,{method,headers:{...hdr(),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
-    if(!r.ok){const e=new Error('api '+r.status);e.code=r.status===403?'forbidden':r.status===413?'quota_exceeded':'internal';throw e;}
+  const call=async(method,url,body,extra)=>{
+    const r=await fetch(url,{method,headers:{...hdr(),...(body?{'Content-Type':'application/json'}:{}),...extra},body:body?JSON.stringify(body):undefined});
+    if(!r.ok){const e=new Error('api '+r.status);e.code=r.status===403?'forbidden':r.status===409?'conflict':r.status===413?'quota_exceeded':'internal';
+      if(r.status===409)try{e.current=(await r.json()).current;}catch(x){}
+      throw e;}
     return r.json();};
   let me;
   try{
@@ -31,9 +33,13 @@ async function apiConnect(){
   setInterval(()=>{if(!document.hidden)refresh(false);},4000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(false);});
   const newId=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
-  const db={collection:col=>({
+  /* versioned: o servidor verifica a versão (set com {ifMatch}) e guarda o histórico (history) */
+  const db={versioned:true,collection:col=>({
     doc:id=>{id=id||newId();const u=`/api/${col}/${encodeURIComponent(id)}`;
-      return {id,set:async data=>{await call('PUT',u,data);soon();},delete:async()=>{await call('DELETE',u);soon();}};},
+      return {id,
+        set:async(data,o)=>{const r=await call('PUT',u,data,o&&o.ifMatch?{'If-Match':o.ifMatch}:{});soon();return r;},
+        delete:async()=>{await call('DELETE',u);soon();},
+        history:async()=>(await call('GET',u+'/history')).history};},
     onSnapshot:fn=>{if(!subs.has(col))subs.set(col,[]);subs.get(col).push(fn);soon();
       return ()=>{const a=subs.get(col);a.splice(a.indexOf(fn),1);};}})};
   const user={id:async()=>me.id,can:async()=>true,isOwner:()=>!!me.admin,name:me.name,verified:me.verified,

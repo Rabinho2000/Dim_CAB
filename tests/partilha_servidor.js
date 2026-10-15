@@ -9,10 +9,10 @@ const b=await chromium.launch();const errs=[];
 const open=async name=>{const ctx=await b.newContext({viewport:{width:1300,height:900}});
   if(name)await ctx.addInitScript(n=>{try{localStorage.setItem('cabosrt.user',n);}catch(e){}},name);
   const p=await ctx.newPage();p.on('pageerror',e=>errs.push(`${name}: ${e.message}`));
-  /* erros de rede vistos pelos pedidos (o 401 do primeiro /api/me sem nome é o esperado; as fontes são bloqueadas de propósito) */
+  /* erros de rede vistos pelos pedidos (o 401 do primeiro /api/me sem nome e os 409 dos conflitos são esperados; as fontes são bloqueadas de propósito) */
   p.on('console',m=>{if(m.type()==='error'&&!/^Failed to load resource/.test(m.text()))errs.push(`${name}: ${m.text()}`);});
   p.on('requestfailed',q=>{if(!/fonts\.g|cdnjs/.test(q.url()))errs.push(`${name}: falhou ${q.url()}`);});
-  p.on('response',r=>{if(r.status()>=400&&!(r.status()===401&&r.url().endsWith('/api/me')))errs.push(`${name}: ${r.status()} ${r.url()}`);});
+  p.on('response',r=>{if(r.status()>=400&&!(r.status()===401&&r.url().endsWith('/api/me'))&&r.status()!==409)errs.push(`${name}: ${r.status()} ${r.url()}`);});
   await p.route(/fonts\.(googleapis|gstatic)\.com/,r=>r.abort());return p;};
 const check=(ok,msg)=>{console.log(ok?'ok  ':'FALHA',msg);if(!ok)errs.push(msg);};
 
@@ -30,6 +30,33 @@ const row=await rui.$eval('#pj-body',e=>e.innerText.replace(/\s+/g,' '));
 check(/Ana/.test(row),`a coluna "Guardado por" mostra a Ana (${row.slice(0,80)})`);
 check(!(await rui.$('#pj-body [data-pdel]')),'o Rui não tem botão para apagar o projeto da Ana');
 await rui.click('[data-popen]');check((await rui.$eval('#proj',e=>e.value))==='Obra Servidor','o Rui abre o projeto');
+
+/* conflito: a Ana grava uma versão nova enquanto o Rui tem o projeto aberto */
+const until=(p,fn,arg)=>p.waitForFunction(fn,arg,{timeout:10000}).then(()=>true,()=>false);
+await ana.click('[data-tab=ac]');await ana.fill('#proj','Obra Servidor v2');await ana.click('[data-tab=proj]');await ana.click('#pj-save');
+await rui.click('[data-tab=proj]');
+check(await until(rui,()=>!!document.querySelector('#pj-latest')),'o Rui é avisado de que há uma versão mais recente');
+await rui.click('[data-tab=ac]');await rui.fill('#proj','Obra do Rui');await rui.click('[data-tab=proj]');await rui.click('#pj-save');
+check(await until(rui,()=>!document.querySelector('#pjdlg').hidden&&/Ana/.test(document.querySelector('#pjdlg').innerText)),'ao gravar, o Rui vê a janela de conflito com o nome da Ana');
+await (await rui.$('#pjdlg .panel')).screenshot({path:'tests/conflito.png'});
+await rui.click('[data-cf=theirs]');
+check((await rui.$eval('#proj',e=>e.value))==='Obra Servidor v2','o Rui abre a versão da Ana');
+await rui.click('[data-tab=ac]');await rui.fill('#proj','Obra do Rui');await rui.click('[data-tab=proj]');await rui.click('#pj-save');
+check(await until(rui,()=>document.querySelector('#pjdlg').hidden&&document.querySelector('#pj-body').innerText.includes('Obra do Rui')),'depois de abrir a versão atual, o Rui grava sem conflito');
+/* a Ana estava na versão v2: ao gravar tem conflito e escolhe substituir */
+await ana.click('[data-tab=ac]');await ana.fill('#proj','Obra da Ana');await ana.click('[data-tab=proj]');await ana.click('#pj-save');
+check(await until(ana,()=>!document.querySelector('#pjdlg').hidden),'a Ana também é avisada');
+await ana.click('[data-cf=mine]');
+check(await until(ana,()=>document.querySelector('#pjdlg').hidden&&document.querySelector('#pj-body').innerText.includes('Obra da Ana')),'a Ana substitui pela versão dela');
+/* versões: o Rui repõe a primeira versão */
+await until(rui,()=>document.querySelector('#pj-body').innerText.includes('Obra da Ana'));
+await rui.click('[data-pver]');
+check(await until(rui,()=>document.querySelectorAll('#pjdlg [data-vopen]').length===4),'as 4 versões aparecem na lista');
+const vrows=await rui.$$eval('#pjdlg tbody tr',t=>t.map(r=>r.innerText.replace(/\s+/g,' ')));console.log('   ',vrows.join('\n    '));
+await rui.click('#pjdlg [data-vopen="3"]');
+check((await rui.$eval('#proj',e=>e.value))==='Obra Servidor','o Rui abre a primeira versão');
+await rui.click('[data-tab=proj]');await rui.click('#pj-save');
+check(await until(rui,()=>document.querySelector('#pjdlg').hidden&&/^Obra Servidor\b/.test(document.querySelector('#pj-body').innerText.trim())),'e repõe-na sem conflito');
 
 await ana.click('[data-tab=eq]');await ana.click('[data-eq=gw]');
 await ana.fill('[data-ef=marca]','Sigenergy');await ana.fill('[data-ef=modelo]','Gateway Teste 3F');await ana.fill('[data-ef=In]','80');await ana.click('#eq-save');

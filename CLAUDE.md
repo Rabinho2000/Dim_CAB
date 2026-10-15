@@ -13,7 +13,7 @@ node dumpcalc.js && python verify.py  # verificação independente dos cálculos
 node tests/separadores.js             # abre todos os separadores; tem de dar "ERR []"
 node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/sem gateway, contagem)
 node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
-node tests/partilha_servidor.js       # duas pessoas no servidor próprio: projeto e equipamento partilhados, permissões
+node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
 npm start                             # servidor em http://127.0.0.1:8080 (depois de npm run build)
 ```
 Os testes de interface usam Playwright (`npm i && npx playwright install chromium`).
@@ -31,7 +31,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-board.js` — composição de cada quadro (`qfvParts`, `meterHost`) e separador Quadros (dimensão da envolvente, raio de curvatura).
 - `rt-share.js` — projetos e equipamentos partilhados, descargas. Usa `claude.use('db'|'user')` no claude.ai ou `apiConnect()` (`rt-api.js`) quando a página vem do servidor próprio; aberta como ficheiro, fica só o projeto local.
 - `rt-api.js` — adaptador do navegador para a API do servidor, com a mesma interface (`collection().doc().set/delete`, `onSnapshot` por consulta de `/api/rev` a cada 4 s).
-- `server/server.js` + `server/db.js` — servidor Node sem dependências (`node:http`, `node:sqlite`): serve `cabos-rt.html` e a API `/api/{projects,inversores,paineis,gateways,precos}[/id[/history]]`, `/api/me`, `/api/rev`, `/api/users`. Identidade pelos cabeçalhos do `tailscale serve` ou por `X-User-Name` (local). Projetos só podem ser apagados pelo autor ou por `ADMINS`. Arranque e alojamento: README.
+- `server/server.js` + `server/db.js` — servidor Node sem dependências (`node:http`, `node:sqlite`): serve `cabos-rt.html` e a API `/api/{projects,inversores,paineis,gateways,precos}[/id[/history]]`, `/api/me`, `/api/rev`, `/api/users`. Identidade pelos cabeçalhos do `tailscale serve` ou por `X-User-Name` (local). Projetos só podem ser apagados pelo autor ou por `ADMINS`. Conflitos: o PUT leva `If-Match` com o `upd` da versão aberta (`CURUPD` em rt-share.js); se outra pessoa gravou entretanto, 409 e a página mostra a janela `#pjdlg` (abrir a versão dela / substituir). O separador Projetos avisa quando o projeto aberto tem versão mais recente e tem o botão "Versões" (histórico, repor versão anterior). Arranque e alojamento: README.
 - `mkbrk.py` gera `brk.json` a partir da tabela ABB (`cat/`); `mkprice.py` gera `jmm/prices.json` a partir de `jmm/base.xlsx`.
 - `fontes/` — Excel original, quadros tipo e os dois DWG de esquemas unifilares de referência.
 

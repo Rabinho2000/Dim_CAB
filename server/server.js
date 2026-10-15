@@ -57,10 +57,13 @@ function createServer(opts={}){
         const body=await readBody(req);
         if(!body||typeof body!=='object'||Array.isArray(body))return send(res,400,{error:'invalid_argument'});
         const old=db.get(col,id);
+        /* If-Match: data (upd) da versão em que a pessoa estava a trabalhar; se entretanto alguém gravou, 409 com a versão atual */
+        const base=req.headers['if-match'];
+        if(base&&old&&old.data.upd!==base)return send(res,409,{error:'conflict',current:old.data});
         /* o autor de um projeto mantém-se; quem grava fica em "edit" */
         const data={...body,autor:old&&old.data.autor?old.data.autor:me.id,upd:new Date().toISOString()};
         if(old&&col==='projects')data.edit=me.id;
-        db.put(col,id,data,me.id);return send(res,200,{id,rev:db.rev()});}
+        db.put(col,id,data,me.id);return send(res,200,{id,rev:db.rev(),upd:data.upd});}
       if(req.method==='DELETE'&&id){
         const old=db.get(col,id);if(!old)return send(res,404,{error:'not_found'});
         if(col==='projects'&&old.data.autor!==me.id&&!me.admin)return send(res,403,{error:'forbidden'});
