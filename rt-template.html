@@ -250,7 +250,9 @@ tr.cur td{background:var(--accent-soft)}
       <label>cos φ<input id="cos" type="number" step="0.01" min="0.5" max="1"></label>
       <label class="check"><input type="checkbox" id="folga"> Folga no comprimento (+20% &lt;30 m, +10% ≥30 m)</label>
       <label>ΔU máx. por troço <span class="u">%</span><input id="limT" type="number" step="0.1" min="0.1"></label>
+      <label title="Só aviso: a queda acumulada do inversor até à injeção é uma subida de tensão nos terminais do inversor">Aviso de ΔU acumulada <span class="u">%</span><input id="lim" type="number" step="0.1" min="0.1"></label>
       <label>Desconto ABB <span class="u">% s/ PVP</span><input id="descABB" type="number" step="1" min="0" max="90"></label>
+      <label>Desconto Hager <span class="u">% s/ PVP</span><input id="descHager" type="number" step="1" min="0" max="90"></label>
       <label>Poder de corte dos disjuntores<select id="icu-modo"><option value="">Não verificar</option><option value="icc">Icc conhecida no ponto de ligação</option><option value="pt">A partir do PT</option></select></label>
       <label data-icu="icc" hidden>Icc no ponto de ligação <span class="u">kA</span><input id="icu-icc" type="number" step="0.1" min="0.1"></label>
       <label data-icu="pt" hidden>Potência do PT <span class="u">kVA</span><input id="icu-sn" type="number" step="10" min="1"></label>

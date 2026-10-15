@@ -250,7 +250,9 @@ tr.cur td{background:var(--accent-soft)}
       <label>cos φ<input id="cos" type="number" step="0.01" min="0.5" max="1"></label>
       <label class="check"><input type="checkbox" id="folga"> Folga no comprimento (+20% &lt;30 m, +10% ≥30 m)</label>
       <label>ΔU máx. por troço <span class="u">%</span><input id="limT" type="number" step="0.1" min="0.1"></label>
+      <label title="Só aviso: a queda acumulada do inversor até à injeção é uma subida de tensão nos terminais do inversor">Aviso de ΔU acumulada <span class="u">%</span><input id="lim" type="number" step="0.1" min="0.1"></label>
       <label>Desconto ABB <span class="u">% s/ PVP</span><input id="descABB" type="number" step="1" min="0" max="90"></label>
+      <label>Desconto Hager <span class="u">% s/ PVP</span><input id="descHager" type="number" step="1" min="0" max="90"></label>
       <label>Poder de corte dos disjuntores<select id="icu-modo"><option value="">Não verificar</option><option value="icc">Icc conhecida no ponto de ligação</option><option value="pt">A partir do PT</option></select></label>
       <label data-icu="icc" hidden>Icc no ponto de ligação <span class="u">kA</span><input id="icu-icc" type="number" step="0.1" min="0.1"></label>
       <label data-icu="pt" hidden>Potência do PT <span class="u">kVA</span><input id="icu-sn" type="number" step="10" min="1"></label>
@@ -454,7 +456,7 @@ const fs=s=>String(s).replace('.',',');
 let uid=1;
 /* ---------- estado ---------- */
 const route=(ref,cons)=>({ref,cons,disp:'trevo',trays:1,sol:false});
-function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XLPE',mat:'auto',alThr:15,alPmin:30,limT:3,lim:5,folga:true,cos:1,descABB:0,
+function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XLPE',mat:'auto',alThr:15,alPmin:30,limT:3,lim:5,folga:true,cos:1,descABB:0,descHager:0,
   sc:{on:false,fonte:'pt',sn:630,ucc:4,scc:500,icc:10,L0:0,s0:240,m0:'Al',n0:1},
   dc:{tmin:-3,tcell:70,lim:1.5,ifuse:25,f:1,sel:0,arr:[]},
   invs:[{id:uid++,modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:50,S:'auto'},{id:uid++,modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:5,S:'auto'},
@@ -885,6 +887,8 @@ const eur0=v=>v==null?'—':v.toLocaleString('pt-PT',{style:'currency',currency:
 function altName(o,loaded){const P=cableParts(o,loaded);return P.multi?P.cabo:`fases ${P.fase} · neutro ${P.neutro} · terra ${P.terra}`;}
 let last;
 /* estado de um circuito (tabela e relatório de cálculo): 'ok' ou 'bad' e o motivo */
+/* aviso (não é "a rever"): queda acumulada do inversor até à injeção acima de S.lim — é uma subida de tensão nos terminais do inversor */
+const accWarn=c=>c.kind==='inv'&&c.res&&+S.lim>0&&(c.acc||0)>+S.lim+1e-9?`ΔU acumulada até à injeção ${fmt(c.acc,2)} % > ${fs(S.lim)} %: a tensão nos terminais do inversor sobe outro tanto; confirma o limite de sobretensão do inversor ou reforça um troço.`:'';
 function verdict(c){const o=c.res;
   const st=!o?'bad':(passes(o)&&o.icuOk!==false&&o.du<=S.limT&&!c.gwErr)?'ok':'bad';
   const why=!o?'Sem tabela':c.gwErr?c.gwErr:!o.term?(c.Ib>o.In?'In < Ib':'In > Iz'):!o.sob?'I₂ > 1,45 Iz':o.du>S.limT?'ΔU troço':o.icuOk===false?'Poder de corte':o.trip===false?'Icc mín < Im':o.therm===false?'I²t > k²S²':'OK';
@@ -909,7 +913,7 @@ function render(){
     const label=(c.code?`<b class="ccode">${c.code}</b> `:'')+(c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome));
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;
     return `<tr class="${c.kind==='perc'?'feeder ':''}${st==='bad'?'err':''}"><td>${label}<span class="sub">${sub}</span></td><td class="n r">${fmt(c.p,1)}</td><td class="n r">${fmt(c.Ib,1)}</td>
-      <td>${designation(c)}${c.alt?`<span class="sub altc">Mais barato e também cumpre: <b>${altName(c.alt.o,c.loaded)}</b> · poupa ${eur0(c.cost.v+(c.term?c.term.v:0)-c.alt.v)} em cabo e terminais${c.alt.est||c.cost.est?' (com preço estimado)':''} <button class="linkb" data-useal="${c.kind}:${c.ref.id}" data-o="${c.alt.o.n}x${c.alt.o.s}|${c.alt.o.mat}|${c.alt.o.cons}">Usar</button></span>`:''}${c.dropMsg?`<span class="sub limt">${esc(c.dropMsg)}</span>`:''}${c.noFitMsg?`<span class="sub limt">${esc(c.noFitMsg)}</span>`:o&&c.opts.length&&c.i===c.opts.length-1&&o.n===3?`<span class="sub limt">Secção máxima: 3 cabos por fase. Se a queda de tensão apertar, considera cobre neste troço.</span>`:''}</td><td>${breaker(o,c)}</td><td class="n r">${o?fmt(o.Iz,0)+' A':'—'}</td><td class="n r">${o?`<b>${fmt(o.du*2.3,2)} V</b><span class="sub">${fmt(o.du,2)} %</span>`:'—'}</td>
+      <td>${designation(c)}${c.alt?`<span class="sub altc">Mais barato e também cumpre: <b>${altName(c.alt.o,c.loaded)}</b> · poupa ${eur0(c.cost.v+(c.term?c.term.v:0)-c.alt.v)} em cabo e terminais${c.alt.est||c.cost.est?' (com preço estimado)':''} <button class="linkb" data-useal="${c.kind}:${c.ref.id}" data-o="${c.alt.o.n}x${c.alt.o.s}|${c.alt.o.mat}|${c.alt.o.cons}">Usar</button></span>`:''}${accWarn(c)?`<span class="sub limt">${esc(accWarn(c))}</span>`:''}${c.dropMsg?`<span class="sub limt">${esc(c.dropMsg)}</span>`:''}${c.noFitMsg?`<span class="sub limt">${esc(c.noFitMsg)}</span>`:o&&c.opts.length&&c.i===c.opts.length-1&&o.n===3?`<span class="sub limt">Secção máxima: 3 cabos por fase. Se a queda de tensão apertar, considera cobre neste troço.</span>`:''}</td><td>${breaker(o,c)}</td><td class="n r">${o?fmt(o.Iz,0)+' A':'—'}</td><td class="n r">${o?`<b>${fmt(o.du*2.3,2)} V</b><span class="sub">${fmt(o.du,2)} %</span>`:'—'}</td>
       <td class="n r">${c.cost?eur0(c.cost.v)+(c.cost.est?'<span class="est" title="Preço estimado: sem compra deste cabo em 2026">*</span>':''):'—'}</td><td>${sel}</td><td><span class="pill ${st}">${why}</span></td></tr>`;};
   $('#res-body').innerHTML=R.invC.map(rowHTML).join('')+R.pC.map(rowHTML).join('');
   $('#sumline').textContent=(bad.length?`${bad.length} circuito(s) a rever`:'Todos os circuitos verificados')+(ends.length?` · injeção em ${[...new Set(ends.map(e=>e.ref.dest))].join(', ')}`:'');
@@ -982,7 +986,7 @@ function bind(){
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
   $('#folga').addEventListener('change',e=>{S.folga=e.target.checked;render();});
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
-  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','cos','descABB'].forEach(k=>{const el=document.getElementById(k);
+  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
   /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
   const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
@@ -1037,7 +1041,7 @@ function scVis(){const on=S.sc.on!==false;document.querySelectorAll('#sc-fields 
 let TAB='ac';const HOOKS=[];
 function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
   document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t);if(last)HOOKS.forEach(f=>f(last));}
-function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','cos','descABB'].forEach(k=>document.getElementById(k).value=S[k]??'');
+function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
   S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';
@@ -1362,6 +1366,110 @@ const DMONO={1.5:6,2.5:7,4:8,6:8.5,10:9.5,16:10.5,25:12,35:13,50:14.5,70:16.5,95
 const DMULTI={1.5:11,2.5:12.5,4:14,6:15.5,10:18.5,16:21,25:25,35:28,50:32,70:37,95:42};
 /* secção máx. aproximada que o borne do aparelho aceita (mm², por condutor) */
 const BORNE=b=>!b?95:/^S20/.test(b.s)?35:/^S80/.test(b.s)?95:/^XT1/.test(b.s)?95:/^XT3/.test(b.s)?185:/^XT5/.test(b.s)?240:400;
+/* preços Hager (tabela 2026, hager.json gerado por mkhager.py): {ref: [descrição, PVP]}; desconto S.descHager */
+const HAGER={
+"FL126A": [
+"orion plus IP65 PO a.950 l.600 p.300",
+352.62
+],
+"FL128A": [
+"orion plus IP65 PO a.950 l.800 p.300",
+419.48
+],
+"FL130A": [
+"orion plus IP65 PO a.1250 l.800 p.300",
+497.14
+],
+"FL213B": [
+"orion plus IP66 PO a.500 l.400 p.200",
+218.94
+],
+"FL216B": [
+"orion plus IP66 PO a.650 l.400 p.200",
+253.11
+],
+"FL221B": [
+"orion plus IP66 PO a.650 l.500 p.250",
+329.81
+],
+"FL229B": [
+"orion plus IP66 PO a.800 l.600 p.300",
+434.63
+],
+"FL300B": [
+"orion plus IP65 PO a.550 l.600 p.300",
+390.3
+],
+"FL301B": [
+"orion plus IP65 PO a.850 l.600 p.300",
+444.28
+],
+"FL302B": [
+"orion plus IP65 PO a.1150 l.600 p.300",
+485.11
+],
+"FL305B": [
+"orion plus IP65 PO a.550 l.850 p.300",
+523.88
+],
+"FL306B": [
+"orion plus IP65 PO a.850 l.850 p.300",
+555.32
+],
+"FL307B": [
+"orion plus IP65 PO a.1150 l.850 p.300",
+592.96
+],
+"FL310B": [
+"orion plus IP65 PO a.550 l.1100 p.300",
+685.19
+],
+"FL311B": [
+"orion plus IP65 PO a.850 l.1100 p.300",
+806.34
+],
+"FL312B": [
+"orion plus IP65 PO a.1150 l.1100 p.300",
+889.84
+],
+"FL342B": [
+"orion plus IP65 PO a.1450 l.600 p.300",
+985.12
+],
+"FL344B": [
+"orion plus IP65 PO a.1750 l.600 p.300",
+1054.31
+],
+"FL348B": [
+"orion plus IP65 PO a.2050 l.600 p.300",
+1126.81
+],
+"FL352B": [
+"orion plus IP65 PO a.1450 l.850 p.300",
+1391.22
+],
+"FL354B": [
+"orion plus IP65 PO a.1750 l.850 p.300",
+1502.53
+],
+"FL358B": [
+"orion plus IP65 PO a.2050 l.850 p.300",
+1752.52
+],
+"FL362B": [
+"orion plus IP65 PO a.1450 l.1100 p.300",
+1502.53
+],
+"FL364B": [
+"orion plus IP65 PO a.1750 l.1100 p.300",
+1592.64
+],
+"FL368B": [
+"orion plus IP65 PO a.2050 l.1100 p.300",
+1857.7
+]
+};
+const envPrice=ref=>{const h=HAGER[ref];if(!h)return null;const d=(+S.descHager||0)/100;return {des:h[0],pvp:h[1],net:h[1]*(1-d)};};
 /* envolventes Hager Orion plus: [ref, alt., larg., prof., só modular] */
 const ORION=[['FL213B',500,400,200,1],['FL216B',650,400,200,1],['FL221B',650,500,250,1],['FL229B',800,600,300,1],['FL126A',950,600,300,1],['FL128A',950,800,300,1],['FL130A',1250,800,300,1],
   ['FL300B',550,600,300,0],['FL301B',850,600,300,0],['FL302B',1150,600,300,0],['FL342B',1450,600,300,0],['FL344B',1750,600,300,0],['FL348B',2050,600,300,0],
@@ -1485,7 +1593,7 @@ function renderBoards(R){
     return `<div class="board"><div class="panel-head"><div><h3 class="bname">${esc(b.node)}${b.isEnd?' · ponto de injeção':''}</h3>
       <span class="hint">${b.isEnd?'Quadro existente: confirma que tem este espaço livre para a chegada. ':''}${b.ins.length} entrada${b.ins.length===1?'':'s'} · ${fmt(b.Ib,0)} A${b.out?` · sai para ${esc(b.out.ref.dest)}`:''}</span></div>
       <span class="pill ${b.dif>=3?'bad':b.dif>=1?'warn':'ok'}">Trabalho do cabo: ${DIFL[b.dif]}</span></div>
-      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">Hager Orion plus ${e.ref} ou equivalente</span>`:'<b>Armário de chão</b><span class="sub">Não cabe numa Orion plus de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
+      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">Hager Orion plus ${e.ref} ou equivalente</span>${!b.isEnd&&envPrice(e.ref)?`<span class="sub">${eur0(envPrice(e.ref).net)} ${+S.descHager?`(PVP −${S.descHager}%)`:'PVP Hager 2026'}</span>`:''}`:'<b>Armário de chão</b><span class="sub">Não cabe numa Orion plus de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
       <div class="bcol"><h3>Aparelhagem</h3><table class="bom"><tbody>${b.devs.map(d=>`<tr><td>${esc(d.nome)}</td><td>${esc(d.txt)}${d.dif?`<span class="sub">${esc(d.dif)}</span>`:''}</td></tr>`).join('')}</tbody></table>
       <h3>Cabos a ligar</h3><table class="bom"><thead><tr><th>Circuito</th><th>Cabo</th><th class="r">Ø aprox.</th><th class="r">Raio mín.</th><th class="r">Condutores</th></tr></thead><tbody>${b.cables.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.cabo)}</td><td class="n r">${x.D} mm</td><td class="n r">${x.r} mm</td><td class="n r">${x.nCond}</td></tr>`).join('')}</tbody></table>
       <p class="hint">Zona livre por baixo da aparelhagem: <b>${b.zone} mm</b> (maior raio de curvatura + terminal). Bucins: ${Math.round(b.glandW)} mm de largura${e?` em ${e.gRows} fila${e.gRows===1?'':'s'}`:''}.${e?` ${b.mod} módulos com 30% de reserva.`:''}</p>
@@ -1545,11 +1653,14 @@ function bomData(R){
     if(gwOf(n)){if(!Q)return;const sp=Q.spec;
       quad.push({node:n,role:BOM_ROLE.GW,env:'Equipamento do fabricante',items:[{nome:'Gateway',txt:sp?`${sp.marca} ${sp.modelo}`:(gwOf(n).modelo||'gateway'),dif:sp?`rede ${gwMainA(sp)} A · ${sp.ports} entrada${sp.ports===1?'':'s'} de inversor ${gwPortA(sp)} A`:''}]});return;}
     const b=boardFor(n,R);if(!b)return;const e=b.best;
-    quad.push({node:n,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
+    const ep=!b.isEnd&&e?envPrice(e.ref):null;
+    quad.push({node:n,envRef:ep?e.ref:null,envDes:ep?ep.des:null,envPvp:ep?ep.pvp:null,envNet:ep?ep.net:null,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
       items:b.devs.map(d=>({nome:d.nome,txt:d.txt,dif:d.dif}))});});
   const tCab=cabos.reduce((a,x)=>a+(x.total||0),0),tProt=prot.reduce((a,x)=>a+x.total,0),tTerm=terms.reduce((a,x)=>a+x.total,0);
+  /* envolventes Hager dos quadros novos (PVP 2026 com o desconto descHager); quadros existentes e gateways não contam */
+  const envs=quad.filter(q=>q.envRef).map(q=>({node:q.node,ref:q.envRef,des:q.envDes,pvp:q.envPvp,total:q.envNet})),tEnv=envs.reduce((a,x)=>a+x.total,0);
   return {rev:(S.obra&&S.obra.rev)||'A',aprov:(S.obra&&S.obra.aprov)||null,proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
-    terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
+    descHager:+S.descHager||0,envs,tEnv,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tEnv,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
 }
 
 /* ---------- .xlsx gerado aqui (Office Open XML num zip sem compressão): sem bibliotecas nem rede, abre no Excel com números e fórmulas ---------- */
@@ -1606,7 +1717,10 @@ function bomXlsx(B){
   r.push([],[{v:'Disjuntores e diferenciais ABB',s:6}],[h('Tipo'),h('Descrição'),h('Quantidade'),h('PVP unit.'),h('Total'),h('Referência'),h('Circuitos')]);
   const p0=r.length;B.prot.forEach(x=>r.push([x.tipo,x.des,x.qty,E(x.pvp),{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}*(1-${B.desc}/100)`},x.ref,x.circ.join('; ')]));
   const rProt=r.length+1;r.push([b('Total proteções'),B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',{v:B.tProt,s:3,f:B.prot.length?`SUM(E${p0+1}:E${r.length})`:'0'}]);
-  r.push([],[b('Total geral'),'','','',{v:B.total,s:3,f:`E${rCab}+E${rTerm}+E${rProt}`}]);
+  r.push([],[{v:'Envolventes dos quadros (Hager)',s:6}],[h('Quadro'),h('Envolvente'),h('Quantidade'),h('PVP unit.'),h('Total'),h('Referência')]);
+  const e0=r.length;B.envs.forEach(x=>r.push([x.node,x.des,1,E(x.pvp),{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}*(1-${B.descHager}/100)`},x.ref]));
+  const rEnv=r.length+1;r.push([b('Total envolventes'),B.descHager?`PVP com desconto de ${B.descHager} %`:'PVP Hager 2026, sem desconto','','',{v:B.tEnv,s:3,f:B.envs.length?`SUM(E${e0+1}:E${r.length})`:'0'}]);
+  r.push([],[b('Total geral'),'','','',{v:B.total,s:3,f:`E${rCab}+E${rTerm}+E${rProt}+E${rEnv}`}]);
   if(B.est)r.push([],['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']);
   r.push(['Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito.']);
   const q=[[{v:'Composição dos quadros',s:6}],[]];
@@ -1656,11 +1770,15 @@ async function bomPdf(B){
   table([{t:'Tipo',w:28},{t:'Descrição / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
     B.prot.map(x=>({cells:[x.tipo,`${x.des}\n${x.ref}`,String(x.qty),eur2(x.pvp),eur2(x.total)]}))
       .concat([{bold:true,cells:['Total proteções',B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',eur2(B.tProt)]}]));
+  if(B.envs.length){title('Envolventes dos quadros (Hager)');
+    table([{t:'Quadro',w:28},{t:'Envolvente / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
+      B.envs.map(x=>({cells:[x.node,`Hager ${x.des}\n${x.ref}`,'1',eur2(x.pvp),eur2(x.total)]}))
+        .concat([{bold:true,cells:['Total envolventes',B.descHager?`PVP com desconto de ${B.descHager} %`:'PVP Hager 2026, sem desconto','','',eur2(B.tEnv)]}]));}
   need(10);pdf.setFont('helvetica','bold');pdf.setFontSize(11);pdf.setFillColor(56,212,48);pdf.rect(M,y-4.5,W-2*M,7,'F');
   pdf.text('Total geral',M+1,y);pdf.text(pdfTxt(eur2(B.total)),W-M-1,y,{align:'right'});y+=8;
   pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);
   const notes=[...(B.est?['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']:[]),
-    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Quadros e envolventes sem preço.'];
+    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Envolventes: só a caixa (sem placas de montagem nem acessórios); quadros existentes sem preço.'];
   notes.forEach(n=>{const l=pdf.splitTextToSize(pdfTxt(n),W-2*M);need(l.length*3.4);pdf.text(l,M,y);y+=l.length*3.4;});
   title('Composição dos quadros');
   B.quad.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node}${Q.role?" · "+Q.role:""}`),M,y);y+=4;
@@ -2230,7 +2348,7 @@ function reportPDF(R){
       ['Fator de agrupamento',`${n2(o.fg)} (${o.fgSrc}; ${o.nEff} circuito${o.nEff>1?'s':''}${o.trays>1?`, ${o.perTray} por esteira`:''})`,'Fator total f',n2(o.f)],
       ['Iz',`${n0(o.iz0)} × ${o.n} × ${n2(o.f)} = ${n0(o.Iz)} A`,'Ib',`${n1(c.Ib)} A (${ibSrc})`],
       ['In',`${o.In} A · Ib ≤ In ≤ Iz: ${n1(c.Ib)} ≤ ${o.In} ≤ ${n0(o.Iz)} ${o.term?'cumpre':'NÃO cumpre'}`,'I₂ ≤ 1,45·Iz',`I₂ = ${n2(k2(o.In))} × ${o.In} = ${n0(o.I2)} A ≤ ${n0(1.45*o.Iz)} A ${o.sob?'cumpre':'NÃO cumpre'}`],
-      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} % (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} % (informativa)`],
+      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} % (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} %`+(c.kind==='inv'&&+S.lim>0&&(c.acc||0)>+S.lim?` > aviso ${fs(S.lim)} %`:' (informativa)')],
       ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
       ['Designação no unifilar',cableDwg(c)],
       ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`+(o.ikmax==null?'':o.icuOk!==false?` ≥ Icc no local ${n1(o.ikmax)} kA`:` < Icc no local ${n1(o.ikmax)} kA: ${o.icuAlt?`usar ${o.icuAlt.name} (${o.icuAlt.icu} kA)`:'escolher série de maior poder de corte'}`):`${o.In} A (sem referência no catálogo)`]],{lw:36});

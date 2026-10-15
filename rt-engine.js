@@ -26,7 +26,7 @@ const fs=s=>String(s).replace('.',',');
 let uid=1;
 /* ---------- estado ---------- */
 const route=(ref,cons)=>({ref,cons,disp:'trevo',trays:1,sol:false});
-function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XLPE',mat:'auto',alThr:15,alPmin:30,limT:3,lim:5,folga:true,cos:1,descABB:0,
+function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XLPE',mat:'auto',alThr:15,alPmin:30,limT:3,lim:5,folga:true,cos:1,descABB:0,descHager:0,
   sc:{on:false,fonte:'pt',sn:630,ucc:4,scc:500,icc:10,L0:0,s0:240,m0:'Al',n0:1},
   dc:{tmin:-3,tcell:70,lim:1.5,ifuse:25,f:1,sel:0,arr:[]},
   invs:[{id:uid++,modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:50,S:'auto'},{id:uid++,modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:5,S:'auto'},
