@@ -21,7 +21,7 @@ function bomCableLines(c){
   if(out.some(x=>x.pm==null))out.forEach(x=>{x.pm=null;x.est=false;});
   return out;
 }
-const bomCircLabel=c=>c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome;
+const bomCircLabel=c=>(c.code?c.code+' · ':'')+(c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome);
 function bomData(R){
   R=R||solveAll();const all=R.invC.concat(R.pC).filter(c=>c.res&&c.Ib>0);
   /* cabos agrupados por tipo, secção e função */
@@ -31,6 +31,12 @@ function bomData(R){
   const ord={Fase:0,Neutro:1,Terra:2,Multicondutor:3};
   const cabos=[...cm.values()].sort((a,b)=>a.mat.localeCompare(b.mat)||ord[a.uso]-ord[b.uso]||a.s-b.s)
     .map(x=>({...x,total:x.pm==null?null:x.m*x.pm}));
+  /* terminais: os mesmos que entram em R.termTot (termLines/termCost de rt-price.js), agrupados por tipo e secção */
+  const tm=new Map();
+  all.forEach(c=>{if(!c.term)return;termLines(c.res,c.loaded).forEach(l=>{const k=l.mat+'|'+l.s,g=tm.get(k),lab=bomCircLabel(c);
+    if(g){g.q+=l.q;if(!g.circ.includes(lab))g.circ.push(lab);}else{const p=pricePer(l.mat,'term',l.s);tm.set(k,{...l,pu:p.p,est:p.est,circ:[lab]});}});});
+  const terms=[...tm.values()].sort((a,b)=>a.mat.localeCompare(b.mat)||a.s-b.s)
+    .map(x=>({...x,des:`${x.mat==='Al'?'Terminal bimetálico Cu/Al':'Terminal de cravar Cu'} ${fs(x.s)} mm²`,total:x.q*x.pu}));
   /* disjuntores e diferenciais ABB: os mesmos que entram em R.brkTot */
   const desc=(+S.descABB||0)/100,bm=new Map();
   const add=(k,v)=>{const g=bm.get(k);if(g){g.qty++;g.circ.push(v.circ);}else bm.set(k,{...v,qty:1,circ:[v.circ]});};
@@ -46,9 +52,9 @@ function bomData(R){
     const b=boardFor(n,R);if(!b)return;const e=b.best;
     quad.push({node:n,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
       items:b.devs.map(d=>({nome:d.nome,txt:d.txt,dif:d.dif}))});});
-  const tCab=cabos.reduce((a,x)=>a+(x.total||0),0),tProt=prot.reduce((a,x)=>a+x.total,0);
+  const tCab=cabos.reduce((a,x)=>a+(x.total||0),0),tProt=prot.reduce((a,x)=>a+x.total,0),tTerm=terms.reduce((a,x)=>a+x.total,0);
   return {rev:(S.obra&&S.obra.rev)||'A',aprov:(S.obra&&S.obra.aprov)||null,proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
-    tCab,tProt,total:tCab+tProt,est:cabos.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
+    terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
 }
 
 /* ---------- .xlsx gerado aqui (Office Open XML num zip sem compressão): sem bibliotecas nem rede, abre no Excel com números e fórmulas ---------- */
@@ -99,10 +105,13 @@ function bomXlsx(B){
   r.push([{v:'Cabos',s:6}],[h('Função'),h('Cabo'),h('Metros'),h('€/m'),h('Total'),h('Preço'),h('Circuitos')]);
   const c0=r.length;B.cabos.forEach(x=>r.push([x.uso,x.des,{v:x.m,s:4},x.pm==null?'sem preço':{v:x.pm,s:5},x.pm==null?'':{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}`},x.pm==null?'sem compra':x.est?'estimado *':'compra 2026',x.circ.join('; ')]));
   const rCab=r.length+1;r.push([b('Total cabos'),'','','',{v:B.tCab,s:3,f:B.cabos.length?`SUM(E${c0+1}:E${r.length})`:'0'},B.est?'* com preços estimados':'']);
+  r.push([],[{v:'Terminais',s:6}],[h('Tipo'),h('Descrição'),h('Quantidade'),h('€/unid.'),h('Total'),h('Preço'),h('Circuitos')]);
+  const t0=r.length;B.terms.forEach(x=>r.push([x.mat==='Al'?'Bimetálico':'Cobre',x.des,x.q,{v:x.pu,s:5},{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}`},x.est?'estimado *':'compra 2026',x.circ.join('; ')]));
+  const rTerm=r.length+1;r.push([b('Total terminais'),'Duas pontas por circuito; multicondutores com ponteiras (não contadas)','','',{v:B.tTerm,s:3,f:B.terms.length?`SUM(E${t0+1}:E${r.length})`:'0'}]);
   r.push([],[{v:'Disjuntores e diferenciais ABB',s:6}],[h('Tipo'),h('Descrição'),h('Quantidade'),h('PVP unit.'),h('Total'),h('Referência'),h('Circuitos')]);
   const p0=r.length;B.prot.forEach(x=>r.push([x.tipo,x.des,x.qty,E(x.pvp),{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}*(1-${B.desc}/100)`},x.ref,x.circ.join('; ')]));
   const rProt=r.length+1;r.push([b('Total proteções'),B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',{v:B.tProt,s:3,f:B.prot.length?`SUM(E${p0+1}:E${r.length})`:'0'}]);
-  r.push([],[b('Total geral'),'','','',{v:B.total,s:3,f:`E${rCab}+E${rProt}`}]);
+  r.push([],[b('Total geral'),'','','',{v:B.total,s:3,f:`E${rCab}+E${rTerm}+E${rProt}`}]);
   if(B.est)r.push([],['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']);
   r.push(['Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito.']);
   const q=[[{v:'Composição dos quadros',s:6}],[]];
@@ -144,6 +153,10 @@ async function bomPdf(B){
   table([{t:'Função',w:22},{t:'Cabo',w:62},{t:'Metros',w:22,a:'r'},{t:'€/m',w:24,a:'r'},{t:'Total',w:52,a:'r'}],
     B.cabos.map(x=>({cells:[x.uso,x.des,fmt(x.m,1),x.pm==null?'sem preço':x.pm.toLocaleString('pt-PT',{minimumFractionDigits:4,maximumFractionDigits:4})+(x.est?' *':''),x.pm==null?'—':eur2(x.total)]}))
       .concat([{bold:true,cells:['Total cabos','','','',eur2(B.tCab)]}]));
+  if(B.terms.length){title('Terminais');
+    table([{t:'Tipo',w:22},{t:'Descrição',w:62},{t:'Qtd.',w:22,a:'r'},{t:'€/unid.',w:24,a:'r'},{t:'Total',w:52,a:'r'}],
+      B.terms.map(x=>({cells:[x.mat==='Al'?'Bimetálico':'Cobre',x.des,String(x.q),x.pu.toLocaleString('pt-PT',{minimumFractionDigits:4,maximumFractionDigits:4})+(x.est?' *':''),eur2(x.total)]}))
+        .concat([{bold:true,cells:['Total terminais','','','',eur2(B.tTerm)]}]));}
   title('Disjuntores e diferenciais ABB');
   table([{t:'Tipo',w:28},{t:'Descrição / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
     B.prot.map(x=>({cells:[x.tipo,`${x.des}\n${x.ref}`,String(x.qty),eur2(x.pvp),eur2(x.total)]}))

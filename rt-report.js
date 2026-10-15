@@ -72,7 +72,7 @@ function reportPDF(R){
   const hdr=()=>{need(7);pdf.setFillColor(...RC.ink);pdf.rect(M,y,CW,6,'F');let x=M;cols.forEach(([t,w,a])=>{T(t,a?x+w-1.5:x+1.5,y+4.2,{fs:8,b:1,c:[255,255,255],a:a?'r':undefined});x+=w;});y+=6;};
   hdr();
   all.forEach((c,i)=>{const o=c.res,v=verdict(c);const cd=o?cableDwg(c).replace(/^Cabo /,''):'—';
-    const cells=[c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome,n1(c.p),n1(c.Ib),cd,o?String(o.In):'—',o?n2(o.du):'—',v.st==='ok'?'OK':`A rever: ${v.why}`];
+    const cells=[(c.code?c.code+' · ':'')+(c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome),n1(c.p),n1(c.Ib),cd,o?String(o.In):'—',o?n2(o.du):'—',v.st==='ok'?'OK':`A rever: ${v.why}`];
     const ls=cells.map((t,j)=>wrap(t,cols[j][1]-3,{fs:7.8}));const h=Math.max(...ls.map(l=>l.length))*lh(7.8)+2.2;
     if(y+h>BOT){pdf.addPage('a4','portrait');y=TOP;hdr();}
     if(v.st!=='ok'){pdf.setFillColor(...RC.redS);pdf.rect(M,y,CW,h,'F');}else if(i%2){pdf.setFillColor(...RC.soft);pdf.rect(M,y,CW,h,'F');}
@@ -83,7 +83,7 @@ function reportPDF(R){
   const circ=c=>{const o=c.res,v=verdict(c),r=c.r,mode=MODE[r.ref],ti=c.ti;
     y+=1;
     pdf.setFillColor(...RC.ink);pdf.rect(M,y,CW,7.5,'F');
-    T(c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome,M+2.5,y+5.1,{fs:10,b:1,c:[255,255,255]});
+    T((c.code?c.code+' · ':'')+(c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome),M+2.5,y+5.1,{fs:10,b:1,c:[255,255,255]});
     const pill=v.st==='ok'?'OK':'A rever';pdf.setFillColor(...(v.st==='ok'?RC.acc:RC.red));const pw=width(pill,{fs:8,b:1})+6;pdf.roundedRect(M+CW-pw-2,y+1.4,pw,4.7,1.2,1.2,'F');
     T(pill,M+CW-2-pw/2,y+4.75,{fs:8,b:1,a:'c',c:v.st==='ok'?RC.ink:[255,255,255]});y+=7.5;
     const sub=[c.kind==='inv'?c.modelo:`${c.nInv} inversor${c.nInv===1?'':'es'} a montante`,`${n1(c.p)} kW`,c.fases===1?'monofásico 230 V':'trifásico 400 V',

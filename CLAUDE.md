@@ -16,6 +16,7 @@ node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "
 node tests/relatorio.js               # relatório de cálculo PDF (botão) para o exemplo e o caso sem secção: tests/relatorio_*.pdf e _pN.png
 node tests/dxf.js                     # unifilar em DXF: estrutura R12 e comparação visual com o SVG
 node tests/poder_corte.js             # poder de corte: não verificado por omissão; PT 2500 kVA → E1.2 42 kA a rever
+node tests/mapa_cabos.js              # identificação C1…Cn, mapa de cabos Excel/PDF e etiquetas
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
 node tests/aprovacao.js               # aprovar, só de leitura, estado até concluído, nova revisão, versões
 node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
@@ -32,7 +33,8 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-engine.js` — motor de cálculo, sem DOM: constantes, `GWDB`, `example()`, fatores, `izBase`, `calc()` (Iz, In, ΔU), topologia, `solve()` (otimizador), `solveAll()`, `condSizes`, `cableParts`. Lê o estado global `S`. Testado em Node por `tests/engine.test.js` (carregado com `tests/engine-env.js`).
 - `rt-app.js` — interface: estado `S` e `localStorage`, tabelas, `render()`, popup "Novo quadro", tipos de quadro.
 - `rt-sc.js` — escada de disjuntores ABB (`BRK` de `brk.json`) e curto-circuito (desligado na interface, código mantido).
-- `rt-price.js` — preços de cabo (`jmm/prices.json`, compras 2026 JMM + Indusmelec).
+- `rt-price.js` — preços de cabo e de terminais (`jmm/prices.json`, compras 2026 JMM + Indusmelec, a mais recente; secções sem compra interpoladas e marcadas "estimado"). Terminais (`termLines`/`termCost`): nas duas pontas, por conjunto em paralelo um por fase e um no neutro, mais um de terra; cobre = terminal de cravar, alumínio = bimetálico Cu/Al; multicondutores com ponteiras, não contadas. Entram em `R.termTot`, no orçamento (secção Terminais) e na comparação "Mais barato e também cumpre" (cabo + terminais).
+- `rt-cmap.js` — mapa de cabos para a obra: identificação `c.code` (C1…Cn, atribuída em `solveAll` pela ordem da tabela) que aparece também na tabela, no unifilar, no relatório e no orçamento; Excel e PDF (código, origem, destino, cabo, comprimento e "a prever" com folga, passagem, disjuntor, ΔU) e etiquetas PDF (2 por cabo, folha A4 de 24, 70 × 37 mm).
 - `rt-sld.js` — esquema unifilar SVG e exportação SVG/PNG/PDF.
 - `rt-report.js` — relatório de cálculo em PDF (botão "Relatório de cálculo (PDF)" no topo): identificação, dados gerais, quadro resumo, cálculo de cada circuito (modo e quadro RTIEBT, fatores, Iz, In, I₂, ΔU, cabo, disjuntor), circuitos a rever e o unifilar em A3. Texto vetorial jsPDF; Δ, φ, ≤, → na fonte Symbol (Helvetica só tem Latin-1).
 - `rt-bom.js` — lista de materiais e orçamento (`bomData`: cabos por função/secção com o modelo de `costPerM`, total = `costTot`; proteções ABB como `brkTot`; composição dos quadros de `boardFor`). Exporta .xlsx gerado à mão (zip sem compressão, sem biblioteca nem rede) e PDF com jsPDF. Botões `data-bom` nos separadores Cabos AC e Quadros.

@@ -225,16 +225,19 @@ function solve(zf){
   const pdu=new Map();pC.forEach(c=>pdu.set(c.base,Math.max(pdu.get(c.base)||0,(c.res||{}).du||0)));
   const accWith=(c,du)=>{if(c.kind==='inv')return [du+c.path.reduce((a,p)=>a+pdu.get(p),0)];
     return invC.filter(q=>q.path.includes(c.ref)).map(q=>((q.res||{}).du||0)+q.path.reduce((a,p)=>a+(p===c.ref?du:pdu.get(p)),0));};
-  all.forEach(c=>{c.cost=null;c.alt=null;if(!c.res)return;const k=costPerM(c.res,c.loaded);if(!k)return;c.cost={v:k.p*c.Lc,est:k.est};
+  /* a comparação conta cabo + terminais (o alumínio leva bimetálicos; mais cabos em paralelo, mais terminais) */
+  all.forEach(c=>{c.cost=null;c.alt=null;c.term=null;if(!c.res)return;const k=costPerM(c.res,c.loaded);if(!k)return;c.cost={v:k.p*c.Lc,est:k.est};
+    c.term=termCost(c.res,c.loaded);const cur=c.cost.v+(c.term?c.term.v:0);
     let best=null;
     for(const mat of ['Cu','Al'])for(const cons of (mat==='Al'?['mono']:['mono','multi']))for(let n=1;n<=3;n++)for(const s of SECS){
       if(mat==='Al'&&s<16)continue;if(n>1&&s<70)continue;if(cons==='multi'&&n>1)continue;
       const o={n,s,mat,cons};if(!izBase({...c.r,cons},mat,s,c.loaded))continue;
       const x=calc(c,o);if(!passes(x)||x.du>S.limT+1e-9)continue;
-      const q=costPerM(o,c.loaded);if(!q)continue;const v=q.p*c.Lc;if(!best||v<best.v)best={v,est:q.est,o:x};}
-    if(best&&best.v<c.cost.v*0.97&&c.cost.v-best.v>=10&&!(best.o.n===c.res.n&&best.o.s===c.res.s&&best.o.mat===c.res.mat&&best.o.cons===c.res.cons))c.alt=best;});
+      const q=costPerM(o,c.loaded);if(!q)continue;const t=termCost(o,c.loaded);const v=q.p*c.Lc+(t?t.v:0);
+      if(!best||v<best.v)best={v,est:q.est||!!(t&&t.est),o:x};}
+    if(best&&best.v<cur*0.97&&cur-best.v>=10&&!(best.o.n===c.res.n&&best.o.s===c.res.s&&best.o.mat===c.res.mat&&best.o.cons===c.res.cons))c.alt=best;});
   all.forEach(c=>{c.noFitMsg=c.noFit?noFitMsg(c):null;});
-  return {invC,pC,costTot:all.reduce((a,c)=>a+(c.cost?c.cost.v:0),0),costEst:all.some(c=>c.cost&&c.cost.est),Ptot:invC.reduce((a,c)=>a+c.p,0),IbTot:invC.reduce((a,c)=>a+(c.fases===1?c.Ib/3:c.Ib),0)};
+  return {invC,pC,costTot:all.reduce((a,c)=>a+(c.cost?c.cost.v:0),0),termTot:all.reduce((a,c)=>a+(c.term?c.term.v:0),0),costEst:all.some(c=>c.cost&&c.cost.est),Ptot:invC.reduce((a,c)=>a+c.p,0),IbTot:invC.reduce((a,c)=>a+(c.fases===1?c.Ib/3:c.Ib),0)};
 }
 
 /* ---------- render ---------- */
@@ -270,6 +273,8 @@ function solveAll(){
   if(S.sc&&S.sc.on!==false){let sig='';for(let k=0;k<5;k++){R=solve(nodeZ(R.pC));const s2=R.pC.map(c=>c.res?c.res.n+'x'+c.res.s+c.res.mat:'').join();if(s2===sig)break;sig=s2;}}
   const z=srcZ();R.ikSrc=1.05*400/(Math.sqrt(3)*zabs(z.max))/1000;
   applyIcu(R);
+  /* identificação dos cabos (mapa de cabos, unifilar, relatório, orçamento): ordem da tabela de resultados */
+  R.invC.concat(R.pC).forEach((c,i)=>{c.code='C'+(i+1);});
   R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0);
   return R;
 }

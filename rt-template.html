@@ -179,6 +179,7 @@ button.pri:hover{border-color:#2DB327;background:#2DB327}
 .eqimport{border:1px dashed var(--line,#ccd);border-radius:6px;padding:10px 12px;margin:10px 0;display:grid;gap:6px} .eqimport .file{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .lockbar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;background:var(--ok-soft);color:var(--ink);border:1px solid var(--ok);border-radius:6px;padding:8px 12px;margin:10px 0 0;font-size:13px}
 .obrarev{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-top:10px}
+.ccode{display:inline-block;min-width:26px;font-family:var(--mono,monospace);color:var(--accent-ink)}
 .pjtools{display:flex;flex-wrap:wrap;gap:10px;align-items:end} .pjtools .pjsearch{flex:1 1 260px}
 .fields.obra{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .spec{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;font-size:11.5px;color:var(--muted)}
@@ -303,7 +304,7 @@ tr.cur td{background:var(--accent-soft)}
 </section>
 
 <section class="panel">
-  <div class="panel-head"><h2>Cabos e disjuntores sugeridos</h2><span class="hint" id="sumline"></span><div class="actions"><button data-bom="xlsx">Orçamento Excel</button><button data-bom="pdf" class="pri">Orçamento PDF</button></div></div>
+  <div class="panel-head"><h2>Cabos e disjuntores sugeridos</h2><span class="hint" id="sumline"></span><div class="actions"><button data-cmap="xlsx" title="Lista de cabos para a obra, com a identificação do unifilar">Mapa de cabos Excel</button><button data-cmap="pdf">Mapa de cabos PDF</button><button data-cmap="lbl" title="Duas etiquetas por cabo, folha A4 de 24 (70 × 37 mm)">Etiquetas</button><button data-bom="xlsx">Orçamento Excel</button><button data-bom="pdf" class="pri">Orçamento PDF</button></div></div>
   <div class="tablewrap">
     <table>
       <thead><tr><th>Circuito</th><th class="r">P <span class="u">kW</span></th><th class="r">Ib <span class="u">A</span></th><th>Cabo sugerido</th><th>Disjuntor</th><th class="r">Iz corrigida</th><th class="r">ΔU troço <span class="u">V · %</span></th><th class="r">Custo cabo</th><th>Secção</th><th>Estado</th></tr></thead>

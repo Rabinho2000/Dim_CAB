@@ -169,6 +169,29 @@ test('poder de corte insuficiente: circuito a rever, sem mudar o disjuntor, e in
   const c=E.solve().invC[0].res;assert.equal(c.icuOk,false);assert.ok(c.icuAlt&&c.icuAlt.icu>=c.ikmax,`indica ${c.icuAlt&&c.icuAlt.name}`);
 });
 
+test('identificação dos cabos: C1…Cn pela ordem da tabela',()=>{
+  const R=engine().solve();assert.deepEqual([...R.invC.concat(R.pC).map(c=>c.code)],['C1','C2','C3','C4','C5','C6']);
+});
+
+test('terminais: duas pontas, fases + neutro por conjunto e um de terra; bimetálicos no alumínio',()=>{
+  const E=engine();const tl=(o,l)=>JSON.parse(E.ev(`JSON.stringify(termLines(${JSON.stringify(o)},${l}))`));
+  assert.deepEqual(tl({n:3,s:240,mat:'Al',cons:'mono'},3),[{mat:'Al',s:240,q:18},{mat:'Al',s:120,q:8}],'3×240 Al: 18 de 240 e 8 de 120 (3 neutros + terra)');
+  assert.deepEqual(tl({n:1,s:120,mat:'Al',cons:'mono'},3),[{mat:'Al',s:120,q:6},{mat:'Al',s:70,q:4}]);
+  assert.deepEqual(tl({n:1,s:10,mat:'Cu',cons:'mono'},3),[{mat:'Cu',s:10,q:10}],'neutro e terra iguais à fase: tudo na mesma secção');
+  assert.deepEqual(tl({n:1,s:10,mat:'Cu',cons:'multi'},3),[],'multicondutor: ponteiras, não contadas');
+  /* preço comprado (Al 120 = 5,4225 €, compra 2026) e interpolado (Al 95, entre 70 e 120) */
+  const c120=E.ev(`termCost({n:1,s:120,mat:'Al',cons:'mono'},3)`),p70=E.ev(`pricePer('Al','term',70).p`),p120=E.ev(`pricePer('Al','term',120).p`);
+  assert.ok(Math.abs(c120.v-(6*p120+4*p70))<1e-9);assert.equal(p120,5.4225);
+  const p95=E.ev(`pricePer('Al','term',95)`);assert.equal(p95.est,true);assert.ok(p95.p>p70&&p95.p<p120);
+  const R=E.solve();const sum=R.invC.concat(R.pC).reduce((a,c)=>a+(c.term?c.term.v:0),0);assert.ok(Math.abs(R.termTot-sum)<1e-9&&R.termTot>0);
+});
+
+test('alternativa mais barata conta cabo + terminais',()=>{
+  const R=engine().solve();
+  for(const c of R.invC.concat(R.pC))if(c.alt){const cur=c.cost.v+(c.term?c.term.v:0);
+    assert.ok(c.alt.v<cur*0.97&&cur-c.alt.v>=10,`${c.code}: ${c.alt.v.toFixed(2)} vs ${cur.toFixed(2)}`);}
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

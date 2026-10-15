@@ -45,6 +45,11 @@ function pricesFromSheets(sh){
   const R=rows.filter(x=>x[4].getUTCFullYear()>=2026),desc={};
   R.forEach(([f,ref,d])=>{if(d.toUpperCase().includes('CABO')&&d.trim().length>6)desc[ref]=d;});
   const parse=(ref,d)=>{d=(d.trim().length<=6?(desc[ref]??d):d).toUpperCase().replace(/,/g,'.');let m;
+    /* terminais (como mkprice.py): bimetálicos Cu/Al e de cravar em cobre; fora mangas, ponteiras isoladas e ferramentas */
+    if(/TERM|BIMET/.test(d)&&!/TERMOR|AISL|PONTEIR|MATRIZ/.test(d)){
+      if((m=d.match(/\bC\dAU(\d+)\b|BIMET\w*\s+(\d+)|\bTBF\s*(\d+)|CAUBT(\d+)/)))return ['Al','term',+m.slice(1).find(g=>g)];
+      if((m=d.match(/\b(\d{2,3})[-\/]\d{1,2}(?:MS)?\b/))&&d.includes('TERM'))return ['Cu','term',+m[1]];
+      return null;}
     if(/H07V-K.*\bV\/A|FV 6 .*VD\/AM/.test(d)){m=d.match(/(\d+(?:\.\d+)?) (?:V\/A|LIVRE)/);return m?['Cu','pe',+m[1]]:null;}
     if((m=d.match(/\bLXV(?:\/XZ1)? 1X(\d+)/)))return ['Al','mono',+m[1]];
     if((m=d.match(/\b(?:RZ1-K|XV|RV-?K|XZ1)\s+1X(\d+(?:\.\d+)?)/)))return ['Cu','mono',+m[1]];
@@ -52,7 +57,9 @@ function pricesFromSheets(sh){
     return null;};
   const best=new Map();
   R.forEach(([f,ref,d,p,dt])=>{const k=parse(ref,d);if(!k)return;const key=k.join('|'),o=best.get(key);
-    if(!o||dt>o.dt)best.set(key,{k,p,dt,ref,des:(desc[ref]??d).trim(),f});});
+    let des=(desc[ref]??d).trim();
+    if(k[1]==='term')des=des.split(/\r?\n/).map(l=>l.trim()).find(l=>/TERM|BIMET/i.test(l))??des;   /* guias de transporte com várias linhas */
+    if(!o||dt>o.dt)best.set(key,{k,p,dt,ref,des,f});});
   const cmp=(a,b)=>a<b?-1:a>b?1:0;
   return [...best.values()].sort((a,b)=>cmp(a.k[0],b.k[0])||cmp(a.k[1],b.k[1])||a.k[2]-b.k[2])
     .map(v=>[v.k[0],v.k[1],v.k[2],Math.round(v.p*1e4)/1e4,v.dt.toISOString().slice(0,10),v.ref,v.des,v.f]);
