@@ -1,14 +1,14 @@
 /* ---------- resumo dos projetos da equipa e acompanhamento em obra (separador Projetos) ---------- */
 const TSTEPS=[['lan','Lançado'],['lig','Ligado'],['ens','Ensaiado']];
-/* resumo: por estado, nº de projetos, kW AC, kWp DC e custo por kW (dos projetos guardados com custo) */
+/* resumo: por estado, nº de projetos, kW AC e custo por kW (dos projetos guardados com custo) */
 function renderSummary(){
   const box=$('#pj-sum');if(!box)return;if(!PROJ.length){box.innerHTML='';return;}
-  const by=ESTADOS.map(([k,l,cls])=>{const L=PROJ.filter(p=>(p.estado||'rascunho')===k);return {k,l,cls,n:L.length,P:L.reduce((a,p)=>a+(+p.P||0),0),kwp:L.reduce((a,p)=>a+(+p.kwp||0),0)};});
+  const by=ESTADOS.map(([k,l,cls])=>{const L=PROJ.filter(p=>(p.estado||'rascunho')===k);return {k,l,cls,n:L.length,P:L.reduce((a,p)=>a+(+p.P||0),0)};});
   const wc=PROJ.filter(p=>+p.custo>0&&+p.P>0),cpk=wc.length?wc.reduce((a,p)=>a+ +p.custo,0)/wc.reduce((a,p)=>a+ +p.P,0):null,mx=Math.max(1,...by.map(x=>x.P));
-  box.innerHTML=`<div class="sumgrid">${by.map(x=>`<div class="sumcard"><span class="pill ${x.cls}">${x.l}</span><b>${x.n}</b><small>${fmt(x.P,0)} kW AC${x.kwp?` · ${fmt(x.kwp,0)} kWp DC`:''}</small><i style="width:${Math.round(100*x.P/mx)}%"></i></div>`).join('')}
+  box.innerHTML=`<div class="sumgrid">${by.map(x=>`<div class="sumcard"><span class="pill ${x.cls}">${x.l}</span><b>${x.n}</b><small>${fmt(x.P,0)} kW AC</small><i style="width:${Math.round(100*x.P/mx)}%"></i></div>`).join('')}
     <div class="sumcard"><span class="pill neu">Total</span><b>${PROJ.length}</b><small>${fmt(by.reduce((a,x)=>a+x.P,0),0)} kW AC${cpk!=null?` · ${fmt(cpk,0)} €/kW (cabos, proteções e quadros; ${wc.length} projeto${wc.length===1?'':'s'})`:''}</small></div></div>`;
 }
-/* acompanhamento: uma linha por cabo (C… do AC, D… do DC) com lançado / ligado / ensaiado, quem e quando */
+/* acompanhamento: uma linha por cabo (C1…Cn) com lançado / ligado / ensaiado, quem e quando */
 /* com o projeto na equipa, as marcas vêm da versão mais recente da equipa (outras pessoas marcam em obra ao mesmo tempo) */
 function trackState(){obraDef();
   if(DBX&&DBX.versioned&&CUR){const p=PROJ.find(q=>q.id===CUR);const t=p&&p.s&&p.s.obra?p.s.obra.track:undefined;

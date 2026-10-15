@@ -18,7 +18,6 @@ node tests/dxf.js                     # unifilar em DXF: estrutura R12 e compara
 node tests/poder_corte.js             # poder de corte: não verificado por omissão; PT 2500 kVA → E1.2 42 kA a rever
 node tests/mapa_cabos.js              # identificação C1…Cn, mapa de cabos Excel/PDF e etiquetas
 node tests/comparar.js                # comparar alternativas sem mexer no projeto; aplicar
-node tests/dc.js                      # Strings DC: sugestão, erros, fusíveis, orçamento, mapa de cabos e relatório
 node tests/avisos.js                  # Hager nos Quadros, esteiras, ΔU acumulada, seletividade, proteção de interface
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
 node tests/partilha_mock.js           # modo claude.ai simulado: projetos, equipamentos, gateway, descargas
@@ -36,7 +35,6 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-template.html` — página, CSS (cores Solcor: verde #38D430, tinta #1A2028; fontes Syne / DM Sans / JetBrains Mono; fundo claro, faixa escura com o logótipo) e separadores. `rt-panes.html` — separadores Esquema unifilar, Quadros, Equipamentos, Projetos.
 - `rt-data.js` — tabelas RTIEBT (52-C1…C4, C9…C14, C30, D1, D2, E1…E6), modos de instalação 52H com imagens, `INVDB` (inversores, com dados DC), `PANELDB`.
 - `rt-engine.js` — motor de cálculo, sem DOM: constantes, `GWDB`, `example()`, fatores, `izBase`, `calc()` (Iz, In, ΔU), topologia, `solve()` (otimizador), `solveAll()`, `condSizes`, `cableParts`. Lê o estado global `S`. Testado em Node por `tests/engine.test.js` (carregado com `tests/engine-env.js`).
-- `rt-dc.js` — motor do lado DC, sem DOM (`solveDC`, estado `S.dc`): strings por MPPT (`arr`: índice do inversor `ii`, MPPT, módulo, módulos por string, strings em paralelo, distância). Verifica Voc a T mín. ≤ Vmax (erro), Vmp a quente/frio na gama MPP (aviso), strings ≤ entradas por MPPT e Isc ≤ Isc máx. (erro), Imp ≤ Imax (aviso: corte de potência). Fusíveis gPV quando (Np−1)·1,25·Isc > fusível máx. do módulo. Cabo solar H1Z2Z2-K por queda de tensão (ΔU DC máx., 1,5 % por omissão) e corrente 1,25·Isc com o quadro do cobre XLPE de 2 condutores carregados (não há quadro RTIEBT para o cabo solar; em E/F abaixo de 25 mm² usa a coluna E, como o AC). `rt-dcui.js` — separador Strings DC (sugestão com DC/AC ≈ 1,2). O lado DC entra no orçamento (cabo solar e fusíveis), no mapa de cabos (D1…Dn) e no relatório (secção 3.1).
 - `rt-app.js` — interface: estado `S` e `localStorage`, tabelas, `render()`, popup "Novo quadro", tipos de quadro.
 - `rt-sc.js` — escada de disjuntores ABB (`BRK` de `brk.json`) e curto-circuito (desligado na interface, código mantido).
 - `rt-price.js` — preços de cabo e de terminais (`jmm/prices.json`, compras 2026 JMM + Indusmelec, a mais recente; secções sem compra interpoladas e marcadas "estimado"). Terminais (`termLines`/`termCost`): nas duas pontas, por conjunto em paralelo um por fase e um no neutro, mais um de terra; cobre = terminal de cravar, alumínio = bimetálico Cu/Al; multicondutores com ponteiras, não contadas. Entram em `R.termTot`, no orçamento (secção Terminais) e na comparação "Mais barato e também cumpre" (cabo + terminais).
@@ -49,7 +47,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `mkhager.py` gera `hager.json` (PVP das envolventes Orion plus de `ORION`) a partir da tabela Hager `cat/hager.xlsx` (2026); o build injeta-o em rt-board.js (`HAGER`, `envPrice`, desconto `S.descHager`). Preço no separador Quadros e secção "Envolventes dos quadros (Hager)" no orçamento (só a caixa; quadros existentes e gateways não contam).
 - `rt-tray.js` / `rt-trayui.js` — esteiras (só passagens E/F): largura numa só camada (trevo 2·D, esteira 3·D, afastamento 5·D por conjunto, mais neutro e terra; 1·D entre circuitos), 20 % de reserva, largura normalizada (100…600 mm), comprimento do troço comum. **Diâmetros exteriores típicos de catálogo (`DIAM`), não são da RTIEBT: estimativa a confirmar com o fornecedor.** Quadro "Esteiras" no separador Cabos AC e metros por largura no orçamento (sem preço).
 - Cópias de segurança (server.js): `VACUUM INTO` a cada `BACKUP_HOURS` (24) para `BACKUP_DIR` (backups/ junto à base), mantém `BACKUP_KEEP` (14); `GET /api/backup` só para `ADMINS`. Exportar/importar projetos `.json` (`projExport`/`projImport` em rt-share.js): importados entram como projeto novo, rascunho, revisão A, sem aprovação. Teste: `tests/exportar.js`.
-- `rt-track.js` — separador Projetos: resumo por estado (nº, kW AC, kWp DC, €/kW; ao guardar, o projeto leva `custo` e `kwp`) e "Acompanhamento em obra": cada cabo (C…, D…) lançado / ligado / ensaiado, com quem e quando, em `S.obra.track`. No servidor, `POST /api/projects/:id/track` funciona também numa revisão aprovada e não mexe no resto; as marcas vêm da versão mais recente da equipa (atualização a cada 4 s). Teste: `tests/obra.js`.
+- `rt-track.js` — separador Projetos: resumo por estado (nº, kW AC, €/kW; ao guardar, o projeto leva `custo`) e "Acompanhamento em obra": cada cabo (C1…Cn) lançado / ligado / ensaiado, com quem e quando, em `S.obra.track`. No servidor, `POST /api/projects/:id/track` funciona também numa revisão aprovada e não mexe no resto; as marcas vêm da versão mais recente da equipa (atualização a cada 4 s). Teste: `tests/obra.js`.
 - `rt-templates.js` — botão "Novo projeto" (antes "Repor exemplo"): modelos de topologia (`TPL`: exemplo de origem, QFV direto ao cliente, gateway C&I, residencial trifásico com gateway, residencial monofásico). Teste: `tests/modelos.js`.
 - `rt-compare.js` — janela "Comparar alternativas" (Cabos AC): `variants()` em rt-engine.js calcula com `solveProject` o projeto atual e variantes (sempre cobre, sempre alumínio, uma esteira por inversor, inversores em tubo 3A, ΔU 2 %) e `summarize` dá cabos + terminais, proteções, total, ΔU máx., cabos diferentes, circuitos a rever; "Aplicar" troca o projeto aberto (não grava). Teste: `tests/comparar.js`.
 - `solveProject(estado)` (rt-engine.js) calcula outro projeto sem mexer no aberto (cópia do estado; S reposto mesmo com erro). O resto do motor continua a ler `S`.
@@ -64,6 +62,8 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `fontes/` — Excel original, quadros tipo e os dois DWG de esquemas unifilares de referência.
 
 ## Regras de dimensionamento (definidas pelo utilizador — não alterar sem pedir)
+
+- **A ferramenta é só para cabos AC** (decisão do utilizador, out. 2026): sem lado DC (strings, cabo solar, fusíveis gPV). Um separador "Strings DC" chegou a ser feito e foi retirado a pedido; não voltar a propor.
 
 - Material automático: alumínio só se distância > 15 m **e** potência > 30 kW (editáveis); alumínio sempre monocondutor e nunca abaixo de 16 mm².
 - No máximo 3 cabos por fase. Preferir o menor nº de cabos por fase e, depois, a menor secção.
@@ -92,9 +92,6 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 
 ## Pendentes / a confirmar com o utilizador
 
-- Dados DC do inversor Sigen PV 150 M1 (marcado "a confirmar"; o separador Strings DC diz que faltam).
-- Na base de inversores, confirmar se "Imax MPPT" é por MPPT ou por entrada (ex.: SUN2000-150K-MG0 tem 23 A com 3 entradas e Isc 66 A; SUN2000-100KTL-M2 tem 20 A com 2 entradas). Hoje só dá aviso de corte de potência.
-- Não há preços de cabo solar (família "Solar H1Z2Z2-K") nem de fusíveis gPV: o orçamento DC sai com as quantidades e "sem preço" até se acrescentarem em Equipamentos.
 - Nº de entradas do HomePro TP; calibres internos dos gateways além do C60-2.
 - Contador com gateway e vários inversores (hoje: indireto com TI por circuito).
 - Métodos B e B2 (quadros 52-C1…C4, 52-C13/C14) só têm valores até 120 mm² na RTIEBT (confirmado na folha Excel; não extrapolar). Sem secção que cumpra, o motor mostra a opção de maior Iz e `noFitMsg` explica o limite e sugere outra passagem (decisão do utilizador, out. 2026).

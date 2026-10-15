@@ -1,5 +1,5 @@
 /* ---------- relatório de cálculo em Word (.docx), editável: o mesmo conteúdo do PDF (idRows, critRows, REPORT_NOTES, circRows
-   de rt-report.js, solveDC de rt-dc.js) e o unifilar como imagem. Office Open XML num zip sem compressão (zipStore de rt-bom.js). ---------- */
+   de rt-report.js) e o unifilar como imagem. Office Open XML num zip sem compressão (zipStore de rt-bom.js). ---------- */
 const DX=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* parágrafo: texto com \n → quebra de linha; o: {style, b, sz (meios-pontos), color, i, align, keep} */
 function dP(text,o={}){
@@ -28,15 +28,6 @@ async function reportDocx(R){
   B.push(dT([['Circuito','P kW','Ib A','Cabo','In A','ΔU %','Estado']].concat(all.map(c=>{const o=c.res,v=verdict(c);
     return [(c.code?c.code+' · ':'')+(c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome),{t:n1(c.p),a:'right'},{t:n1(c.Ib),a:'right'},o?cableDwg(c).replace(/^Cabo /,''):'—',{t:o?String(o.In):'—',a:'right'},{t:o?n2(o.du):'—',a:'right'},
       v.st==='ok'?{t:'OK',b:1,color:'1E8A19'}:{t:`A rever: ${v.why}`,b:1,color:'BF3328'}];})),[2600,800,800,2700,700,700,1300],{head:true,zebra:true}));
-  const D=typeof solveDC==='function'?solveDC():null;
-  if(D&&D.rows.length){H2('3.1 Lado DC (strings)');
-    Pm(`Voc à temperatura mínima (${fs(D.D.tmin)} °C) e Vmp à temperatura da célula a quente (${fs(D.D.tcell)} °C). Cabo solar H1Z2Z2-K por string (+ e −): corrente de projeto 1,25 × Isc; corrente admissível pelo quadro RTIEBT do cobre XLPE com 2 condutores carregados (do lado da segurança). ΔU DC máx. ${fs(D.D.lim)} %.`);
-    B.push(dT([['String','Módulos','Voc / máx. V','Isc / máx. A','Fusíveis','Cabo por string','ΔU %','Estado']].concat(D.rows.map(r=>{const d=r.inv||{},st=r.errs.length?'bad':r.warns.length?'warn':'ok';
-      return [`${r.code} · Inversor ${+r.a.ii+1} · MPPT ${r.a.mppt}\n${r.a.pan||''}`,r.pdc?`${r.ns} × ${r.np}\n${n1(r.pdc)} kWp`:'—',r.voc?`${n0(r.voc)} / ${d.vmax}`:'—',r.voc?`${n1(r.isc)} / ${d.isc||'—'}`:'—',
-        r.fuse?`gPV ${r.fuse.In} A × ${r.fuse.n}`:'—',r.cab&&r.voc?`2 × 1×${fs(r.cab.s)} mm², ${n0(r.cab.L)} m`:'—',r.cab&&r.voc?n2(r.cab.du):'—',
-        {t:st==='bad'?'A rever':st==='warn'?'Aviso':'OK',b:1,color:st==='bad'?'BF3328':st==='warn'?'B06E00':'1E8A19'}];})),[2100,1100,1100,1100,1100,1700,600,800],{head:true,zebra:true}));
-    const msgs=new Map();D.rows.forEach(r=>r.errs.concat(r.warns).forEach(m=>{(msgs.get(m)||msgs.set(m,[]).get(m)).push(r.code);}));
-    msgs.forEach((cs,m)=>B.push(dP(`${cs.join(', ')}: ${m}`,{sz:17,color:'B06E00'})));}
   H1('4. Cálculo por circuito');
   all.forEach(c=>{const X=circRows(c),v=verdict(c);
     H2(`${c.code?c.code+' · ':''}${c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome} — ${v.st==='ok'?'OK':'A rever'}`);Pm(X.sub);

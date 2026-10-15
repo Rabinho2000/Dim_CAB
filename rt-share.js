@@ -16,7 +16,7 @@ function rebuildEquip(){
   const mp=new Map(PANELDB.map(d=>[d.modelo,{...d}]));CUST.pan.forEach(d=>mp.set(d.modelo,{...d,_c:true}));PANALL=[...mp.values()];
   {const mg=new Map(GWDB.map(d=>[d.modelo,d]));CUST.gw.forEach(d=>mg.set(d.modelo,{...d,_c:true}));GWALL=[...mg.values()];}renderGwTable();
   rebuildPrices(CUST.pr.map(d=>[d.mat,d.form,+d.s,+d.p,d.data,d.ref||'',d.des||'',d.forn||'Equipa']));
-  renderPrices();renderInvTable();render();if(TAB==='dc')renderDC();renderEq();
+  renderPrices();renderInvTable();render();renderEq();
 }
 const INVF=[['marca','Marca','t'],['modelo','Modelo','t'],['pnom','Pnom (kW)'],['pmax','Smax (kVA)'],['iac','Iac nom. (A)'],['iacmax','Iac máx. (A)'],['fases','Fases (1 ou 3)'],['mppt','Nº MPPT'],['cc','Entradas/MPPT'],['imax','Imax MPPT (A)'],['isc','Isc MPPT (A)'],['vmax','Vmax DC (V)'],['vstart','V arranque (V)'],['vmppmin','MPP mín. (V)'],['vmppmax','MPP máx. (V)']];
 const PANF=[['marca','Marca','t'],['modelo','Modelo','t'],['pmax','Pmax (W)'],['vmp','Vmp (V)'],['imp','Imp (A)'],['voc','Voc (V)'],['isc','Isc (A)'],['kvoc','kVoc (%/°C)'],['kisc','kIsc (%/°C)'],['kp','kP (%/°C)'],['ef','Eficiência (%)']];
@@ -152,9 +152,9 @@ async function projSave(asNew,force,opt={}){
   syncObra();
   if(asNew){S.obra.aprov=null;S.obra.rev='A';if(POS.includes(S.obra.estado))S.obra.estado='rascunho';}
   else if(isLocked()&&!opt.newRev)return lockedDlg();
-  /* para o resumo dos projetos: custo (cabos + terminais + proteções + envolventes + DC) e potência DC */
-  let custo=null,kwp=null;try{const Bm=bomData(R);custo=Math.round(Bm.total);kwp=typeof solveDC==='function'?Math.round(solveDC().pdc*10)/10:null;}catch(e){}
-  const body={custo,kwp,nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,rev:S.obra.rev||'A',...(opt.approve?{lock:true}:{}),nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
+  /* para o resumo dos projetos: custo (cabos + terminais + proteções + envolventes) */
+  let custo=null;try{custo=Math.round(bomData(R).total);}catch(e){}
+  const body={custo,nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,rev:S.obra.rev||'A',...(opt.approve?{lock:true}:{}),nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
   try{if(CUR&&!asNew){const old=PROJ.find(p=>p.id===CUR);if(old&&old.autor)body.autor=old.autor;body.edit=ME;
       /* no servidor próprio, grava só se ninguém tiver gravado depois da versão aberta (salvo "substituir") */
       const o=DBX.versioned?{...(CURUPD&&!force?{ifMatch:CURUPD}:{}),...(opt.newRev?{newRevision:true}:{})}:undefined;

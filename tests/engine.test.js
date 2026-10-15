@@ -218,46 +218,6 @@ test('solveProject: calcula outro projeto sem mexer no aberto',()=>{
   assert.throws(()=>E.ev(`solveProject({invs:null})`));assert.equal(JSON.stringify(E.S()),before,'mesmo com erro, S é reposto');
 });
 
-/* lado DC: inversor 1 do exemplo (SUN2000-100KTL-M2: 1100 V, MPP 200–1000 V, 2 entradas e Isc 40 A por MPPT) e o módulo RSM144-9-545M */
-const dcRun=(arr,extra={})=>{const E=engine();E.set({dc:{...extra,arr}});return {E,R:E.ev('solveDC()')};};
-const PAN='RSM144-9-545M';
-
-test('DC: tensões corrigidas pela temperatura e gama de módulos por string',()=>{
-  const {E,R}=dcRun([{ii:0,mppt:1,pan:PAN,nser:20,npar:2,L:50}]);const r=R.rows[0],p=E.ev(`PANALL.find(x=>x.modelo==='${PAN}')`);
-  const kv=p.kvoc/100;
-  assert.ok(Math.abs(r.voc-20*p.voc*(1+kv*(-3-25)))<1e-9,'Voc a −3 °C');assert.ok(Math.abs(r.vmpHot-20*p.vmp*(1+kv*(70-25)))<1e-9,'Vmp a 70 °C');
-  assert.equal(r.nMax,Math.floor(1100/(p.voc*(1+kv*(-28)))));assert.equal(r.nMax,20);
-  assert.equal(r.errs.length,0);assert.ok(Math.abs(r.pdc-20*2*p.pmax/1000)<1e-9);
-});
-
-test('DC: erros de Voc, entradas, MPPT e Isc',()=>{
-  const {R}=dcRun([{ii:0,mppt:1,pan:PAN,nser:21,npar:1,L:30},{ii:0,mppt:11,pan:PAN,nser:20,npar:3,L:30},{ii:3,mppt:1,pan:'x',nser:20,npar:1,L:30}]);
-  assert.match(R.rows[0].errs.join(),/Voc a -3 °C = .* > 1100 V do inversor: no máximo 20 módulos/);
-  assert.match(R.rows[1].errs.join(),/MPPT 11 não existe/);assert.match(R.rows[1].errs.join(),/3 strings em paralelo > 2 entradas/);assert.match(R.rows[1].errs.join(),/Isc = .* > 40 A/);
-  assert.match(R.rows[2].errs.join(),/Escolhe o módulo/);assert.equal(R.bad,3);
-});
-
-test('DC: fusíveis só acima de 2 strings em paralelo, 1,5·Isc ≤ In ≤ fusível máx. do módulo',()=>{
-  const {R}=dcRun([{ii:2,mppt:1,pan:PAN,nser:18,npar:2,L:40},{ii:2,mppt:2,pan:PAN,nser:18,npar:3,L:40}]);
-  assert.equal(R.rows[0].fuse,null);assert.deepEqual({...R.rows[1].fuse},{In:25,n:6},'3 em paralelo: (3−1)×1,25×13,84 = 34,6 A > 25 A → gPV 25 A, 6 fusíveis (+ e −)');
-  const {R:R2}=dcRun([{ii:2,mppt:1,pan:PAN,nser:18,npar:3,L:40}],{ifuse:20});
-  assert.match(R2.rows[0].errs.join(),/Fusível de string impossível/,'1,5 × 13,84 = 20,8 A > 20 A do módulo');
-});
-
-test('DC: cabo pela queda de tensão e pela corrente (quadro do cobre XLPE, coluna E abaixo de 25 mm²)',()=>{
-  const {E,R}=dcRun([{ii:0,mppt:1,pan:PAN,nser:20,npar:2,L:60},{ii:0,mppt:2,pan:PAN,nser:20,npar:2,L:150}]);
-  const [a,b]=R.rows,p=E.ev(`PANALL.find(x=>x.modelo==='${PAN}')`);
-  assert.equal(a.cab.s,4);assert.ok(Math.abs(a.cab.du-2*0.0225*66*p.imp/4/(20*p.vmp)*100)<1e-9,'ΔU = 2·ρ·L′·Imp/S ÷ (n·Vmp)');
-  assert.equal(b.cab.s,10,'150 m: sobe para 10 mm² pela queda de tensão');assert.ok(b.cab.du<=1.5);
-  assert.equal(a.cab.q,'52-C11');assert.ok(Math.abs(a.cab.Ib-1.25*p.isc)<1e-9);assert.ok(a.cab.Iz>=a.cab.Ib);
-  assert.equal(a.cab.nAgr,4,'agrupamento: as strings do mesmo inversor');assert.ok(Math.abs(a.cab.m-2*2*66)<1e-9,'metros: + e − de cada string');
-});
-
-test('DC: sem passagem possível, a rever com explicação',()=>{
-  const {R}=dcRun([{ii:0,mppt:1,pan:PAN,nser:20,npar:2,L:400}]);
-  assert.match(R.rows[0].errs.join(),/ΔU DC .* > 1,5 % mesmo com 16 mm²/);
-});
-
 test('cos φ por inversor: entra na queda de tensão; nos percursos conta o menor a montante',()=>{
   const E=engine();const base=E.solve(),st=E.S();
   E.set({invs:st.invs.map((i,k)=>k===0?{...i,cos:0.9}:i),percs:st.percs});const R=E.solve();

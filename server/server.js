@@ -79,7 +79,7 @@ function createServer(opts={}){
       if(req.method==='POST'&&id&&m[3]==='track'&&col==='projects'){
         const body=await readBody(req);const old=db.get(col,id);if(!old)return send(res,404,{error:'not_found'});
         const code=String((body&&body.code)||''),step=body&&body.step;
-        if(!/^[CD]\d{1,4}$/.test(code)||!['lan','lig','ens'].includes(step))return send(res,400,{error:'invalid_argument'});
+        if(!/^C\d{1,4}$/.test(code)||!['lan','lig','ens'].includes(step))return send(res,400,{error:'invalid_argument'});
         const s=JSON.parse(JSON.stringify(old.data.s||{}));s.obra=s.obra||{};const tr=s.obra.track=s.obra.track||{};const t=tr[code]=tr[code]||{};
         if(body.done)t[step]={id:me.id,nome:me.name,em:new Date().toISOString()};else delete t[step];if(!Object.keys(t).length)delete tr[code];
         const data={...old.data,s,upd:new Date().toISOString(),edit:me.id};

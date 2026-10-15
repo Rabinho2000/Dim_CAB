@@ -110,31 +110,6 @@ function reportPDF(R){
     let x=M;ls.forEach((l,j)=>{const [,w,a]=cols[j];l.forEach((t,k)=>T(t,a?x+w-1.5:x+1.5,y+1.1+lh(7.8)*(k+0.8),{fs:7.8,a:a?'r':undefined,c:j===6?(v.st==='ok'?RC.accD:RC.red):RC.ink,b:j===6}));x+=w;});
     y+=h;pdf.setDrawColor(...RC.line);pdf.setLineWidth(0.15);pdf.line(M,y,M+CW,y);});
 
-  /* ----- 3.1 lado DC (strings), se houver ----- */
-  const DCR=typeof solveDC==='function'?solveDC():null;
-  if(DCR&&DCR.rows.length){
-    h2('3.1 Lado DC (strings)');
-    para(`Voc corrigido à temperatura mínima (${fs(DCR.D.tmin)} °C) e Vmp à temperatura da célula a quente (${fs(DCR.D.tcell)} °C) com o coeficiente kVoc do módulo. Cabo solar H1Z2Z2-K por string (+ e −): corrente de projeto 1,25 × Isc (IEC 60364-7-712); a corrente admissível usa o quadro RTIEBT do cobre XLPE com 2 condutores carregados (não há quadro para o cabo solar; do lado da segurança). ΔU DC máx. ${fs(DCR.D.lim)} %. Fusíveis gPV quando (strings em paralelo − 1) × 1,25 × Isc > ${DCR.D.ifuse} A (fusível máx. do módulo).`,{fs:8.6,c:RC.mut});y+=1.2;
-    const dc=[['String',36],['Módulos',19,'r'],['Voc / máx. V',21,'r'],['Isc / máx. A',21,'r'],['Fusíveis',21],['Cabo por string',36],['ΔU %',12,'r'],['Estado',14]];
-    const WARN=[176,110,0],msgs=new Map();
-    const dh=()=>{need(7);pdf.setFillColor(...RC.ink);pdf.rect(M,y,CW,6,'F');let x=M;dc.forEach(([t,w,a])=>{T(t,a?x+w-1.5:x+1.5,y+4.2,{fs:8,b:1,c:[255,255,255],a:a?'r':undefined});x+=w;});y+=6;};
-    dh();
-    DCR.rows.forEach((r,i)=>{const st=r.errs.length?'bad':r.warns.length?'warn':'ok',d=r.inv||{};
-      const cells=[`${r.code} · Inversor ${+r.a.ii+1} · MPPT ${r.a.mppt}\n${r.a.pan||''}`,r.pdc?`${r.ns} × ${r.np}\n${n1(r.pdc)} kWp`:'—',r.voc?`${n0(r.voc)} / ${d.vmax}`:'—',r.voc?`${n1(r.isc)} / ${d.isc||'—'}`:'—',
-        r.fuse?`gPV ${r.fuse.In} A\n× ${r.fuse.n}`:'—',r.cab&&r.voc?`2 × 1×${fs(r.cab.s)} mm², ${n0(r.cab.L)} m\nIz ${n0(r.cab.Iz)} A ≥ ${n1(r.cab.Ib)} A`:'—',r.cab&&r.voc?n2(r.cab.du):'—',st==='bad'?'A rever':st==='warn'?'Aviso':'OK'];
-      const ls=cells.map((t,j)=>String(t).split('\n').flatMap(s=>wrap(s,dc[j][1]-3,{fs:7.6})));const h=Math.max(...ls.map(l=>l.length))*lh(7.6)+2.2;
-      if(y+h>BOT){pdf.addPage('a4','portrait');y=TOP;dh();}
-      if(st==='bad'){pdf.setFillColor(...RC.redS);pdf.rect(M,y,CW,h,'F');}else if(i%2){pdf.setFillColor(...RC.soft);pdf.rect(M,y,CW,h,'F');}
-      let x=M;ls.forEach((l,j)=>{const [,w,a]=dc[j];l.forEach((t,k)=>T(t,a?x+w-1.5:x+1.5,y+1.1+lh(7.6)*(k+0.8),{fs:7.6,a:a?'r':undefined,c:j===7?(st==='bad'?RC.red:st==='warn'?WARN:RC.accD):RC.ink,b:j===7}));x+=w;});
-      y+=h;pdf.setDrawColor(...RC.line);pdf.setLineWidth(0.15);pdf.line(M,y,M+CW,y);
-      /* mensagens iguais juntam-se no fim da tabela, com as strings a que se aplicam */
-      r.errs.forEach(m=>{const g=msgs.get(m)||{err:true,codes:[]};g.codes.push(r.code);msgs.set(m,g);});
-      r.warns.forEach(m=>{const g=msgs.get(m)||{err:false,codes:[]};g.codes.push(r.code);msgs.set(m,g);});});
-    y+=1.5;const rng=cs=>cs.length>2&&cs.every((c,i)=>i===0||+c.slice(1)===+cs[i-1].slice(1)+1)?`${cs[0]}–${cs[cs.length-1]}`:cs.join(', ');
-    msgs.forEach((g,m)=>para(`${rng(g.codes)}: ${m}`,{fs:7.8,c:g.err?RC.red:WARN}));
-    y+=2;para(`Total: ${n1(DCR.pdc)} kWp DC · ${DCR.invs.map(g=>`Inversor ${g.ii+1}: DC/AC ${g.ratio!=null?n2(g.ratio):'—'}`).join(' · ')} · ${n0(DCR.metros)} m de cabo solar.`,{fs:8.4});
-  }
-
   /* ----- 4. cálculo por circuito ----- */
   const circ=c=>{const o=c.res,v=verdict(c),r=c.r,mode=MODE[r.ref],ti=c.ti;
     y+=1;

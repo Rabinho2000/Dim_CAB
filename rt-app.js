@@ -170,7 +170,7 @@ function bind(){
   const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
   [['icu-modo','modo'],['icu-icc','icc'],['icu-sn','sn']].forEach(([id,k])=>{const el=document.getElementById(id);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S.icu=Object.assign(example().icu,S.icu||{});S.icu[k]=k==='modo'?el.value:parseFloat(el.value);icuVis();render();});});
-  $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];S.dc.tmin=l[3];$('#tair').value=l[1];$('#tsoil').value=l[2];if(typeof renderDC==='function')renderDC();}render();});
+  $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];$('#tair').value=l[1];$('#tsoil').value=l[2];}render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
     if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='est')i.est=e.target.value.trim().toUpperCase();else if(k==='cos'){const v=parseFloat(e.target.value);i.cos=v>0?Math.min(Math.max(v,0.5),1):null;}else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
