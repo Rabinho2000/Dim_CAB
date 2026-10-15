@@ -17,6 +17,7 @@ node tests/relatorio.js               # relatório de cálculo PDF (botão) para
 node tests/dxf.js                     # unifilar em DXF: estrutura R12 e comparação visual com o SVG
 node tests/poder_corte.js             # poder de corte: não verificado por omissão; PT 2500 kVA → E1.2 42 kA a rever
 node tests/mapa_cabos.js              # identificação C1…Cn, mapa de cabos Excel/PDF e etiquetas
+node tests/comparar.js                # comparar alternativas sem mexer no projeto; aplicar
 node tests/dc.js                      # Strings DC: sugestão, erros, fusíveis, orçamento, mapa de cabos e relatório
 node tests/avisos.js                  # Hager nos Quadros, esteiras, ΔU acumulada, seletividade, proteção de interface
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
@@ -44,6 +45,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-bom.js` — lista de materiais e orçamento (`bomData`: cabos por função/secção com o modelo de `costPerM`, total = `costTot`; proteções ABB como `brkTot`; composição dos quadros de `boardFor`). Exporta .xlsx gerado à mão (zip sem compressão, sem biblioteca nem rede) e PDF com jsPDF. Botões `data-bom` nos separadores Cabos AC e Quadros.
 - `rt-dxf.js` — unifilar em DXF R12 (AC1009) para o AutoCAD, convertido do SVG de `sldSVG` (`svgToDxf`): 1 px = 0,2 mm, camadas UNIFILAR / TEXTO / TRACEJADO, barramentos como POLYLINE com espessura, setas como SOLID, texto em ASCII com `\U+XXXX`. Se acrescentares um tipo de elemento SVG ao unifilar, acrescenta-o aqui. Teste: `tests/dxf.js` (redesenha o DXF ao lado do SVG em tests/dxf_A.png e dxf_B.png). Confirmado no AutoCAD pelo utilizador (out. 2026).
 - `mkhager.py` gera `hager.json` (PVP das envolventes Orion plus de `ORION`) a partir da tabela Hager `cat/hager.xlsx` (2026); o build injeta-o em rt-board.js (`HAGER`, `envPrice`, desconto `S.descHager`). Preço no separador Quadros e secção "Envolventes dos quadros (Hager)" no orçamento (só a caixa; quadros existentes e gateways não contam).
+- `rt-compare.js` — janela "Comparar alternativas" (Cabos AC): `variants()` em rt-engine.js calcula com `solveProject` o projeto atual e variantes (sempre cobre, sempre alumínio, uma esteira por inversor, inversores em tubo 3A, ΔU 2 %) e `summarize` dá cabos + terminais, proteções, total, ΔU máx., cabos diferentes, circuitos a rever; "Aplicar" troca o projeto aberto (não grava). Teste: `tests/comparar.js`.
 - `solveProject(estado)` (rt-engine.js) calcula outro projeto sem mexer no aberto (cópia do estado; S reposto mesmo com erro). O resto do motor continua a ler `S`.
 - `rt-board.js` — composição de cada quadro (`qfvParts`, `meterHost`) e separador Quadros (dimensão da envolvente, raio de curvatura).
 - `rt-share.js` — projetos e equipamentos partilhados, descargas. Usa `claude.use('db'|'user')` no claude.ai ou `apiConnect()` (`rt-api.js`) quando a página vem do servidor próprio; aberta como ficheiro, fica só o projeto local.

@@ -282,6 +282,27 @@ function applySel(R){
     if(!down.length)return;const mx=down.reduce((a,c)=>c.res.In>a.res.In?c:a);
     if(p.res.In<SEL_K*mx.res.In-1e-9)p.sel={In:p.res.In,dn:mx.res.In,code:mx.code,k:SEL_K};});
 }
+/* resumo de um resultado para comparar alternativas (custos como no orçamento: cabos + terminais + proteções ABB) */
+function summarize(R,st){
+  const all=R.invC.concat(R.pC).filter(c=>c.Ib>0),limT=+st.limT||3;
+  const bad=all.filter(c=>!c.res||!passes(c.res)||c.res.icuOk===false||c.res.du>limT+1e-9||c.gwErr).length;
+  const kinds=new Set(all.filter(c=>c.res).map(c=>`${c.res.n}x${c.res.s}|${c.res.mat}|${c.res.cons}`));
+  const cab=R.costTot,term=R.termTot||0,brk=R.brkTot||0;
+  return {cab,term,brk,total:cab+term+brk,est:R.costEst,duMax:Math.max(0,...all.filter(c=>c.res).map(c=>c.res.du)),kinds:kinds.size,bad,
+    al:all.filter(c=>c.res&&c.res.mat==='Al').length,n:all.length};
+}
+/* alternativas ao projeto aberto, calculadas sem lhe mexer; cada uma é o estado completo para "aplicar" */
+function variants(){
+  const base=JSON.parse(JSON.stringify(S)),mk=(id,nome,fn,nota)=>{const st=JSON.parse(JSON.stringify(base));fn(st);return {id,nome,nota,st};};
+  const V=[mk('atual','Projeto atual',()=>{},'como está'),
+    mk('cu','Sempre cobre',st=>{st.mat='Cu';},'material = cobre em todos os circuitos'),
+    mk('al','Sempre alumínio (≥ 16 mm²)',st=>{st.mat='Al';},'alumínio sempre que a secção o permita'),
+    mk('est','Uma esteira por inversor',st=>{st.invs.forEach((i,k)=>{i.est=String(k+1);});},'sem agrupamento entre os cabos dos inversores'),
+    mk('tubo','Inversores em tubo à vista (ref. 3A)',st=>{st.rInv={...st.rInv,ref:'3A'};},'em vez da passagem atual dos inversores'),
+    mk('du2','ΔU máx. por troço 2 %',st=>{st.limT=2;},'mais exigente do que os 3 % habituais')];
+  /* secções escolhidas à mão ficam como estão em todas as alternativas */
+  return V.map(v=>{let R=null,err=null;try{R=solveProject(v.st);}catch(e){err=e.message;}return {...v,sum:R?summarize(R,v.st):null,err};});
+}
 /* calcula um projeto qualquer sem mexer no projeto aberto: usa uma cópia do estado e repõe S no fim, mesmo com erro */
 function solveProject(state){
   const keep=S;S=Object.assign(example(),JSON.parse(JSON.stringify(state||{})));
