@@ -60,6 +60,11 @@ function renderPercTable(){
 const eur0=v=>v==null?'—':v.toLocaleString('pt-PT',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 function altName(o,loaded){const P=cableParts(o,loaded);return P.multi?P.cabo:`fases ${P.fase} · neutro ${P.neutro} · terra ${P.terra}`;}
 let last;
+/* estado de um circuito (tabela e relatório de cálculo): 'ok' ou 'bad' e o motivo */
+function verdict(c){const o=c.res;
+  const st=!o?'bad':(passes(o)&&o.icuOk!==false&&o.du<=S.limT&&!c.gwErr)?'ok':'bad';
+  const why=!o?'Sem tabela':c.gwErr?c.gwErr:!o.term?(c.Ib>o.In?'In < Ib':'In > Iz'):!o.sob?'I₂ > 1,45 Iz':o.du>S.limT?'ΔU troço':o.icuOk===false?'Poder de corte':o.trip===false?'Icc mín < Im':o.therm===false?'I²t > k²S²':'OK';
+  return {st,why};}
 function render(){
   const R=solveAll();last=R;
   const maxN=Math.max(1,...R.invC.map(c=>c.nAgr));
@@ -75,8 +80,7 @@ function render(){
   const rowHTML=c=>{
     const o=c.res;
     if(c.Ib<=0)return `<tr class="${c.kind==='perc'?'feeder':''}"><td>${esc(c.nome)}<span class="sub">${c.L} m</span></td><td class="n r">0,0</td><td colspan="8" class="hint">${c.kind==='perc'?'Nenhum inversor passa por este percurso. Confirma os nomes dos quadros.':'Indica a potência.'}</td></tr>`;
-    const st=!o?'bad':(passes(o)&&o.icuOk!==false&&o.du<=S.limT&&!c.gwErr)?'ok':'bad';
-    const why=!o?'Sem tabela':c.gwErr?c.gwErr:!o.term?(c.Ib>o.In?'In < Ib':'In > Iz'):!o.sob?'I₂ > 1,45 Iz':o.du>S.limT?'ΔU troço':o.icuOk===false?'Poder de corte':o.trip===false?'Icc mín < Im':o.therm===false?'I²t > k²S²':'OK';
+    const {st,why}=verdict(c);
     const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção"><option value="auto">Auto</option>${c.opts.map(x=>{const v=`${x.n}x${x.s}|${x.mat}|${x.cons}`;return `<option value="${v}"${c.ref.S===v?' selected':''}>${x.n>1?x.n+'×':''}${fs(x.s)} ${x.mat}${x.cons==='multi'?' multi':''}</option>`;}).join('')}</select>`;
     const label=c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome);
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;

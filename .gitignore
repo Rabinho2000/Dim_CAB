@@ -3,3 +3,4 @@ calc_dump.json
 tests/*.png
 tab_*.png
 data/
+tests/*.pdf
