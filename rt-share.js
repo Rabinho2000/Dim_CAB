@@ -156,7 +156,7 @@ function bindProj(){
       try{await DBX.collection('projects').doc(p.id).delete();if(CUR===p.id){CUR=null;CURUPD=null;}toast('Projeto apagado');}catch(err){eqErr(err);}}});
 }
 async function initShare(){
-  bindEq();bindProj();bindObra();renderEq();renderProj();
+  bindEq();bindProj();bindObra();if(typeof bindPriceImport==="function")bindPriceImport();renderEq();renderProj();
   /* artifact do claude.ai ou servidor próprio (rt-api.js); aberto como ficheiro, fica só o projeto local */
   let db=null,user=null;
   if(typeof claude!=='undefined'&&claude.use)[db,user]=await Promise.all([claude.use('db'),claude.use('user')]);

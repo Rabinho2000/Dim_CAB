@@ -22,7 +22,7 @@ python3 build.py                      # gera cabos-rt.html
 node dumpcalc.js && python3 verify.py # verificação dos cálculos → "ERROS 0"
 node tests/separadores.js             # abre todos os separadores → "ERR []"
 node tests/cenarios_unifilar.js       # esquemas de teste sA–sD.png
-python3 mkprice.py                    # atualiza preços a partir de jmm/base.xlsx
+python3 mkprice.py                    # atualiza preços a partir de jmm/base.xlsx (ou, na página: Equipamentos › Preços de cabo › Atualizar a partir do Excel)
 python3 mkbrk.py                      # atualiza disjuntores a partir de cat/cat.json
 ```
 

@@ -22,6 +22,11 @@
   <div class="panel-head"><h2>Base de equipamentos da equipa</h2><span class="hint" id="eq-status"></span></div>
   <p class="hint">Inversores, módulos e preços acrescentados ou corrigidos aqui ficam guardados para toda a equipa e passam a aparecer nas listas. Um registo com o mesmo modelo de um da base substitui-o.</p>
   <div class="eqtabs" role="tablist"><button data-eq="inv" aria-selected="true">Inversores</button><button data-eq="gw" aria-selected="false">Gateways</button><button data-eq="pr" aria-selected="false">Preços de cabo</button></div>
+  <div class="eqimport" id="eq-import" hidden>
+    <label class="file"><b>Atualizar a partir do Excel de compras</b><input type="file" id="eq-xlsx" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
+    <p class="hint">Livro com as folhas “JMM” e/ou “Indusmelec Total”, como <code>jmm/base.xlsx</code>. Só contam as compras de 2026 e, de cada cabo, a mais recente. Antes de guardar vês o que muda.</p>
+    <div id="eq-preview"></div>
+  </div>
   <div id="eq-form"></div>
   <div class="tablewrap"><table id="eq-table"></table></div>
 </section>
