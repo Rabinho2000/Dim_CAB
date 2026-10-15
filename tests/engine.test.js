@@ -258,6 +258,15 @@ test('DC: sem passagem possível, a rever com explicação',()=>{
   assert.match(R.rows[0].errs.join(),/ΔU DC .* > 1,5 % mesmo com 16 mm²/);
 });
 
+test('cos φ por inversor: entra na queda de tensão; nos percursos conta o menor a montante',()=>{
+  const E=engine();const base=E.solve(),st=E.S();
+  E.set({invs:st.invs.map((i,k)=>k===0?{...i,cos:0.9}:i),percs:st.percs});const R=E.solve();
+  const c=R.invC[0],o=c.res,X=E.ev(`reactance(${o.s},'${o.mat}')`),rho=o.mat==='Cu'?0.0225:0.036,sin=Math.sqrt(1-0.81);
+  assert.equal(c.cos,0.9);assert.ok(Math.abs(o.du-(rho*c.Lc/o.s*0.9+X*c.Lc*sin)*(c.Ib/o.n)/230*100)<1e-9,'fórmula com cos 0,9 e sin');
+  assert.equal(R.invC[1].cos,null,'os outros usam o geral');assert.ok(Math.abs(R.invC[1].res.du-base.invC[1].res.du)<1e-12);
+  assert.equal(R.pC[0].cos,0.9,'percurso: o menor dos inversores a montante');
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

@@ -49,6 +49,7 @@ function renderInvTable(){
     <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem (${S.rInv.cons==='mono'?'mono':'multi'})</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
     <td><select data-k="q" aria-label="Quadro">${qs.concat(qs.includes(i.q)?[]:[i.q]).map(n=>`<option${n===i.q?' selected':''}>${esc(n)}</option>`).join('')}</select></td>
     <td><input data-k="est" value="${esc(i.est||'')}" maxlength="3" placeholder="—" aria-label="Esteira" title="Inversores do mesmo quadro com a mesma esteira contam juntos no agrupamento. Em branco: todos os do quadro juntos." class="w-est"></td>
+    <td><input data-k="cos" type="number" min="0.5" max="1" step="0.01" value="${+i.cos>0?i.cos:''}" placeholder="${fs(+S.cos||1)}" aria-label="cos φ" title="cos φ deste inversor (em branco: o dos Critérios). Nos percursos conta o menor dos inversores a montante." class="w-num"></td>
     <td><input data-k="L" type="number" min="0" step="1" value="${i.L}" aria-label="Distância m" class="w-num"></td>
     <td class="r"><button class="ghost" data-dup="${i.id}" title="Duplicar">Duplicar</button><button class="ghost del" data-del="${i.id}">Remover</button></td></tr>`;}).join('');
 }
@@ -172,7 +173,7 @@ function bind(){
   $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];S.dc.tmin=l[3];$('#tair').value=l[1];$('#tsoil').value=l[2];if(typeof renderDC==='function')renderDC();}render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
-    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='est')i.est=e.target.value.trim().toUpperCase();else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
+    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='est')i.est=e.target.value.trim().toUpperCase();else if(k==='cos'){const v=parseFloat(e.target.value);i.cos=v>0?Math.min(Math.max(v,0.5),1):null;}else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
     if(k==='modelo'||k==='pman'){const tr=document.querySelector(`#inv-body tr[data-id="${i.id}"]`);const info=invInfo(i);if(tr&&k==='pman'){tr.children[2].textContent=fmt(info.pnom,1);tr.children[3].firstChild.textContent=fmt(info.Ib,1);}}
     render();};
   ib.addEventListener('input',e=>{if(e.target.tagName==='INPUT')invEv(e);});ib.addEventListener('change',e=>{if(e.target.tagName==='SELECT')invEv(e);});

@@ -271,7 +271,7 @@ tr.cur td{background:var(--accent-soft)}
   </div>
   <div class="tablewrap">
     <table id="inv-table">
-      <thead><tr><th>#</th><th>Modelo</th><th class="r">Pnom <span class="u">kW</span></th><th class="r">Iac máx <span class="u">A</span></th><th>Cabo</th><th>Liga ao quadro</th><th title="Inversores do mesmo quadro com a mesma esteira contam juntos no agrupamento">Esteira</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Modelo</th><th class="r">Pnom <span class="u">kW</span></th><th class="r">Iac máx <span class="u">A</span></th><th>Cabo</th><th>Liga ao quadro</th><th title="Inversores do mesmo quadro com a mesma esteira contam juntos no agrupamento">Esteira</th><th title="Em branco: o cos φ dos Critérios">cos φ</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
       <tbody id="inv-body"></tbody>
     </table>
   </div>
@@ -575,7 +575,7 @@ function calc(c,o){
   const In=c.forceIn||INSTD.find(x=>x>=c.Ib);const I2=k2(In)*In;
   const rho=o.mat==='Cu'?0.0225:0.036,b=c.loaded===2?2:1;
   /* fórmula da folha Excel (colunas BQ–BS): u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n ; ΔU% = u/230 */
-  const cos=Math.min(Math.max(+S.cos||1,0.5),1),sin=Math.sqrt(1-cos*cos);
+  const cos=Math.min(Math.max(+(c.cos!=null?c.cos:S.cos)||1,0.5),1) /* cos φ do circuito (inversor ou o menor a montante) ou o geral */,sin=Math.sqrt(1-cos*cos);
   const du=b*(rho*c.Lc/o.s*cos+reactance(o.s,o.mat)*c.Lc*sin)*(c.Ib/o.n)/230*100;
   const sc=In!=null?scCheck(c,o,In):{brk:null,scOk:true};
   return {...o,Iz,iz0:z.v,q:z.q,qcol:z.col,fg,fgSrc,f,nEff,perTray,trays,In,I2,du,term:In!=null&&c.Ib<=In&&In<=Iz,sob:I2<=1.45*Iz,...sc};
@@ -604,7 +604,7 @@ function solve(zf){
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
     const estOf=x=>String(x.est||'').trim().toUpperCase(),nq=S.invs.filter(x=>x.q===i.q&&estOf(x)===estOf(i)).length;
     const nAgr=nq;
-    return {ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
+    return {cos:+i.cos>0?+i.cos:null,ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
       L:+i.L||0,r:{...S.rInv,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:S.rInv.cons},consForced:i.cons==='mono',ti:tempInfo(S.rInv),nAgr,path:pathOf(i.q)};});
   const pC=S.percs.flatMap(p=>{const fe=invC.filter(c=>c.path.includes(p));const gw=gwOf(p.orig),gwD=gwOf(p.dest);
     /* ordem inversor → QFV → gateway: do QFV sai um cabo por inversor até à respetiva entrada do gateway */
@@ -612,7 +612,7 @@ function solve(zf){
       return fe.map(ic=>{const key=String(S.invs.indexOf(ic.ref));const sub=(p.subs[key]??={S:'auto'});const ref=Object.create(p);
         Object.defineProperty(ref,'S',{get:()=>sub.S,set:v=>{sub.S=v;},enumerable:true});ref.id=p.id+'_'+key;
         const err=sp&&sp.portI&&ic.iac>sp.portI+1e-9?`Excede a entrada do gateway (${fmt(ic.iac,1)} > ${sp.portI} A)`:'';
-        return {ref,base:p,sub:ic,split:true,forceIn:gwPortA(sp),kind:'perc',nome:`${p.orig} → ${p.dest} · ${ic.nome}`,p:ic.p,Ib:ic.Ib,IbInv:ic.Ib,gw:null,gwErr:err,fases:ic.fases,loaded:ic.loaded,
+        return {cos:ic.cos,ref,base:p,sub:ic,split:true,forceIn:gwPortA(sp),kind:'perc',nome:`${p.orig} → ${p.dest} · ${ic.nome}`,p:ic.p,Ib:ic.Ib,IbInv:ic.Ib,gw:null,gwErr:err,fases:ic.fases,loaded:ic.loaded,
           L:+p.L||0,r:p,ti:tempInfo(p),nAgr:fe.length+extraOf(p),nInv:1};});}
     /* monofásico se sair de um gateway monofásico ou se só tiver inversores monofásicos a montante */
     const fases=gw?+gw.fases:(fe.length&&fe.every(c=>c.fases===1)?1:3);
@@ -620,7 +620,7 @@ function solve(zf){
     const Ib=gw&&gw.dimNom!==false?Math.max(IbInv,+gw.In||0):IbInv;
     const sp=gwSpec(gw);
     const gwErr=gw?(+gw.fases===1&&fe.some(c=>c.fases===3)?'Inversor 3F em gateway 1F':((fases===1?fe.reduce((a,c)=>a+c.iac,0):fe.reduce((a,c)=>a+(c.fases===1?c.iac/3:c.iac),0))>(+gw.In||0)+1e-9?`Excede gateway (${fmt(fe.reduce((a,c)=>a+c.iac,0),0)} > ${gw.In} A nominais)`:sp&&sp.ports&&fe.length>sp.ports?`Excede as entradas do gateway (${fe.length} > ${sp.ports})`:'')):'';
-    return [{base:p,ref:p,forceIn:gw?gwMainA(sp):null,kind:'perc',nome:`${p.orig} → ${p.dest}`,p:fe.reduce((a,c)=>a+c.p,0),Ib,IbInv,gw,gwErr,fases,loaded:fases===1?2:3,
+    return [{cos:fe.some(c=>c.cos!=null)?Math.min(...fe.map(c=>c.cos!=null?c.cos:(+S.cos||1))):null,base:p,ref:p,forceIn:gw?gwMainA(sp):null,kind:'perc',nome:`${p.orig} → ${p.dest}`,p:fe.reduce((a,c)=>a+c.p,0),Ib,IbInv,gw,gwErr,fases,loaded:fases===1?2:3,
       L:+p.L||0,r:p,ti:tempInfo(p),nAgr:1+extraOf(p),nInv:fe.length}];});
   const pmap=new Map();pC.forEach(c=>{if(!pmap.has(c.base))pmap.set(c.base,c);});const all=invC.concat(pC);
   /* impedância a montante no local do disjuntor: quadro do inversor; nos percursos, o quadro de destino (lado da rede) */
@@ -975,6 +975,7 @@ function renderInvTable(){
     <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem (${S.rInv.cons==='mono'?'mono':'multi'})</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
     <td><select data-k="q" aria-label="Quadro">${qs.concat(qs.includes(i.q)?[]:[i.q]).map(n=>`<option${n===i.q?' selected':''}>${esc(n)}</option>`).join('')}</select></td>
     <td><input data-k="est" value="${esc(i.est||'')}" maxlength="3" placeholder="—" aria-label="Esteira" title="Inversores do mesmo quadro com a mesma esteira contam juntos no agrupamento. Em branco: todos os do quadro juntos." class="w-est"></td>
+    <td><input data-k="cos" type="number" min="0.5" max="1" step="0.01" value="${+i.cos>0?i.cos:''}" placeholder="${fs(+S.cos||1)}" aria-label="cos φ" title="cos φ deste inversor (em branco: o dos Critérios). Nos percursos conta o menor dos inversores a montante." class="w-num"></td>
     <td><input data-k="L" type="number" min="0" step="1" value="${i.L}" aria-label="Distância m" class="w-num"></td>
     <td class="r"><button class="ghost" data-dup="${i.id}" title="Duplicar">Duplicar</button><button class="ghost del" data-del="${i.id}">Remover</button></td></tr>`;}).join('');
 }
@@ -1098,7 +1099,7 @@ function bind(){
   $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];S.dc.tmin=l[3];$('#tair').value=l[1];$('#tsoil').value=l[2];if(typeof renderDC==='function')renderDC();}render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
-    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='est')i.est=e.target.value.trim().toUpperCase();else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
+    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='est')i.est=e.target.value.trim().toUpperCase();else if(k==='cos'){const v=parseFloat(e.target.value);i.cos=v>0?Math.min(Math.max(v,0.5),1):null;}else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
     if(k==='modelo'||k==='pman'){const tr=document.querySelector(`#inv-body tr[data-id="${i.id}"]`);const info=invInfo(i);if(tr&&k==='pman'){tr.children[2].textContent=fmt(info.pnom,1);tr.children[3].firstChild.textContent=fmt(info.Ib,1);}}
     render();};
   ib.addEventListener('input',e=>{if(e.target.tagName==='INPUT')invEv(e);});ib.addEventListener('change',e=>{if(e.target.tagName==='SELECT')invEv(e);});
@@ -2579,7 +2580,7 @@ function reportPDF(R){
       ['Fator de agrupamento',`${n2(o.fg)} (${o.fgSrc}; ${o.nEff} circuito${o.nEff>1?'s':''}${o.trays>1?`, ${o.perTray} por esteira`:''})`,'Fator total f',n2(o.f)],
       ['Iz',`${n0(o.iz0)} × ${o.n} × ${n2(o.f)} = ${n0(o.Iz)} A`,'Ib',`${n1(c.Ib)} A (${ibSrc})`],
       ['In',`${o.In} A · Ib ≤ In ≤ Iz: ${n1(c.Ib)} ≤ ${o.In} ≤ ${n0(o.Iz)} ${o.term?'cumpre':'NÃO cumpre'}`,'I₂ ≤ 1,45·Iz',`I₂ = ${n2(k2(o.In))} × ${o.In} = ${n0(o.I2)} A ≤ ${n0(1.45*o.Iz)} A ${o.sob?'cumpre':'NÃO cumpre'}`],
-      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} % (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} %`+(c.kind==='inv'&&+S.lim>0&&(c.acc||0)>+S.lim?` > aviso ${fs(S.lim)} %`:' (informativa)')],
+      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} %${c.cos!=null?` com cos φ ${n2(c.cos)}`:''} (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} %`+(c.kind==='inv'&&+S.lim>0&&(c.acc||0)>+S.lim?` > aviso ${fs(S.lim)} %`:' (informativa)')],
       ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
       ['Designação no unifilar',cableDwg(c)],
       ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`+(o.ikmax==null?'':o.icuOk!==false?` ≥ Icc no local ${n1(o.ikmax)} kA`:` < Icc no local ${n1(o.ikmax)} kA: ${o.icuAlt?`usar ${o.icuAlt.name} (${o.icuAlt.icu} kA)`:'escolher série de maior poder de corte'}`):`${o.In} A (sem referência no catálogo)`]],{lw:36});

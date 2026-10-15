@@ -128,7 +128,7 @@ function reportPDF(R){
       ['Fator de agrupamento',`${n2(o.fg)} (${o.fgSrc}; ${o.nEff} circuito${o.nEff>1?'s':''}${o.trays>1?`, ${o.perTray} por esteira`:''})`,'Fator total f',n2(o.f)],
       ['Iz',`${n0(o.iz0)} × ${o.n} × ${n2(o.f)} = ${n0(o.Iz)} A`,'Ib',`${n1(c.Ib)} A (${ibSrc})`],
       ['In',`${o.In} A · Ib ≤ In ≤ Iz: ${n1(c.Ib)} ≤ ${o.In} ≤ ${n0(o.Iz)} ${o.term?'cumpre':'NÃO cumpre'}`,'I₂ ≤ 1,45·Iz',`I₂ = ${n2(k2(o.In))} × ${o.In} = ${n0(o.I2)} A ≤ ${n0(1.45*o.Iz)} A ${o.sob?'cumpre':'NÃO cumpre'}`],
-      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} % (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} %`+(c.kind==='inv'&&+S.lim>0&&(c.acc||0)>+S.lim?` > aviso ${fs(S.lim)} %`:' (informativa)')],
+      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} %${c.cos!=null?` com cos φ ${n2(c.cos)}`:''} (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} %`+(c.kind==='inv'&&+S.lim>0&&(c.acc||0)>+S.lim?` > aviso ${fs(S.lim)} %`:' (informativa)')],
       ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
       ['Designação no unifilar',cableDwg(c)],
       ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`+(o.ikmax==null?'':o.icuOk!==false?` ≥ Icc no local ${n1(o.ikmax)} kA`:` < Icc no local ${n1(o.ikmax)} kA: ${o.icuAlt?`usar ${o.icuAlt.name} (${o.icuAlt.icu} kA)`:'escolher série de maior poder de corte'}`):`${o.In} A (sem referência no catálogo)`]],{lw:36});

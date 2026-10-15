@@ -122,7 +122,7 @@ function calc(c,o){
   const In=c.forceIn||INSTD.find(x=>x>=c.Ib);const I2=k2(In)*In;
   const rho=o.mat==='Cu'?0.0225:0.036,b=c.loaded===2?2:1;
   /* fórmula da folha Excel (colunas BQ–BS): u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n ; ΔU% = u/230 */
-  const cos=Math.min(Math.max(+S.cos||1,0.5),1),sin=Math.sqrt(1-cos*cos);
+  const cos=Math.min(Math.max(+(c.cos!=null?c.cos:S.cos)||1,0.5),1) /* cos φ do circuito (inversor ou o menor a montante) ou o geral */,sin=Math.sqrt(1-cos*cos);
   const du=b*(rho*c.Lc/o.s*cos+reactance(o.s,o.mat)*c.Lc*sin)*(c.Ib/o.n)/230*100;
   const sc=In!=null?scCheck(c,o,In):{brk:null,scOk:true};
   return {...o,Iz,iz0:z.v,q:z.q,qcol:z.col,fg,fgSrc,f,nEff,perTray,trays,In,I2,du,term:In!=null&&c.Ib<=In&&In<=Iz,sob:I2<=1.45*Iz,...sc};
@@ -151,7 +151,7 @@ function solve(zf){
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
     const estOf=x=>String(x.est||'').trim().toUpperCase(),nq=S.invs.filter(x=>x.q===i.q&&estOf(x)===estOf(i)).length;
     const nAgr=nq;
-    return {ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
+    return {cos:+i.cos>0?+i.cos:null,ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
       L:+i.L||0,r:{...S.rInv,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:S.rInv.cons},consForced:i.cons==='mono',ti:tempInfo(S.rInv),nAgr,path:pathOf(i.q)};});
   const pC=S.percs.flatMap(p=>{const fe=invC.filter(c=>c.path.includes(p));const gw=gwOf(p.orig),gwD=gwOf(p.dest);
     /* ordem inversor → QFV → gateway: do QFV sai um cabo por inversor até à respetiva entrada do gateway */
@@ -159,7 +159,7 @@ function solve(zf){
       return fe.map(ic=>{const key=String(S.invs.indexOf(ic.ref));const sub=(p.subs[key]??={S:'auto'});const ref=Object.create(p);
         Object.defineProperty(ref,'S',{get:()=>sub.S,set:v=>{sub.S=v;},enumerable:true});ref.id=p.id+'_'+key;
         const err=sp&&sp.portI&&ic.iac>sp.portI+1e-9?`Excede a entrada do gateway (${fmt(ic.iac,1)} > ${sp.portI} A)`:'';
-        return {ref,base:p,sub:ic,split:true,forceIn:gwPortA(sp),kind:'perc',nome:`${p.orig} → ${p.dest} · ${ic.nome}`,p:ic.p,Ib:ic.Ib,IbInv:ic.Ib,gw:null,gwErr:err,fases:ic.fases,loaded:ic.loaded,
+        return {cos:ic.cos,ref,base:p,sub:ic,split:true,forceIn:gwPortA(sp),kind:'perc',nome:`${p.orig} → ${p.dest} · ${ic.nome}`,p:ic.p,Ib:ic.Ib,IbInv:ic.Ib,gw:null,gwErr:err,fases:ic.fases,loaded:ic.loaded,
           L:+p.L||0,r:p,ti:tempInfo(p),nAgr:fe.length+extraOf(p),nInv:1};});}
     /* monofásico se sair de um gateway monofásico ou se só tiver inversores monofásicos a montante */
     const fases=gw?+gw.fases:(fe.length&&fe.every(c=>c.fases===1)?1:3);
@@ -167,7 +167,7 @@ function solve(zf){
     const Ib=gw&&gw.dimNom!==false?Math.max(IbInv,+gw.In||0):IbInv;
     const sp=gwSpec(gw);
     const gwErr=gw?(+gw.fases===1&&fe.some(c=>c.fases===3)?'Inversor 3F em gateway 1F':((fases===1?fe.reduce((a,c)=>a+c.iac,0):fe.reduce((a,c)=>a+(c.fases===1?c.iac/3:c.iac),0))>(+gw.In||0)+1e-9?`Excede gateway (${fmt(fe.reduce((a,c)=>a+c.iac,0),0)} > ${gw.In} A nominais)`:sp&&sp.ports&&fe.length>sp.ports?`Excede as entradas do gateway (${fe.length} > ${sp.ports})`:'')):'';
-    return [{base:p,ref:p,forceIn:gw?gwMainA(sp):null,kind:'perc',nome:`${p.orig} → ${p.dest}`,p:fe.reduce((a,c)=>a+c.p,0),Ib,IbInv,gw,gwErr,fases,loaded:fases===1?2:3,
+    return [{cos:fe.some(c=>c.cos!=null)?Math.min(...fe.map(c=>c.cos!=null?c.cos:(+S.cos||1))):null,base:p,ref:p,forceIn:gw?gwMainA(sp):null,kind:'perc',nome:`${p.orig} → ${p.dest}`,p:fe.reduce((a,c)=>a+c.p,0),Ib,IbInv,gw,gwErr,fases,loaded:fases===1?2:3,
       L:+p.L||0,r:p,ti:tempInfo(p),nAgr:1+extraOf(p),nInv:fe.length}];});
   const pmap=new Map();pC.forEach(c=>{if(!pmap.has(c.base))pmap.set(c.base,c);});const all=invC.concat(pC);
   /* impedância a montante no local do disjuntor: quadro do inversor; nos percursos, o quadro de destino (lado da rede) */
