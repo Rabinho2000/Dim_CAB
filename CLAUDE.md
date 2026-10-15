@@ -15,6 +15,7 @@ node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/s
 node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
 node tests/relatorio.js               # relatório de cálculo PDF (botão) para o exemplo e o caso sem secção: tests/relatorio_*.pdf e _pN.png
 node tests/dxf.js                     # unifilar em DXF: estrutura R12 e comparação visual com o SVG
+node tests/poder_corte.js             # poder de corte: não verificado por omissão; PT 2500 kVA → E1.2 42 kA a rever
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
 node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
 node tests/orcamento.js               # descarrega o orçamento (Excel e PDF) do exemplo e confere os totais com solveAll()
@@ -52,9 +53,10 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - Disjuntor: Iac máx ≤ In ≤ Iz e I₂ ≤ 1,45·Iz (k₂ 1,45 modulares até 125 A, 1,30 caixa moldada).
 - Queda de tensão verificada **só por troço** (3 %), nunca acumulada. Fórmula da folha Excel: u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n, ΔU% = u/230; L' = L+20 % (< 30 m) ou +10 % (≥ 30 m); b = 1 trifásico, 2 monofásico; ρ Cu 0,0225, Al 0,036. Mostrar ΔU em V e %.
 - Monocondutores em E/F: disposição selecionável (trevo, esteira sem afastamento, afastamento H/V). O utilizador só indica o nº de esteiras; o agrupamento é calculado.
+- **A Solcor trabalha sempre com neutro**, também até aos inversores trifásicos (decisão do utilizador, out. 2026): não propor cabos sem neutro.
 - Apresentação do cabo: Fases / Neutro / Terra (neutro RTIEBT 524.2, PE quadro 54F). No unifilar: notação dos desenhos, ex. "Cabo (LXV) 3x(1x120)+1x(1x70)+1G70 mm²".
 - Preços: só compras de 2026, a mais recente de cada cabo; mostrar alternativa mais barata sem a aplicar.
-- Curto-circuito: retirado da interface a pedido (o código fica em `rt-sc.js`).
+- Curto-circuito: retirado da interface a pedido (o código fica em `rt-sc.js`). Exceção aprovada (out. 2026): **verificação do poder de corte** (Icu ≥ Icc máx. no local), opcional nos Critérios (`S.icu`: Icc conhecida no ponto de ligação ou PT com ucc 4 %/6 %, rede 500 MVA, sem cabo PT–quadro). Não muda a escolha do disjuntor: marca-o "a rever" e indica o da tabela que chega (`applyIcu` em rt-engine.js). A tabela da ferramenta (`brk.json`) só tem E1.2 42 kA para 800–1250 A e nada a 1600 A: falta acrescentar séries de maior poder de corte em `mkbrk.py`.
 - **Nunca extrapolar os quadros da RTIEBT**: se um cabo, fator de temperatura ou fator de agrupamento não está no quadro, não se usa nesse contexto. O circuito fica "a rever" com a explicação (`noFitMsg`) e a indicação do que mudar. Casos tratados: secções acima de 120 mm² nos métodos B/B2; mais de 3 esteiras sobrepostas (52-E4/E5); mais de 3 circuitos monocondutores por esteira com esteiras sobrepostas (52-E5; numa só esteira usa-se o 52-E1 ref. 4/5, como na folha Excel); temperaturas fora do 52-D1/D2; secção escolhida à mão que não existe no quadro (volta a automático, `dropMsg`). Exceção prevista na norma: nos quadros de agrupamento (52-E1…E4), acima da última coluna usa-se o último valor (nota "sem redução adicional", confirmado pelo utilizador).
 
 ## Regras de quadros e esquema unifilar (estilo dos DWG em `fontes/`)

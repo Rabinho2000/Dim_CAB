@@ -106,7 +106,7 @@ function reportPDF(R){
       ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} % (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} % (informativa)`],
       ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
       ['Designação no unifilar',cableDwg(c)],
-      ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`:`${o.In} A (sem referência no catálogo)`]],{lw:36});
+      ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`+(o.ikmax==null?'':o.icuOk!==false?` ≥ Icc no local ${n1(o.ikmax)} kA`:` < Icc no local ${n1(o.ikmax)} kA: ${o.icuAlt?`usar ${o.icuAlt.name} (${o.icuAlt.icu} kA)`:'escolher série de maior poder de corte'}`):`${o.In} A (sem referência no catálogo)`]],{lw:36});
     const notes=[c.gwErr,c.noFitMsg,v.st!=='ok'&&!c.gwErr&&!c.noFitMsg?`A rever: ${v.why}.`:null].filter(Boolean);
     notes.forEach(t=>{const ls=wrap(t,CW-8,{fs:8.6});const h=ls.length*lh(8.6)+3;need(h);pdf.setFillColor(...RC.redS);pdf.rect(M,y,CW,h,'F');pdf.setFillColor(...RC.red);pdf.rect(M,y,1.2,h,'F');
       ls.forEach((l,j)=>T(l,M+4,y+1.5+lh(8.6)*(j+0.8),{fs:8.6,c:RC.red}));y+=h;});

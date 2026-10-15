@@ -138,6 +138,35 @@ test('secção escolhida à mão que não existe no quadro volta a automático (
   assert.equal(E.ev('S.invs[0].S'),'auto');
 });
 
+test('poder de corte: desligado por omissão, não muda nada',()=>{
+  const R=engine().solve();assert.equal(R.icuOn,false);
+  for(const c of rows(R))assert.equal(c.res.ikmax,undefined,c.nome);
+});
+
+test('poder de corte: Icc conhecida no ponto de ligação, diminui pelos cabos até cada quadro',()=>{
+  const E=engine();E.set({icu:{modo:'icc',icc:10}});const R=E.solve();
+  assert.equal(R.icuOn,true);assert.ok(Math.abs(R.ikSrc-10)<1e-9);
+  const by=n=>rows(R).find(c=>c.nome===n);
+  assert.ok(Math.abs(by('QInterligação → Qentrada').res.ikmax-10)<1e-9,'no ponto de ligação = Icc indicada');
+  assert.ok(by('QFV → QInterligação').res.ikmax<10,'no quadro de interligação já é menor (7 m de cabo)');
+  assert.ok(by('Inversor 1').res.ikmax<by('QFV → QInterligação').res.ikmax,'no QFV, depois de 140 m, ainda menor');
+  for(const c of rows(R))assert.equal(c.res.icuOk,true,c.nome);
+});
+
+test('poder de corte insuficiente: circuito a rever, sem mudar o disjuntor, e indica o que chega',()=>{
+  const E=engine();const base=E.solve();
+  E.set({icu:{modo:'icc',icc:40}});const R=E.solve();
+  const inv=R.invC[0].res;   /* XT3N250 36 kA no QFV: Icc mais baixa depois dos cabos */
+  assert.equal(inv.icuOk,true);
+  E.set({icu:{modo:'pt',sn:2500}});const P=E.solve();
+  const f=P.pC.find(c=>c.nome==='QInterligação → Qentrada').res;
+  assert.equal(f.icuOk,false,'E1.2 42 kA < Icc de um PT de 2500 kVA');assert.ok(f.ikmax>42);assert.equal(f.icuAlt,null,'a tabela da ferramenta não tem 1000 A acima de 42 kA');
+  assert.deepEqual([...P.invC.concat(P.pC).map(c=>c.res.brk.ref)],[...base.invC.concat(base.pC).map(c=>c.res.brk.ref)],'os disjuntores escolhidos não mudam');
+  /* calibre com série de maior poder de corte na tabela: indica-a */
+  E.set({icu:{modo:'icc',icc:45},invs:[{modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:1,S:'auto'}],percs:[{orig:'QFV',dest:'Qentrada',L:1,S:'auto',...route('13','mono')}],gws:[]});
+  const c=E.solve().invC[0].res;assert.equal(c.icuOk,false);assert.ok(c.icuAlt&&c.icuAlt.icu>=c.ikmax,`indica ${c.icuAlt&&c.icuAlt.name}`);
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

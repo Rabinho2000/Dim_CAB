@@ -33,7 +33,8 @@ function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XL
         {id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:35,S:'auto'},{id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:15,S:'auto'}],
   rInv:route('13','mono'),
   percs:[{id:uid++,orig:'QFV',dest:'QInterligação',L:140,S:'auto',...route('13','mono')},{id:uid++,orig:'QInterligação',dest:'Qentrada',L:7,S:'auto',...route('13','mono')}],gws:[],
-  obra:{cliente:'',morada:'',desenho:'',estado:'rascunho'}};}
+  obra:{cliente:'',morada:'',desenho:'',estado:'rascunho'},
+  icu:{modo:'',icc:10,sn:630}};}
 
 /* ---------- inversores ---------- */
 function invInfo(i){
@@ -252,10 +253,23 @@ function cableParts(o,loaded){
   const {sn,spe}=condSizes(o,loaded);
   return {multi:false,fase:`${o.n} × ${type} 1×${fs(o.s)} mm²`,neutro:`${o.n} × ${type} 1×${fs(sn)} mm²`,terra:`1 × 1×${fs(spe)} mm² ${o.mat}`,fases:mono?1:3,sn,spe};
 }
+/* poder de corte (só Icu ≥ Icc máx. no local; o resto do curto-circuito continua desligado). Icc a partir da Icc conhecida no
+   ponto de ligação ou do PT (ucc 4 % até 630 kVA, 6 % acima; rede a montante 500 MVA; sem o cabo PT–quadro, do lado da segurança).
+   Não muda a escolha do disjuntor: marca o circuito "a rever" e indica o da tabela ABB que chega (icuAlt). */
+function icuCfg(){const u=S.icu||{};if(u.modo!=='icc'&&u.modo!=='pt')return null;const sn=Math.max(+u.sn||630,1);
+  return u.modo==='icc'?{fonte:'icc',icc:Math.max(+u.icc||10,0.1),L0:0}:{fonte:'pt',sn,ucc:sn<=630?4:6,scc:500,L0:0};}
+function applyIcu(R){
+  const cfg=icuCfg();R.icuOn=!!cfg;if(!cfg)return;
+  const get=nodeZ(R.pC,cfg),ik=z=>1.05*400/(Math.sqrt(3)*zabs(z.max))/1000;R.ikSrc=ik(srcZ(cfg));
+  R.invC.concat(R.pC).forEach(c=>{const o=c.res;if(!o||!o.brk||c.split||(c.kind==='perc'&&gwOf(c.ref.dest)))return;
+    o.ikmax=ik(get(c.kind==='inv'?c.para:c.ref.dest));o.icuOk=o.brk.icu>=o.ikmax-1e-9;
+    if(!o.icuOk){const alt=pickBreaker(o.In,c.loaded===2?2:4,o.ikmax);o.icuAlt=alt&&alt.icuOk?alt:null;}});
+}
 function solveAll(){
   let R=solve(null);
   if(S.sc&&S.sc.on!==false){let sig='';for(let k=0;k<5;k++){R=solve(nodeZ(R.pC));const s2=R.pC.map(c=>c.res?c.res.n+'x'+c.res.s+c.res.mat:'').join();if(s2===sig)break;sig=s2;}}
   const z=srcZ();R.ikSrc=1.05*400/(Math.sqrt(3)*zabs(z.max))/1000;
+  applyIcu(R);
   R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0);
   return R;
 }

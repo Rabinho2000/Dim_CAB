@@ -18,7 +18,9 @@ function designation(c){
 }
 const eur=v=>v==null?'—':v.toLocaleString('pt-PT',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const breaker=(o,c)=>{if(!o)return '—';const b=o.brk;if(c.split)return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub">entrada do gateway (proteção do fabricante); a proteção do inversor fica no QFV</span>`;if(!b)return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub">a definir</span>`;
-  return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub abb">ABB ${esc(b.name)} · ${b.icu} kA</span><span class="sub trace">${esc(b.ref)}</span>${b.dif?`<span class="sub">Diferencial: ${esc(b.dif.name)}</span>`:''}<span class="sub">${eur(brkCost(b))}${+S.descABB?` (PVP −${S.descABB}%)`:' PVP'}</span>`;};
+  const icu=o.ikmax==null?'':o.icuOk!==false?`<span class="sub">Icc no local ${fmt(o.ikmax,1)} kA ≤ Icu ${b.icu} kA</span>`
+    :`<span class="sub limt">Poder de corte insuficiente: Icc no local ${fmt(o.ikmax,1)} kA > Icu ${b.icu} kA. ${o.icuAlt?`Usar ${esc(o.icuAlt.name)} (${o.icuAlt.icu} kA, ${esc(o.icuAlt.ref)}).`:'Nenhum disjuntor da tabela ABB da ferramenta chega para este calibre: escolher uma série de maior poder de corte com a ABB.'}</span>`;
+  return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub abb">ABB ${esc(b.name)} · ${b.icu} kA</span>${icu}<span class="sub trace">${esc(b.ref)}</span>${b.dif?`<span class="sub">Diferencial: ${esc(b.dif.name)}</span>`:''}<span class="sub">${eur(brkCost(b))}${+S.descABB?` (PVP −${S.descABB}%)`:' PVP'}</span>`;};
 const scCell=o=>{if(!o||o.ikmax==null)return '<span class="sub">—</span>';
   const f=(ok,t)=>`<span class="${ok?'':'bad-t'}">${t}</span>`;
   return `<span class="n">${f(o.icuOk,`máx ${fmt(o.ikmax,1)} kA`)}</span><span class="sub n">${f(o.trip,`mín ${fmt(o.ikmin*1000,0)} A`)} · ${o.elec?`I₃ ≤ ${fmt(Math.min(o.Iset,15),1)} × In`:`Im ${fmt(o.Im,0)} A`}</span><span class="sub n">${f(o.therm,`I²t ${(o.i2t/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k ≤ k²S² ${(o.k2s2/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k`)}</span>`;};
@@ -75,7 +77,7 @@ function render(){
   const worst=Math.max(0,...all.filter(c=>c.res).map(c=>c.res.du));
   const ends=R.pC.filter(c=>!percFrom(c.ref.dest)&&c.res).sort((a,b)=>b.p-a.p);const main=ends[0];
   $('#kpis').innerHTML=[['Inversores',S.invs.length,''],['Potência total',fmt(R.Ptot,1),'kW'],['Corrente total',fmt(R.IbTot,0),'A'],
-    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],...(S.sc.on!==false?[['Icc no ponto de injeção',fmt(R.ikSrc,1),'kA']]:[]),['Custo dos cabos',eur0(R.costTot),R.costEst?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
+    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],(R.icuOn?['Icc no ponto de ligação',fmt(R.ikSrc,1),'kA']:['Poder de corte','não verificado','indica a Icc ou o PT em Critérios']),['Custo dos cabos',eur0(R.costTot),R.costEst?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
     .map(([l,v,u,b])=>`<div class="kpi${b?' bad':''}"><small>${l}</small><b>${v}</b><i>${u}</i></div>`).join('');
   const rowHTML=c=>{
     const o=c.res;
@@ -160,6 +162,10 @@ function bind(){
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
   ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','cos','descABB'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
+  /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
+  const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
+  [['icu-modo','modo'],['icu-icc','icc'],['icu-sn','sn']].forEach(([id,k])=>{const el=document.getElementById(id);
+    el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S.icu=Object.assign(example().icu,S.icu||{});S.icu[k]=k==='modo'?el.value:parseFloat(el.value);icuVis();render();});});
   $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];S.dc.tmin=l[3];$('#tair').value=l[1];$('#tsoil').value=l[2];if(typeof renderDC==='function')renderDC();}render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
@@ -212,6 +218,8 @@ function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(
 function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','cos','descABB'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
+  S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';
+  document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
   if(typeof loadDC==='function')loadDC();$('#rsolo').value=String(S.rsolo);$('#loc').value=S.loc;renderPercTable();renderInvTable();render();}
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2400);}
 bind();bindGw();load();

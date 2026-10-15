@@ -247,8 +247,11 @@ tr.cur td{background:var(--accent-soft)}
       <label class="check"><input type="checkbox" id="folga"> Folga no comprimento (+20% &lt;30 m, +10% ≥30 m)</label>
       <label>ΔU máx. por troço <span class="u">%</span><input id="limT" type="number" step="0.1" min="0.1"></label>
       <label>Desconto ABB <span class="u">% s/ PVP</span><input id="descABB" type="number" step="1" min="0" max="90"></label>
+      <label>Poder de corte dos disjuntores<select id="icu-modo"><option value="">Não verificar</option><option value="icc">Icc conhecida no ponto de ligação</option><option value="pt">A partir do PT</option></select></label>
+      <label data-icu="icc" hidden>Icc no ponto de ligação <span class="u">kA</span><input id="icu-icc" type="number" step="0.1" min="0.1"></label>
+      <label data-icu="pt" hidden>Potência do PT <span class="u">kVA</span><input id="icu-sn" type="number" step="10" min="1"></label>
     </div>
-    <p class="hint">Material automático: alumínio quando o circuito tem mais de 15 m e mais de 30 kW (nunca abaixo de 16 mm² e sempre monocondutor); nos restantes, cobre. A queda de tensão é verificada em cada troço, como na folha Excel. Ib dos inversores = corrente máxima de saída da ficha técnica. Nos percursos soma-se a corrente dos inversores a montante; os monofásicos contam um terço, por se distribuírem pelas três fases.</p>
+    <p class="hint">Poder de corte: verifica Icu ≥ Icc máx. no local de cada disjuntor, com a Icc no ponto de ligação ou a do PT (ucc 4 % até 630 kVA e 6 % acima, rede a 500 MVA, sem o cabo PT–quadro, do lado da segurança), diminuída pelos cabos até cada quadro. Não muda a escolha do disjuntor: marca-o “a rever” e indica o que chega. Material automático: alumínio quando o circuito tem mais de 15 m e mais de 30 kW (nunca abaixo de 16 mm² e sempre monocondutor); nos restantes, cobre. A queda de tensão é verificada em cada troço, como na folha Excel. Ib dos inversores = corrente máxima de saída da ficha técnica. Nos percursos soma-se a corrente dos inversores a montante; os monofásicos contam um terço, por se distribuírem pelas três fases.</p>
   </section>
 </div>
 
@@ -453,7 +456,8 @@ function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XL
         {id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:35,S:'auto'},{id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:15,S:'auto'}],
   rInv:route('13','mono'),
   percs:[{id:uid++,orig:'QFV',dest:'QInterligação',L:140,S:'auto',...route('13','mono')},{id:uid++,orig:'QInterligação',dest:'Qentrada',L:7,S:'auto',...route('13','mono')}],gws:[],
-  obra:{cliente:'',morada:'',desenho:'',estado:'rascunho'}};}
+  obra:{cliente:'',morada:'',desenho:'',estado:'rascunho'},
+  icu:{modo:'',icc:10,sn:630}};}
 
 /* ---------- inversores ---------- */
 function invInfo(i){
@@ -672,10 +676,23 @@ function cableParts(o,loaded){
   const {sn,spe}=condSizes(o,loaded);
   return {multi:false,fase:`${o.n} × ${type} 1×${fs(o.s)} mm²`,neutro:`${o.n} × ${type} 1×${fs(sn)} mm²`,terra:`1 × 1×${fs(spe)} mm² ${o.mat}`,fases:mono?1:3,sn,spe};
 }
+/* poder de corte (só Icu ≥ Icc máx. no local; o resto do curto-circuito continua desligado). Icc a partir da Icc conhecida no
+   ponto de ligação ou do PT (ucc 4 % até 630 kVA, 6 % acima; rede a montante 500 MVA; sem o cabo PT–quadro, do lado da segurança).
+   Não muda a escolha do disjuntor: marca o circuito "a rever" e indica o da tabela ABB que chega (icuAlt). */
+function icuCfg(){const u=S.icu||{};if(u.modo!=='icc'&&u.modo!=='pt')return null;const sn=Math.max(+u.sn||630,1);
+  return u.modo==='icc'?{fonte:'icc',icc:Math.max(+u.icc||10,0.1),L0:0}:{fonte:'pt',sn,ucc:sn<=630?4:6,scc:500,L0:0};}
+function applyIcu(R){
+  const cfg=icuCfg();R.icuOn=!!cfg;if(!cfg)return;
+  const get=nodeZ(R.pC,cfg),ik=z=>1.05*400/(Math.sqrt(3)*zabs(z.max))/1000;R.ikSrc=ik(srcZ(cfg));
+  R.invC.concat(R.pC).forEach(c=>{const o=c.res;if(!o||!o.brk||c.split||(c.kind==='perc'&&gwOf(c.ref.dest)))return;
+    o.ikmax=ik(get(c.kind==='inv'?c.para:c.ref.dest));o.icuOk=o.brk.icu>=o.ikmax-1e-9;
+    if(!o.icuOk){const alt=pickBreaker(o.In,c.loaded===2?2:4,o.ikmax);o.icuAlt=alt&&alt.icuOk?alt:null;}});
+}
 function solveAll(){
   let R=solve(null);
   if(S.sc&&S.sc.on!==false){let sig='';for(let k=0;k<5;k++){R=solve(nodeZ(R.pC));const s2=R.pC.map(c=>c.res?c.res.n+'x'+c.res.s+c.res.mat:'').join();if(s2===sig)break;sig=s2;}}
   const z=srcZ();R.ikSrc=1.05*400/(Math.sqrt(3)*zabs(z.max))/1000;
+  applyIcu(R);
   R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0);
   return R;
 }
@@ -696,8 +713,8 @@ const RHO20={Cu:0.018,Al:0.029};          /* Ω·mm²/m a 20 °C: Icc máximo */
 const KSC={Cu:{XLPE:143,PVC:115},Al:{XLPE:94,PVC:76}}; /* RTIEBT 434.3.2 / IEC 60364-4-43 */
 const zadd=(a,b)=>({R:a.R+b.R,X:a.X+b.X}),zabs=z=>Math.hypot(z.R,z.X);
 /* impedância da fonte no ponto de injeção, por fase (Ω). max: para Icc máx.; min: para o defeito fase-neutro no fim das linhas */
-function srcZ(){
-  const sc=S.sc||{};let z;
+function srcZ(sc){
+  sc=sc||S.sc||{};let z;
   if(sc.fonte==='icc'){const Ik=Math.max(+sc.icc||10,0.1)*1000;const Z=1.05*400/(Math.sqrt(3)*Ik);z={R:Z*Math.SQRT1_2,X:Z*Math.SQRT1_2};}
   else{const Sn=Math.max(+sc.sn||630,1)*1000,u=Math.max(+sc.ucc||4,0.5)/100;const Zt=u*400*400/Sn,Rt=0.26*Zt,Xt=Math.sqrt(Zt*Zt-Rt*Rt);
     const Zq=1.1*400*400/(Math.max(+sc.scc||500,1)*1e6),Xq=0.995*Zq,Rq=0.1*Xq;z={R:Rt+Rq,X:Xt+Xq};}
@@ -723,8 +740,8 @@ function letThrough(b,In,ik){
   return f*T[3][1];
 }
 /* impedâncias em cada quadro, a partir dos percursos já dimensionados */
-function nodeZ(pC){
-  const base=srcZ(),memo=new Map();
+function nodeZ(pC,sc){
+  const base=srcZ(sc),memo=new Map();
   const get=(node,d=0)=>{node=String(node).trim();if(memo.has(node))return memo.get(node);const p=percFrom(node);let z=base;
     if(p&&d<30){const pc=pC.find(c=>c.ref===p);const up=get(p.dest,d+1);
       if(pc&&pc.res){const zc=zCable(pc.res,pc.L,pc.Lc,pc.loaded);z={max:zadd(up.max,zc.max),min:zadd(up.min,zc.min)};}else z=up;}
@@ -800,7 +817,9 @@ function designation(c){
 }
 const eur=v=>v==null?'—':v.toLocaleString('pt-PT',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const breaker=(o,c)=>{if(!o)return '—';const b=o.brk;if(c.split)return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub">entrada do gateway (proteção do fabricante); a proteção do inversor fica no QFV</span>`;if(!b)return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub">a definir</span>`;
-  return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub abb">ABB ${esc(b.name)} · ${b.icu} kA</span><span class="sub trace">${esc(b.ref)}</span>${b.dif?`<span class="sub">Diferencial: ${esc(b.dif.name)}</span>`:''}<span class="sub">${eur(brkCost(b))}${+S.descABB?` (PVP −${S.descABB}%)`:' PVP'}</span>`;};
+  const icu=o.ikmax==null?'':o.icuOk!==false?`<span class="sub">Icc no local ${fmt(o.ikmax,1)} kA ≤ Icu ${b.icu} kA</span>`
+    :`<span class="sub limt">Poder de corte insuficiente: Icc no local ${fmt(o.ikmax,1)} kA > Icu ${b.icu} kA. ${o.icuAlt?`Usar ${esc(o.icuAlt.name)} (${o.icuAlt.icu} kA, ${esc(o.icuAlt.ref)}).`:'Nenhum disjuntor da tabela ABB da ferramenta chega para este calibre: escolher uma série de maior poder de corte com a ABB.'}</span>`;
+  return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub abb">ABB ${esc(b.name)} · ${b.icu} kA</span>${icu}<span class="sub trace">${esc(b.ref)}</span>${b.dif?`<span class="sub">Diferencial: ${esc(b.dif.name)}</span>`:''}<span class="sub">${eur(brkCost(b))}${+S.descABB?` (PVP −${S.descABB}%)`:' PVP'}</span>`;};
 const scCell=o=>{if(!o||o.ikmax==null)return '<span class="sub">—</span>';
   const f=(ok,t)=>`<span class="${ok?'':'bad-t'}">${t}</span>`;
   return `<span class="n">${f(o.icuOk,`máx ${fmt(o.ikmax,1)} kA`)}</span><span class="sub n">${f(o.trip,`mín ${fmt(o.ikmin*1000,0)} A`)} · ${o.elec?`I₃ ≤ ${fmt(Math.min(o.Iset,15),1)} × In`:`Im ${fmt(o.Im,0)} A`}</span><span class="sub n">${f(o.therm,`I²t ${(o.i2t/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k ≤ k²S² ${(o.k2s2/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k`)}</span>`;};
@@ -857,7 +876,7 @@ function render(){
   const worst=Math.max(0,...all.filter(c=>c.res).map(c=>c.res.du));
   const ends=R.pC.filter(c=>!percFrom(c.ref.dest)&&c.res).sort((a,b)=>b.p-a.p);const main=ends[0];
   $('#kpis').innerHTML=[['Inversores',S.invs.length,''],['Potência total',fmt(R.Ptot,1),'kW'],['Corrente total',fmt(R.IbTot,0),'A'],
-    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],...(S.sc.on!==false?[['Icc no ponto de injeção',fmt(R.ikSrc,1),'kA']]:[]),['Custo dos cabos',eur0(R.costTot),R.costEst?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
+    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],(R.icuOn?['Icc no ponto de ligação',fmt(R.ikSrc,1),'kA']:['Poder de corte','não verificado','indica a Icc ou o PT em Critérios']),['Custo dos cabos',eur0(R.costTot),R.costEst?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
     .map(([l,v,u,b])=>`<div class="kpi${b?' bad':''}"><small>${l}</small><b>${v}</b><i>${u}</i></div>`).join('');
   const rowHTML=c=>{
     const o=c.res;
@@ -942,6 +961,10 @@ function bind(){
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
   ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','cos','descABB'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
+  /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
+  const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
+  [['icu-modo','modo'],['icu-icc','icc'],['icu-sn','sn']].forEach(([id,k])=>{const el=document.getElementById(id);
+    el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S.icu=Object.assign(example().icu,S.icu||{});S.icu[k]=k==='modo'?el.value:parseFloat(el.value);icuVis();render();});});
   $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];S.dc.tmin=l[3];$('#tair').value=l[1];$('#tsoil').value=l[2];if(typeof renderDC==='function')renderDC();}render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
@@ -994,6 +1017,8 @@ function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(
 function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','cos','descABB'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
+  S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';
+  document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
   if(typeof loadDC==='function')loadDC();$('#rsolo').value=String(S.rsolo);$('#loc').value=S.loc;renderPercTable();renderInvTable();render();}
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2400);}
 
@@ -2055,7 +2080,7 @@ function reportPDF(R){
       ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} % (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} % (informativa)`],
       ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
       ['Designação no unifilar',cableDwg(c)],
-      ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`:`${o.In} A (sem referência no catálogo)`]],{lw:36});
+      ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`+(o.ikmax==null?'':o.icuOk!==false?` ≥ Icc no local ${n1(o.ikmax)} kA`:` < Icc no local ${n1(o.ikmax)} kA: ${o.icuAlt?`usar ${o.icuAlt.name} (${o.icuAlt.icu} kA)`:'escolher série de maior poder de corte'}`):`${o.In} A (sem referência no catálogo)`]],{lw:36});
     const notes=[c.gwErr,c.noFitMsg,v.st!=='ok'&&!c.gwErr&&!c.noFitMsg?`A rever: ${v.why}.`:null].filter(Boolean);
     notes.forEach(t=>{const ls=wrap(t,CW-8,{fs:8.6});const h=ls.length*lh(8.6)+3;need(h);pdf.setFillColor(...RC.redS);pdf.rect(M,y,CW,h,'F');pdf.setFillColor(...RC.red);pdf.rect(M,y,1.2,h,'F');
       ls.forEach((l,j)=>T(l,M+4,y+1.5+lh(8.6)*(j+0.8),{fs:8.6,c:RC.red}));y+=h;});

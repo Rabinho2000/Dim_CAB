@@ -14,8 +14,8 @@ const RHO20={Cu:0.018,Al:0.029};          /* Ω·mm²/m a 20 °C: Icc máximo */
 const KSC={Cu:{XLPE:143,PVC:115},Al:{XLPE:94,PVC:76}}; /* RTIEBT 434.3.2 / IEC 60364-4-43 */
 const zadd=(a,b)=>({R:a.R+b.R,X:a.X+b.X}),zabs=z=>Math.hypot(z.R,z.X);
 /* impedância da fonte no ponto de injeção, por fase (Ω). max: para Icc máx.; min: para o defeito fase-neutro no fim das linhas */
-function srcZ(){
-  const sc=S.sc||{};let z;
+function srcZ(sc){
+  sc=sc||S.sc||{};let z;
   if(sc.fonte==='icc'){const Ik=Math.max(+sc.icc||10,0.1)*1000;const Z=1.05*400/(Math.sqrt(3)*Ik);z={R:Z*Math.SQRT1_2,X:Z*Math.SQRT1_2};}
   else{const Sn=Math.max(+sc.sn||630,1)*1000,u=Math.max(+sc.ucc||4,0.5)/100;const Zt=u*400*400/Sn,Rt=0.26*Zt,Xt=Math.sqrt(Zt*Zt-Rt*Rt);
     const Zq=1.1*400*400/(Math.max(+sc.scc||500,1)*1e6),Xq=0.995*Zq,Rq=0.1*Xq;z={R:Rt+Rq,X:Xt+Xq};}
@@ -41,8 +41,8 @@ function letThrough(b,In,ik){
   return f*T[3][1];
 }
 /* impedâncias em cada quadro, a partir dos percursos já dimensionados */
-function nodeZ(pC){
-  const base=srcZ(),memo=new Map();
+function nodeZ(pC,sc){
+  const base=srcZ(sc),memo=new Map();
   const get=(node,d=0)=>{node=String(node).trim();if(memo.has(node))return memo.get(node);const p=percFrom(node);let z=base;
     if(p&&d<30){const pc=pC.find(c=>c.ref===p);const up=get(p.dest,d+1);
       if(pc&&pc.res){const zc=zCable(pc.res,pc.L,pc.Lc,pc.loaded);z={max:zadd(up.max,zc.max),min:zadd(up.min,zc.min)};}else z=up;}
