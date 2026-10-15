@@ -8,3 +8,4 @@ tests/*.pdf
 tests/orcamento*.xlsx
 tests/orcamento*.pdf
 tests/*.json
+tests/*.docx

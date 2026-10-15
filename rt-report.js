@@ -7,6 +7,48 @@ const RSW={'D':612,'f':521,'£':549,'³':549,'®':987,'»':549,'W':768,'Ö':549,
 const RSUB={'₀':'0','₁':'1','₂':'2','₃':'3'};
 const LOGO='__LOGO__';
 const RC={ink:[26,32,40],mut:[90,102,114],line:[214,220,226],acc:[56,212,48],accD:[30,138,25],red:[191,51,40],soft:[244,246,248],redS:[252,236,234]};
+/* secções 1 e 2 (identificação e critérios): as mesmas no relatório PDF e no Word */
+function idRows(R,nCirc,dt){const ob=S.obra||{},n0=v=>fmt(v,0),n1=v=>fmt(v,1);
+  return [['Projeto',S.proj||'—','Cliente',ob.cliente||'—'],['Morada',ob.morada||'—','Nº do desenho',ob.desenho||'—'],['Revisão',`${ob.rev||'A'} · ${ob.aprov?`aprovada por ${ob.aprov.nome||''} em ${dtxt(ob.aprov.em)}`:'não aprovada'}`],['Local (clima)',S.loc||'—','Data',dt],['Potência AC',`${n1(R.Ptot)} kW`,'Inversores',String(S.invs.length)],
+    ['Corrente total',`${n0(R.IbTot)} A`,'Circuitos',String(nCirc)]];}
+function critRows(){const n2=v=>fmt(v,2),e6=E6.find(x=>x[0]===+S.rsolo);
+  const matTxt=S.mat==='auto'?`Automático: alumínio quando L > ${fs(+S.alThr||0)} m e P > ${fs(+S.alPmin||0)} kW (sempre monocondutor, nunca abaixo de 16 mm²); nos restantes, cobre`:S.mat==='Cu'?'Sempre cobre':'Sempre alumínio (monocondutor, mínimo 16 mm²)';
+  return [['Temperatura do ar',`${S.tair} °C`,'Temperatura do solo',`${S.tsoil} °C`],
+    ['Resistividade do solo',e6?`${fs(e6[0])} K·m/W · ${e6[2]} (52-E6: ${n2(e6[1])})`:String(S.rsolo),'Isolamento',S.isol==='XLPE'?'XLPE / EPR (90 °C)':'PVC (70 °C)'],
+    ['Material',matTxt],
+    ['ΔU máx. por troço',`${fs(S.limT)} % (verificada só por troço, não acumulada)`,'cos φ',n2(Math.min(Math.max(+S.cos||1,0.5),1))],
+    ['Comprimento de cálculo',S.folga===false?"L' = L (sem folga)":"L' = L + 20 % (L < 30 m) ou L + 10 % (L ≥ 30 m)"]];}
+const REPORT_NOTES=[`Corrente admissível: Iz = Iz tabelado × n × fT × fsolo × fagrup, com Iz tabelado nos quadros 52-C da RTIEBT para o método de referência da instalação, fT nos quadros 52-D1 (ar) / 52-D2 (solo), fsolo no 52-E6 e fagrup nos quadros 52-E1 a 52-E5; n = nº de cabos em paralelo por fase (máximo 3).`,
+   `Proteção contra sobrecargas: Ib ≤ In ≤ Iz e I₂ ≤ 1,45·Iz, com I₂ = k₂·In (k₂ = 1,45 nos disjuntores modulares até 125 A e 1,30 nos de caixa moldada). Ib dos inversores = corrente AC máxima da ficha técnica.`,
+   `Queda de tensão: u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n e ΔU % = u/230 × 100, com b = 1 em trifásico e 2 em monofásico, ρ = 0,0225 (Cu) e 0,036 (Al) Ω·mm²/m e X a reatância linear do cabo.`,
+   `Neutro segundo a RTIEBT 524.2 (igual à fase até 16 mm² Cu / 25 mm² Al e em monofásico; acima, metade da fase) e condutor de proteção segundo o quadro 54F.`];
+/* linhas do cálculo de um circuito: as mesmas no relatório PDF e no Word */
+function circRows(c){
+  const n0=v=>fmt(v,0),n1=v=>fmt(v,1),n2=v=>fmt(v,2),metLab=m=>({EF:'E/F',D61:'D'}[m]||m);
+  const o=c.res,v=verdict(c),r=c.r,mode=MODE[r.ref],ti=c.ti;
+    const sub=[c.kind==='inv'?c.modelo:`${c.nInv} inversor${c.nInv===1?'':'es'} a montante`,`${n1(c.p)} kW`,c.fases===1?'monofásico 230 V':'trifásico 400 V',
+      `L = ${fs(c.L)} m${c.Lc!==c.L?` (cálculo L' = ${n1(c.Lc)} m)`:''}`].join(' · ');
+  if(!o)return {sub,rows:null,notes:[]};
+    const lay=o.cons==='multi'?'multicondutor':`monocondutores${mode.m==='EF'?` em ${({trevo:'trevo',esteira:'esteira sem afastamento',afh:'esteira com afastamento (H)',afv:'esteira com afastamento (V)'})[r.disp]||'trevo'}`:''}`;
+    const trays=mode.m==='EF'?`, ${o.trays} esteira${o.trays>1?'s':''}`:'';
+    const ibSrc=c.kind==='inv'?c.ibSrc:c.gw&&c.gw.dimNom!==false&&c.Ib>c.IbInv?`corrente nominal do gateway ${c.gw.In} A`:c.split?'inversor servido por este cabo':'soma dos inversores a jusante';
+    const P=cableParts(o,c.loaded);
+    const gwInt=c.split||gwOf(c.ref.dest);
+    const tSrc=ti.buried?`52-D2, solo a ${ti.t} °C`:`52-D1, ar a ${ti.t} °C${r.sol?' (exposto ao sol: +10 °C)':''}`;
+  const rows=[['Modo de instalação',`Ref. ${r.ref} · método de referência ${metLab(mode.m)} — ${mode.d}`],
+      ['Tipo de cabo',`${o.mat==='Cu'?'Cobre':'Alumínio'} · ${S.isol} · ${lay}${trays}`,'Condutores carregados',String(c.loaded)],
+      ['Quadro RTIEBT',`${o.q} col. ${o.qcol}`,'Iz tabelado',`${n0(o.iz0)} A (${fs(o.s)} mm²)`],
+      ['Fator de temperatura',`${n2(ti.ft)} (${tSrc})`,'Fator de solo',ti.buried?`${n2(ti.fsolo)} (52-E6)${ti.ftubo!==1?` · em tubo × ${n2(ti.ftubo)}`:''}`:'1,00 (ao ar)'],
+      ['Fator de agrupamento',`${n2(o.fg)} (${o.fgSrc}; ${o.nEff} circuito${o.nEff>1?'s':''}${o.trays>1?`, ${o.perTray} por esteira`:''})`,'Fator total f',n2(o.f)],
+      ['Iz',`${n0(o.iz0)} × ${o.n} × ${n2(o.f)} = ${n0(o.Iz)} A`,'Ib',`${n1(c.Ib)} A (${ibSrc})`],
+      ['In',`${o.In} A · Ib ≤ In ≤ Iz: ${n1(c.Ib)} ≤ ${o.In} ≤ ${n0(o.Iz)} ${o.term?'cumpre':'NÃO cumpre'}`,'I₂ ≤ 1,45·Iz',`I₂ = ${n2(k2(o.In))} × ${o.In} = ${n0(o.I2)} A ≤ ${n0(1.45*o.Iz)} A ${o.sob?'cumpre':'NÃO cumpre'}`],
+      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} %${c.cos!=null?` com cos φ ${n2(c.cos)}`:''} (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} %`+(c.kind==='inv'&&+S.lim>0&&(c.acc||0)>+S.lim?` > aviso ${fs(S.lim)} %`:' (informativa)')],
+      ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
+      ['Designação no unifilar',cableDwg(c)],
+      ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`+(o.ikmax==null?'':o.icuOk!==false?` ≥ Icc no local ${n1(o.ikmax)} kA`:` < Icc no local ${n1(o.ikmax)} kA: ${o.icuAlt?`usar ${o.icuAlt.name} (${o.icuAlt.icu} kA)`:'escolher série de maior poder de corte'}`):`${o.In} A (sem referência no catálogo)`]];
+    const notes=[c.gwErr,c.noFitMsg,v.st!=='ok'&&!c.gwErr&&!c.noFitMsg?`A rever: ${v.why}.`:null].filter(Boolean);
+  return {sub,rows,notes};
+}
 function reportPDF(R){
   const {jsPDF}=window.jspdf;const mk=()=>new jsPDF({unit:'mm',format:'a4',compress:true});const doc=mk();let pdf=doc,dry=false;
   const PW=210,PH=297,M=16,CW=PW-2*M,TOP=30,BOT=PH-16;let y=TOP;
@@ -47,24 +89,13 @@ function reportPDF(R){
   T('RTIEBT (Portaria 949-A/2006)',PW-M,32,{fs:9.5,c:[200,208,214],a:'r'});
   y=54;
   h2('1. Identificação da obra');
-  const ob=S.obra||{};kv([['Projeto',S.proj||'—','Cliente',ob.cliente||'—'],['Morada',ob.morada||'—','Nº do desenho',ob.desenho||'—'],['Revisão',`${ob.rev||'A'} · ${ob.aprov?`aprovada por ${ob.aprov.nome||''} em ${dtxt(ob.aprov.em)}`:'não aprovada'}`],['Local (clima)',S.loc||'—','Data',dt],['Potência AC',`${n1(R.Ptot)} kW`,'Inversores',String(S.invs.length)],
-    ['Corrente total',`${n0(R.IbTot)} A`,'Circuitos',String(all.length)]],{lw:34});
+  kv(idRows(R,all.length,dt),{lw:34});
 
   /* ----- 2. dados gerais ----- */
   h2('2. Dados gerais e critérios');
-  const e6=E6.find(x=>x[0]===+S.rsolo);
-  const matTxt=S.mat==='auto'?`Automático: alumínio quando L > ${fs(+S.alThr||0)} m e P > ${fs(+S.alPmin||0)} kW (sempre monocondutor, nunca abaixo de 16 mm²); nos restantes, cobre`:S.mat==='Cu'?'Sempre cobre':'Sempre alumínio (monocondutor, mínimo 16 mm²)';
-  kv([['Temperatura do ar',`${S.tair} °C`,'Temperatura do solo',`${S.tsoil} °C`],
-    ['Resistividade do solo',e6?`${fs(e6[0])} K·m/W · ${e6[2]} (52-E6: ${n2(e6[1])})`:String(S.rsolo),'Isolamento',S.isol==='XLPE'?'XLPE / EPR (90 °C)':'PVC (70 °C)'],
-    ['Material',matTxt],
-    ['ΔU máx. por troço',`${fs(S.limT)} % (verificada só por troço, não acumulada)`,'cos φ',n2(Math.min(Math.max(+S.cos||1,0.5),1))],
-    ['Comprimento de cálculo',S.folga===false?"L' = L (sem folga)":"L' = L + 20 % (L < 30 m) ou L + 10 % (L ≥ 30 m)"]],{lw:38});
+  kv(critRows(),{lw:38});
   y+=2;
-  [`Corrente admissível: Iz = Iz tabelado × n × fT × fsolo × fagrup, com Iz tabelado nos quadros 52-C da RTIEBT para o método de referência da instalação, fT nos quadros 52-D1 (ar) / 52-D2 (solo), fsolo no 52-E6 e fagrup nos quadros 52-E1 a 52-E5; n = nº de cabos em paralelo por fase (máximo 3).`,
-   `Proteção contra sobrecargas: Ib ≤ In ≤ Iz e I₂ ≤ 1,45·Iz, com I₂ = k₂·In (k₂ = 1,45 nos disjuntores modulares até 125 A e 1,30 nos de caixa moldada). Ib dos inversores = corrente AC máxima da ficha técnica.`,
-   `Queda de tensão: u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n e ΔU % = u/230 × 100, com b = 1 em trifásico e 2 em monofásico, ρ = 0,0225 (Cu) e 0,036 (Al) Ω·mm²/m e X a reatância linear do cabo.`,
-   `Neutro segundo a RTIEBT 524.2 (igual à fase até 16 mm² Cu / 25 mm² Al e em monofásico; acima, metade da fase) e condutor de proteção segundo o quadro 54F.`]
-   .forEach(t=>{para(t,{fs:8.6,c:RC.mut});y+=1.2;});
+  REPORT_NOTES.forEach(t=>{para(t,{fs:8.6,c:RC.mut});y+=1.2;});
 
   /* ----- 3. quadro resumo ----- */
   h2('3. Quadro resumo dos circuitos');
@@ -111,28 +142,11 @@ function reportPDF(R){
     T((c.code?c.code+' · ':'')+(c.kind==='inv'?`${c.nome} → ${c.para}`:c.nome),M+2.5,y+5.1,{fs:10,b:1,c:[255,255,255]});
     const pill=v.st==='ok'?'OK':'A rever';pdf.setFillColor(...(v.st==='ok'?RC.acc:RC.red));const pw=width(pill,{fs:8,b:1})+6;pdf.roundedRect(M+CW-pw-2,y+1.4,pw,4.7,1.2,1.2,'F');
     T(pill,M+CW-2-pw/2,y+4.75,{fs:8,b:1,a:'c',c:v.st==='ok'?RC.ink:[255,255,255]});y+=7.5;
-    const sub=[c.kind==='inv'?c.modelo:`${c.nInv} inversor${c.nInv===1?'':'es'} a montante`,`${n1(c.p)} kW`,c.fases===1?'monofásico 230 V':'trifásico 400 V',
-      `L = ${fs(c.L)} m${c.Lc!==c.L?` (cálculo L' = ${n1(c.Lc)} m)`:''}`].join(' · ');
+    const X=circRows(c),sub=X.sub;
     y+=1;para(sub,{fs:8.6,c:RC.mut,x:M+2.5,w:CW-5});y+=1;
     if(!o){para('Sem valores tabelados para este modo de instalação e cabo.',{fs:9,c:RC.red});y+=3;return;}
-    const lay=o.cons==='multi'?'multicondutor':`monocondutores${mode.m==='EF'?` em ${({trevo:'trevo',esteira:'esteira sem afastamento',afh:'esteira com afastamento (H)',afv:'esteira com afastamento (V)'})[r.disp]||'trevo'}`:''}`;
-    const trays=mode.m==='EF'?`, ${o.trays} esteira${o.trays>1?'s':''}`:'';
-    const ibSrc=c.kind==='inv'?c.ibSrc:c.gw&&c.gw.dimNom!==false&&c.Ib>c.IbInv?`corrente nominal do gateway ${c.gw.In} A`:c.split?'inversor servido por este cabo':'soma dos inversores a jusante';
-    const P=cableParts(o,c.loaded);
-    const gwInt=c.split||gwOf(c.ref.dest);
-    const tSrc=ti.buried?`52-D2, solo a ${ti.t} °C`:`52-D1, ar a ${ti.t} °C${r.sol?' (exposto ao sol: +10 °C)':''}`;
-    kv([['Modo de instalação',`Ref. ${r.ref} · método de referência ${metLab(mode.m)} — ${mode.d}`],
-      ['Tipo de cabo',`${o.mat==='Cu'?'Cobre':'Alumínio'} · ${S.isol} · ${lay}${trays}`,'Condutores carregados',String(c.loaded)],
-      ['Quadro RTIEBT',`${o.q} col. ${o.qcol}`,'Iz tabelado',`${n0(o.iz0)} A (${fs(o.s)} mm²)`],
-      ['Fator de temperatura',`${n2(ti.ft)} (${tSrc})`,'Fator de solo',ti.buried?`${n2(ti.fsolo)} (52-E6)${ti.ftubo!==1?` · em tubo × ${n2(ti.ftubo)}`:''}`:'1,00 (ao ar)'],
-      ['Fator de agrupamento',`${n2(o.fg)} (${o.fgSrc}; ${o.nEff} circuito${o.nEff>1?'s':''}${o.trays>1?`, ${o.perTray} por esteira`:''})`,'Fator total f',n2(o.f)],
-      ['Iz',`${n0(o.iz0)} × ${o.n} × ${n2(o.f)} = ${n0(o.Iz)} A`,'Ib',`${n1(c.Ib)} A (${ibSrc})`],
-      ['In',`${o.In} A · Ib ≤ In ≤ Iz: ${n1(c.Ib)} ≤ ${o.In} ≤ ${n0(o.Iz)} ${o.term?'cumpre':'NÃO cumpre'}`,'I₂ ≤ 1,45·Iz',`I₂ = ${n2(k2(o.In))} × ${o.In} = ${n0(o.I2)} A ≤ ${n0(1.45*o.Iz)} A ${o.sob?'cumpre':'NÃO cumpre'}`],
-      ['Queda de tensão',`ΔU = ${n2(o.du*2.3)} V · ${n2(o.du)} %${c.cos!=null?` com cos φ ${n2(c.cos)}`:''} (limite ${fs(S.limT)} %)`,'ΔU até à injeção',`${n2(c.acc||0)} %`+(c.kind==='inv'&&+S.lim>0&&(c.acc||0)>+S.lim?` > aviso ${fs(S.lim)} %`:' (informativa)')],
-      ['Cabo',P.multi?`${P.cabo} mm² (${P.nota})`:`Fases: ${P.fase}${P.fases>1?' (por fase)':''}\nNeutro: ${P.neutro}\nTerra: ${P.terra}`],
-      ['Designação no unifilar',cableDwg(c)],
-      ['Disjuntor ABB',gwInt?`${o.In} A, proteção interna do gateway${o.brk?` (referência equivalente: ${o.brk.name})`:''}`:o.brk?`${o.brk.name} · ${c.loaded===2?2:4}P · In ${o.In} A · Icu ${o.brk.icu} kA`+(o.ikmax==null?'':o.icuOk!==false?` ≥ Icc no local ${n1(o.ikmax)} kA`:` < Icc no local ${n1(o.ikmax)} kA: ${o.icuAlt?`usar ${o.icuAlt.name} (${o.icuAlt.icu} kA)`:'escolher série de maior poder de corte'}`):`${o.In} A (sem referência no catálogo)`]],{lw:36});
-    const notes=[c.gwErr,c.noFitMsg,v.st!=='ok'&&!c.gwErr&&!c.noFitMsg?`A rever: ${v.why}.`:null].filter(Boolean);
+    kv(X.rows,{lw:36});
+    const notes=X.notes;
     notes.forEach(t=>{const ls=wrap(t,CW-8,{fs:8.6});const h=ls.length*lh(8.6)+3;need(h);pdf.setFillColor(...RC.redS);pdf.rect(M,y,CW,h,'F');pdf.setFillColor(...RC.red);pdf.rect(M,y,1.2,h,'F');
       ls.forEach((l,j)=>T(l,M+4,y+1.5+lh(8.6)*(j+0.8),{fs:8.6,c:RC.red}));y+=h;});
     y+=5;};

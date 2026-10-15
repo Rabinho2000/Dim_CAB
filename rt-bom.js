@@ -74,10 +74,10 @@ function bomData(R){
 /* ---------- .xlsx gerado aqui (Office Open XML num zip sem compressão): sem bibliotecas nem rede, abre no Excel com números e fórmulas ---------- */
 const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRCT[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
-function zipStore(files){ /* files: [[nome, texto]] → Uint8Array */
+function zipStore(files){ /* files: [[nome, texto ou Uint8Array]] → Uint8Array */
   const te=new TextEncoder(),loc=[],cen=[];let off=0;
   const u16=v=>[v&255,(v>>>8)&255],u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
-  files.forEach(([name,txt])=>{const nm=te.encode(name),d=te.encode(txt),crc=crc32(d);
+  files.forEach(([name,txt])=>{const nm=te.encode(name),d=txt instanceof Uint8Array?txt:te.encode(txt),crc=crc32(d);
     const h=[...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(d.length),...u32(d.length),...u16(nm.length),...u16(0)];
     loc.push(Uint8Array.from(h),nm,d);
     cen.push(Uint8Array.from([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(d.length),...u32(d.length),...u16(nm.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nm);
