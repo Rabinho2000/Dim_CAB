@@ -81,8 +81,9 @@ function render(){
   const worst=Math.max(0,...all.filter(c=>c.res).map(c=>c.res.du));
   const ends=R.pC.filter(c=>!percFrom(c.ref.dest)&&c.res).sort((a,b)=>b.p-a.p);const main=ends[0];
   $('#kpis').innerHTML=[['Inversores',S.invs.length,''],['Potência total',fmt(R.Ptot,1),'kW'],['Corrente total',fmt(R.IbTot,0),'A'],
-    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],(R.icuOn?['Icc no ponto de ligação',fmt(R.ikSrc,1),'kA']:['Poder de corte','não verificado','indica a Icc ou o PT em Critérios']),['Cabos e terminais',eur0(R.costTot+R.termTot),R.costEst||R.invC.concat(R.pC).some(c=>c.term&&c.term.est)?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
-    .map(([l,v,u,b])=>`<div class="kpi${b?' bad':''}"><small>${l}</small><b>${v}</b><i>${u}</i></div>`).join('');
+    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],(R.icuOn?['Icc no ponto de ligação',fmt(R.ikSrc,1),'kA']:['Poder de corte','Não verificado','<button type="button" class="kpi-go" data-goto="icu-modo">Definir nos Critérios →</button>',false,'off']),['Cabos e terminais',eur0(R.costTot+R.termTot),R.costEst||R.invC.concat(R.pC).some(c=>c.term&&c.term.est)?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
+    .map(([l,v,u,b,x])=>`<div class="kpi${b?' bad':''}${x?' '+x:''}"><small>${l}</small><b>${v}</b><i>${u}</i></div>`).join('');
+  $('#kpis').querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{const f=document.getElementById(el.dataset.goto);f.scrollIntoView({behavior:'smooth',block:'center'});f.focus({preventScroll:true});});
   const rowHTML=c=>{
     const o=c.res;
     if(c.Ib<=0)return `<tr class="${c.kind==='perc'?'feeder':''}"><td>${esc(c.nome)}<span class="sub">${c.L} m</span></td><td class="n r">0,0</td><td colspan="8" class="hint">${c.kind==='perc'?'Nenhum inversor passa por este percurso. Confirma os nomes dos quadros.':'Indica a potência.'}</td></tr>`;

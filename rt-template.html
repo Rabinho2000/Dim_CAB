@@ -53,6 +53,11 @@ button.ghost:hover{color:var(--ink)} button.ghost.del:hover{color:var(--bad)}
 .kpi b{font-family:var(--f-mono);font-size:22px;font-weight:500}
 .kpi i{font-style:normal;font-size:12px;color:var(--muted);margin-left:3px}
 .kpi.bad{border-color:var(--bad)} .kpi.bad b{color:var(--bad)}
+.kpi.off{border-style:dashed;background:transparent}
+.kpi.off b{display:block;font-family:var(--f-body);font-size:15px;font-weight:600;color:var(--muted);margin:6px 0 4px}
+.kpi.off i{margin-left:0}
+.kpi-go{border:0;background:none;padding:0;font:inherit;font-size:12px;font-weight:600;color:#1f9e19;cursor:pointer}
+.kpi-go:hover{text-decoration:underline}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 @media (max-width:860px){.cols{grid-template-columns:1fr}}
 .tablewrap{overflow-x:auto}
