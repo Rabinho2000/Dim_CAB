@@ -148,7 +148,8 @@ function noFitMsg(c){
     :`${head} Nem com 3 cabos de ${fs(smax)} mm² por fase chega: divide o circuito ou escolhe uma passagem com menos agrupamento.`;
 }
 function solve(zf){
-  const invC=S.invs.map((i,k)=>{const info=invInfo(i);const nq=S.invs.filter(x=>x.q===i.q).length;
+  const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
+    const estOf=x=>String(x.est||'').trim().toUpperCase(),nq=S.invs.filter(x=>x.q===i.q&&estOf(x)===estOf(i)).length;
     const nAgr=nq;
     return {ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
       L:+i.L||0,r:{...S.rInv,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:S.rInv.cons},consForced:i.cons==='mono',ti:tempInfo(S.rInv),nAgr,path:pathOf(i.q)};});
@@ -159,7 +160,7 @@ function solve(zf){
         Object.defineProperty(ref,'S',{get:()=>sub.S,set:v=>{sub.S=v;},enumerable:true});ref.id=p.id+'_'+key;
         const err=sp&&sp.portI&&ic.iac>sp.portI+1e-9?`Excede a entrada do gateway (${fmt(ic.iac,1)} > ${sp.portI} A)`:'';
         return {ref,base:p,sub:ic,split:true,forceIn:gwPortA(sp),kind:'perc',nome:`${p.orig} → ${p.dest} · ${ic.nome}`,p:ic.p,Ib:ic.Ib,IbInv:ic.Ib,gw:null,gwErr:err,fases:ic.fases,loaded:ic.loaded,
-          L:+p.L||0,r:p,ti:tempInfo(p),nAgr:fe.length,nInv:1};});}
+          L:+p.L||0,r:p,ti:tempInfo(p),nAgr:fe.length+extraOf(p),nInv:1};});}
     /* monofásico se sair de um gateway monofásico ou se só tiver inversores monofásicos a montante */
     const fases=gw?+gw.fases:(fe.length&&fe.every(c=>c.fases===1)?1:3);
     const IbInv=fases===1?fe.reduce((a,c)=>a+c.Ib,0):fe.reduce((a,c)=>a+(c.fases===1?c.Ib/3:c.Ib),0);
@@ -167,7 +168,7 @@ function solve(zf){
     const sp=gwSpec(gw);
     const gwErr=gw?(+gw.fases===1&&fe.some(c=>c.fases===3)?'Inversor 3F em gateway 1F':((fases===1?fe.reduce((a,c)=>a+c.iac,0):fe.reduce((a,c)=>a+(c.fases===1?c.iac/3:c.iac),0))>(+gw.In||0)+1e-9?`Excede gateway (${fmt(fe.reduce((a,c)=>a+c.iac,0),0)} > ${gw.In} A nominais)`:sp&&sp.ports&&fe.length>sp.ports?`Excede as entradas do gateway (${fe.length} > ${sp.ports})`:'')):'';
     return [{base:p,ref:p,forceIn:gw?gwMainA(sp):null,kind:'perc',nome:`${p.orig} → ${p.dest}`,p:fe.reduce((a,c)=>a+c.p,0),Ib,IbInv,gw,gwErr,fases,loaded:fases===1?2:3,
-      L:+p.L||0,r:p,ti:tempInfo(p),nAgr:1,nInv:fe.length}];});
+      L:+p.L||0,r:p,ti:tempInfo(p),nAgr:1+extraOf(p),nInv:fe.length}];});
   const pmap=new Map();pC.forEach(c=>{if(!pmap.has(c.base))pmap.set(c.base,c);});const all=invC.concat(pC);
   /* impedância a montante no local do disjuntor: quadro do inversor; nos percursos, o quadro de destino (lado da rede) */
   all.forEach(c=>{c.zUp=zf?zf(c.kind==='inv'?c.para:c.ref.dest):null;});
@@ -268,6 +269,24 @@ function applyIcu(R){
     o.ikmax=ik(get(c.kind==='inv'?c.para:c.ref.dest));o.icuOk=o.brk.icu>=o.ikmax-1e-9;
     if(!o.icuOk){const alt=pickBreaker(o.In,c.loaded===2?2:4,o.ikmax);o.icuAlt=alt&&alt.icuOk?alt:null;}});
 }
+/* seletividade (só aviso): o disjuntor de cada percurso fica no quadro de destino (lado da rede) e tem a jusante os disjuntores do
+   quadro de origem (inversores ligados a esse quadro e percursos que chegam a ele). Regra prática: In a montante ≥ 1,6 × o maior
+   In a jusante; abaixo disso, confirmar nas tabelas de seletividade ABB. Gateways (proteções do fabricante) não entram. */
+const SEL_K=1.6;
+/* percurso: outros circuitos que vão na mesma esteira (campo do percurso; 0 = só este, como antes) */
+const extraOf=p=>Math.max(0,Math.round(+p.extra||0));
+function applySel(R){
+  const all=R.invC.concat(R.pC),ok=c=>c.res&&c.res.In&&!c.split&&!(c.kind==='perc'&&gwOf(c.ref.dest));
+  R.pC.forEach(p=>{p.sel=null;if(!ok(p)||gwOf(p.ref.orig))return;const node=String(p.ref.orig).trim();
+    const down=all.filter(c=>c!==p&&ok(c)&&(c.kind==='inv'?String(c.para).trim()===node:String(c.ref.dest).trim()===node));
+    if(!down.length)return;const mx=down.reduce((a,c)=>c.res.In>a.res.In?c:a);
+    if(p.res.In<SEL_K*mx.res.In-1e-9)p.sel={In:p.res.In,dn:mx.res.In,code:mx.code,k:SEL_K};});
+}
+/* calcula um projeto qualquer sem mexer no projeto aberto: usa uma cópia do estado e repõe S no fim, mesmo com erro */
+function solveProject(state){
+  const keep=S;S=Object.assign(example(),JSON.parse(JSON.stringify(state||{})));
+  try{return solveAll();}finally{S=keep;}
+}
 function solveAll(){
   let R=solve(null);
   if(S.sc&&S.sc.on!==false){let sig='';for(let k=0;k<5;k++){R=solve(nodeZ(R.pC));const s2=R.pC.map(c=>c.res?c.res.n+'x'+c.res.s+c.res.mat:'').join();if(s2===sig)break;sig=s2;}}
@@ -275,6 +294,7 @@ function solveAll(){
   applyIcu(R);
   /* identificação dos cabos (mapa de cabos, unifilar, relatório, orçamento): ordem da tabela de resultados */
   R.invC.concat(R.pC).forEach((c,i)=>{c.code='C'+(i+1);});
+  applySel(R);
   R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0);
   return R;
 }

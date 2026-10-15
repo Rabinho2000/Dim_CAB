@@ -192,6 +192,32 @@ test('alternativa mais barata conta cabo + terminais',()=>{
     assert.ok(c.alt.v<cur*0.97&&cur-c.alt.v>=10,`${c.code}: ${c.alt.v.toFixed(2)} vs ${cur.toFixed(2)}`);}
 });
 
+test('agrupamento: esteiras dos inversores e outros circuitos na esteira de um percurso',()=>{
+  const E=engine();const base=E.solve(),st=E.S();
+  assert.ok(base.invC.every(c=>c.nAgr===4),'por omissão: os 4 do QFV juntos');
+  E.set({invs:st.invs.map((i,k)=>({...i,est:k<2?'a':'B'})),percs:st.percs});let R=E.solve();
+  assert.deepEqual([...R.invC.map(c=>c.nAgr)],[2,2,2,2],'esteiras A e B: 2 em cada (a letra não distingue maiúsculas)');
+  assert.ok(R.invC[0].res.fg>base.invC[0].res.fg&&R.invC[0].res.s<=base.invC[0].res.s,'menos agrupamento: fator maior, secção igual ou menor');
+  E.set({percs:st.percs.map((p,k)=>k===0?{...p,extra:4}:p)});R=E.solve();
+  assert.equal(R.pC[0].nAgr,5);assert.ok(R.pC[0].res.fg<base.pC[0].res.fg,'mais circuitos na esteira: fator menor');
+});
+
+test('seletividade: aviso quando In a montante < 1,6 × o maior In a jusante',()=>{
+  const E=engine();let R=E.solve();const by=n=>R.pC.find(c=>c.nome===n);
+  assert.equal(by('QFV → QInterligação').sel,null,'1000 A ≥ 1,6 × 320 A');
+  assert.deepEqual({...by('QInterligação → Qentrada').sel},{In:1000,dn:1000,code:'C5',k:1.6},'1000 A em série com 1000 A');
+  E.set({invs:[{modelo:'SUN2000-20K-MB0',pman:0,q:'QFV',L:20,S:'auto'}],percs:[{orig:'QFV',dest:'Qentrada',L:10,S:'auto',...route('13','mono')}],gws:[]});
+  R=E.solve();assert.ok(R.pC[0].sel&&R.pC[0].sel.dn===R.invC[0].res.In);
+});
+
+test('solveProject: calcula outro projeto sem mexer no aberto',()=>{
+  const E=engine();const before=JSON.stringify(E.S());
+  const R=E.ev(`solveProject({invs:[{modelo:'SUN2000-50KTL-M3',pman:0,q:'QFV',L:30,S:'auto'}],percs:[{orig:'QFV',dest:'Qentrada',L:10,S:'auto',ref:'13',cons:'mono',disp:'trevo',trays:1,sol:false}],gws:[]})`);
+  assert.equal(R.invC.length,1);assert.equal(JSON.stringify(E.S()),before,'S ficou igual');
+  assert.equal(E.solve().invC.length,4,'o projeto aberto continua com os 4 inversores');
+  assert.throws(()=>E.ev(`solveProject({invs:null})`));assert.equal(JSON.stringify(E.S()),before,'mesmo com erro, S é reposto');
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

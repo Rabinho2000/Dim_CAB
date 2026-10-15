@@ -48,6 +48,7 @@ function renderInvTable(){
     <td class="n r">${fmt(info.pnom,1)}</td><td class="n r">${fmt(info.Ib,1)}<span class="sub">${info.fases===1?'1F 230 V':'3F 400 V'}</span></td>
     <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem (${S.rInv.cons==='mono'?'mono':'multi'})</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
     <td><select data-k="q" aria-label="Quadro">${qs.concat(qs.includes(i.q)?[]:[i.q]).map(n=>`<option${n===i.q?' selected':''}>${esc(n)}</option>`).join('')}</select></td>
+    <td><input data-k="est" value="${esc(i.est||'')}" maxlength="3" placeholder="—" aria-label="Esteira" title="Inversores do mesmo quadro com a mesma esteira contam juntos no agrupamento. Em branco: todos os do quadro juntos." class="w-est"></td>
     <td><input data-k="L" type="number" min="0" step="1" value="${i.L}" aria-label="Distância m" class="w-num"></td>
     <td class="r"><button class="ghost" data-dup="${i.id}" title="Duplicar">Duplicar</button><button class="ghost del" data-del="${i.id}">Remover</button></td></tr>`;}).join('');
 }
@@ -55,7 +56,7 @@ function renderPercTable(){
   $('#p-body').innerHTML=S.percs.map(p=>`<tr data-id="${p.id}">
     <td><input data-k="orig" data-prev="${esc(p.orig)}" value="${esc(p.orig)}" aria-label="Origem"></td>
     <td><input data-k="dest" value="${esc(p.dest)}" aria-label="Destino">${gwOf(p.dest)?'<span class="sub">Gateway</span>':`<select class="btype" data-bt="${esc(p.dest)}" aria-label="Tipo do quadro de destino"><option value="">Tipo automático</option>${['INT','CONT','CLI','QFV'].map(k=>`<option value="${k}"${btypeSet(p.dest)===k?' selected':''}>${BTYPES[k][0]}</option>`).join('')}</select>`}</td>
-    <td><input data-k="L" type="number" min="0" step="1" value="${p.L}" aria-label="Distância" class="w-num">${gwOf(p.dest)?`<label class="check"><input type="checkbox" data-k="split"${p.split!==false?' checked':''}> 1 cabo por inversor até ao gateway</label>`:''}</td>
+    <td><input data-k="L" type="number" min="0" step="1" value="${p.L}" aria-label="Distância" class="w-num"><label class="check" title="Outros circuitos que vão na mesma esteira que este (por exemplo, cabos dos inversores). Entram no fator de agrupamento.">+ <input data-k="extra" type="number" min="0" step="1" value="${p.extra||0}" class="w-num" aria-label="Outros circuitos na mesma esteira"> outros circuitos na esteira</label>${gwOf(p.dest)?`<label class="check"><input type="checkbox" data-k="split"${p.split!==false?' checked':''}> 1 cabo por inversor até ao gateway</label>`:''}</td>
     <td class="r"><button class="ghost del" data-delp="${p.id}">Remover</button></td></tr>
     <tr class="rrow" data-id="${p.id}"><td colspan="4" data-route></td></tr>`).join('');
 }
@@ -89,7 +90,7 @@ function render(){
     const label=(c.code?`<b class="ccode">${c.code}</b> `:'')+(c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome));
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;
     return `<tr class="${c.kind==='perc'?'feeder ':''}${st==='bad'?'err':''}"><td>${label}<span class="sub">${sub}</span></td><td class="n r">${fmt(c.p,1)}</td><td class="n r">${fmt(c.Ib,1)}</td>
-      <td>${designation(c)}${c.alt?`<span class="sub altc">Mais barato e também cumpre: <b>${altName(c.alt.o,c.loaded)}</b> · poupa ${eur0(c.cost.v+(c.term?c.term.v:0)-c.alt.v)} em cabo e terminais${c.alt.est||c.cost.est?' (com preço estimado)':''} <button class="linkb" data-useal="${c.kind}:${c.ref.id}" data-o="${c.alt.o.n}x${c.alt.o.s}|${c.alt.o.mat}|${c.alt.o.cons}">Usar</button></span>`:''}${accWarn(c)?`<span class="sub limt">${esc(accWarn(c))}</span>`:''}${c.dropMsg?`<span class="sub limt">${esc(c.dropMsg)}</span>`:''}${c.noFitMsg?`<span class="sub limt">${esc(c.noFitMsg)}</span>`:o&&c.opts.length&&c.i===c.opts.length-1&&o.n===3?`<span class="sub limt">Secção máxima: 3 cabos por fase. Se a queda de tensão apertar, considera cobre neste troço.</span>`:''}</td><td>${breaker(o,c)}</td><td class="n r">${o?fmt(o.Iz,0)+' A':'—'}</td><td class="n r">${o?`<b>${fmt(o.du*2.3,2)} V</b><span class="sub">${fmt(o.du,2)} %</span>`:'—'}</td>
+      <td>${designation(c)}${c.alt?`<span class="sub altc">Mais barato e também cumpre: <b>${altName(c.alt.o,c.loaded)}</b> · poupa ${eur0(c.cost.v+(c.term?c.term.v:0)-c.alt.v)} em cabo e terminais${c.alt.est||c.cost.est?' (com preço estimado)':''} <button class="linkb" data-useal="${c.kind}:${c.ref.id}" data-o="${c.alt.o.n}x${c.alt.o.s}|${c.alt.o.mat}|${c.alt.o.cons}">Usar</button></span>`:''}${accWarn(c)?`<span class="sub limt">${esc(accWarn(c))}</span>`:''}${c.sel?`<span class="sub limt">Seletividade a confirmar: ${c.sel.In} A a montante &lt; ${fs(c.sel.k)} × ${c.sel.dn} A a jusante (${c.sel.code}). Confirma nas tabelas de seletividade ABB.</span>`:''}${c.dropMsg?`<span class="sub limt">${esc(c.dropMsg)}</span>`:''}${c.noFitMsg?`<span class="sub limt">${esc(c.noFitMsg)}</span>`:o&&c.opts.length&&c.i===c.opts.length-1&&o.n===3?`<span class="sub limt">Secção máxima: 3 cabos por fase. Se a queda de tensão apertar, considera cobre neste troço.</span>`:''}</td><td>${breaker(o,c)}</td><td class="n r">${o?fmt(o.Iz,0)+' A':'—'}</td><td class="n r">${o?`<b>${fmt(o.du*2.3,2)} V</b><span class="sub">${fmt(o.du,2)} %</span>`:'—'}</td>
       <td class="n r">${c.cost?eur0(c.cost.v)+(c.cost.est?'<span class="est" title="Preço estimado: sem compra deste cabo em 2026">*</span>':''):'—'}</td><td>${sel}</td><td><span class="pill ${st}">${why}</span></td></tr>`;};
   $('#res-body').innerHTML=R.invC.map(rowHTML).join('')+R.pC.map(rowHTML).join('');
   $('#sumline').textContent=(bad.length?`${bad.length} circuito(s) a rever`:'Todos os circuitos verificados')+(ends.length?` · injeção em ${[...new Set(ends.map(e=>e.ref.dest))].join(', ')}`:'');
@@ -162,7 +163,7 @@ function bind(){
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
   $('#folga').addEventListener('change',e=>{S.folga=e.target.checked;render();});
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
-  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager'].forEach(k=>{const el=document.getElementById(k);
+  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager','pint'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
   /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
   const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
@@ -171,7 +172,7 @@ function bind(){
   $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];S.dc.tmin=l[3];$('#tair').value=l[1];$('#tsoil').value=l[2];if(typeof renderDC==='function')renderDC();}render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
-    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
+    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='est')i.est=e.target.value.trim().toUpperCase();else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
     if(k==='modelo'||k==='pman'){const tr=document.querySelector(`#inv-body tr[data-id="${i.id}"]`);const info=invInfo(i);if(tr&&k==='pman'){tr.children[2].textContent=fmt(info.pnom,1);tr.children[3].firstChild.textContent=fmt(info.Ib,1);}}
     render();};
   ib.addEventListener('input',e=>{if(e.target.tagName==='INPUT')invEv(e);});ib.addEventListener('change',e=>{if(e.target.tagName==='SELECT')invEv(e);});
@@ -217,7 +218,7 @@ function scVis(){const on=S.sc.on!==false;document.querySelectorAll('#sc-fields 
 let TAB='ac';const HOOKS=[];
 function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
   document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t);if(last)HOOKS.forEach(f=>f(last));}
-function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager'].forEach(k=>document.getElementById(k).value=S[k]??'');
+function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','descHager','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
   S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';

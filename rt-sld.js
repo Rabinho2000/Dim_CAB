@@ -99,6 +99,7 @@ function sldSVG(R){
     out.push(`<rect x="${x0}" y="${Y0}" width="${W}" height="${BH}" fill="none" stroke="${isNew?ink:mut}" stroke-width="${isNew?1.6:1.2}"${isNew?'':' stroke-dasharray="7 4"'}/>`);
     T(x0+W-10,Y0+18,n,{b:1,fs:13,a:'end'});T(x0+W-10,Y0+32,ROLE[q.role],{c:mut,fs:9.5,a:'end'});
     if(isNew)T(x0+W-10,Y0+45,'IP65 · Classe II · IK10',{c:mut,fs:9.5,a:'end'});
+    if(isNew&&typeof pintNode==='function'&&pintNode(R)===n)T(x0+W-10,Y0+58,'Proteção de interface (a especificar)',{c:blue,fs:9.5,b:1,a:'end'});
     if(cont){/* quadro de contagem: contador no próprio quadro */const mm=q.meter;
       if(mm.type==='direta'){Lh(ex,Y0,ex,Y0+20);out.push(`<rect x="${ex-40}" y="${Y0+20}" width="80" height="44" fill="#fff" stroke="${ink}" stroke-width="1.3"/>`);T(ex,Y0+47,'kWh',{fs:11,a:'middle',b:1});T(ex+48,Y0+40,mm.name.replace(/ \(.*\)/,''),{fs:9,c:blue});T(ex+48,Y0+52,'contagem direta',{fs:9,c:blue});Lh(ex,Y0+64,ex,yb);}
       else{Lh(ex,Y0,ex,yb);tiS(ex,Y0+50,`${mm.ti}/5 A`,true);out.push(`<rect x="${ex+70}" y="${Y0+24}" width="80" height="44" fill="#fff" stroke="${ink}" stroke-width="1.3"/>`);T(ex+110,Y0+51,'kWh',{fs:11,a:'middle',b:1});Lh(ex+9,Y0+50,ex+70,Y0+50,{w:1});T(ex+70,Y0+82,mm.name.replace(/ \(.*\)/,'')+' · indireta',{fs:9,c:blue});}

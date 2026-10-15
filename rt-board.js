@@ -57,6 +57,12 @@ function qfvParts(node,R){
   const corteIn=SECCI.find(x=>x>=out.res.In)||out.res.In;
   return {node,gw:null,existing:false,feeders,out,corte:{In:corteIn},meter:mk(),dst:{fus:corteIn>125?125:null},aux,role};
 }
+/* proteção de interface (desacoplamento): só se o utilizador indicar a potência a partir da qual se aplica (S.pint, kW).
+   Fica no quadro de interligação; sem interligação, no primeiro QFV. A regra e o aparelho são da responsabilidade do projetista. */
+function pintNode(R){
+  if(!(+S.pint>0)||!R||R.Ptot<+S.pint-1e-9)return null;const qs=quadros(),role=n=>(qfvParts(n,R)||{}).role;
+  return qs.find(n=>role(n)==='INT')||qs.find(n=>role(n)==='QFV')||null;
+}
 function boardFor(node,R){
   if(gwOf(node))return null;
   const ins=R.invC.filter(c=>c.para===node&&c.res).concat(R.pC.filter(c=>c.ref.dest.trim()===node&&c.res));
@@ -79,6 +85,8 @@ function boardFor(node,R){
     const nr=Q.feeders.filter(f=>f.rele).length;
     if(nr){devs.push({nome:'Alimentação dos relés',txt:`${nr} × fusível 2 A`,dif:''});mod+=nr;}
     if(Q.aux){devs.push({nome:'Serviços auxiliares',txt:'diferencial 25 A 300 mA + disjuntores 16 A e 10 A',dif:''});mod+=6;}
+    if(pintNode(R)===node){devs.push({nome:'Proteção de interface',txt:'relé de proteção de interface (desacoplamento), atuando no corte geral por bobina ou contactor',dif:'a especificar conforme as condições de ligação do operador de rede'});mod+=8;
+      notes.add(`Proteção de interface: instalação com ${fmt(R.Ptot,1)} kW ≥ ${fs(S.pint)} kW (limite indicado nos Critérios).`);}
     if(false)notes.add(`Sem quadro de interligação: a contagem (${meterFor(Q.out).name}${meterFor(Q.out).ti?` com TI ${meterFor(Q.out).ti}/5 A`:''}) e a proteção de interligação ficam no quadro do cliente.`);
     if(Q.meter&&!Q.meterIn)notes.add(`Contagem num quadro de contagem próprio, junto à entrada: ${Q.meter.name}${Q.meter.ti?` com TI ${Q.meter.ti}/5 A${Q.meter.perCircuit?' em cada circuito':''}`:''}.`);
     if(Q.meter&&Q.meter.type==='indireta')notes.add(`Transformadores de intensidade ${Q.meter.ti}/5 A no barramento de entrada: prever espaço junto ao corte geral.`);}
