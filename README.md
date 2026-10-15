@@ -33,7 +33,7 @@ npm run build
 npm start                  # http://127.0.0.1:8080
 ```
 
-O servidor (`server/`) serve a página e guarda os projetos, equipamentos e preços da equipa numa base SQLite (`data/solcor.db`). Usa só o que vem com o Node 22.13 ou mais recente, sem dependências. Cada gravação fica no histórico do projeto: o botão **Versões** no separador Projetos mostra quem gravou o quê e permite repor uma versão anterior. Se duas pessoas alterarem o mesmo projeto, quem grava em segundo lugar é avisado e escolhe entre abrir a versão da outra pessoa ou substituí-la.
+O servidor (`server/`) serve a página e guarda os projetos, equipamentos e preços da equipa numa base SQLite (`data/solcor.db`). Usa só o que vem com o Node 22.13 ou mais recente, sem dependências. Cada gravação fica no histórico do projeto: o botão **Versões** no separador Projetos mostra quem gravou o quê e permite repor uma versão anterior. Para fechar um projeto para licenciamento, usa **Aprovar revisão** (Projetos › Dados da obra): fica registado quem aprovou e quando, e a revisão passa a só de leitura; para mudar depois cria-se a revisão seguinte. Se duas pessoas alterarem o mesmo projeto, quem grava em segundo lugar é avisado e escolhe entre abrir a versão da outra pessoa ou substituí-la.
 
 **Quem é quem**
 - **Com Tailscale (recomendado):** num computador sempre ligado da rede Tailscale da Solcor, corre `npm start` e depois `tailscale serve --bg 8080`. A ferramenta fica em `https://<máquina>.<tailnet>.ts.net` só para quem está na tailnet, e o servidor recebe o nome e o e-mail de cada pessoa a partir do Tailscale.

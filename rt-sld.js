@@ -145,7 +145,7 @@ function sldSVG(R){
   out.push(`<rect x="20" y="${yT}" width="${Wt-40}" height="54" fill="none" stroke="${ink}" stroke-width="1.2"/><line x1="${Wt*0.45}" y1="${yT}" x2="${Wt*0.45}" y2="${yT+54}" stroke="${ink}"/><line x1="${Wt*0.78}" y1="${yT}" x2="${Wt*0.78}" y2="${yT+54}" stroke="${ink}"/>`);
   T(32,yT+22,'Esquema unifilar - Instalação fotovoltaica',{b:1,fs:13});T(32,yT+40,'Projeto Elétrico · Solcor',{c:mut,fs:9.5});
   T(Wt*0.45+12,yT+22,`Dono de obra: ${(S.obra&&S.obra.cliente)||'—'}`,{fs:10.5});T(Wt*0.45+12,yT+40,`Local: ${(S.obra&&S.obra.morada)||S.loc||'—'}`,{fs:10.5});
-  T(Wt*0.78+12,yT+22,`Data: ${dt}`,{fs:10.5});T(Wt*0.78+12,yT+40,`Desenho nº ${(S.obra&&S.obra.desenho)||''}`,{fs:10.5,c:S.obra&&S.obra.desenho?undefined:mut});
+  T(Wt*0.78+12,yT+22,`Data: ${dt}`,{fs:10.5});T(Wt*0.78+12,yT+40,`Desenho nº ${(S.obra&&S.obra.desenho)||''}${S.obra?` · Rev. ${S.obra.rev||'A'}`:''}`,{fs:10.5,c:S.obra&&S.obra.desenho?undefined:mut});
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${Wt}" height="${Ht}" viewBox="0 0 ${Wt} ${Ht}" font-family="Arial, Helvetica, sans-serif"><rect width="${Wt}" height="${Ht}" fill="#fff"/>${out.join('')}</svg>`;
 }
 let sldLast='';

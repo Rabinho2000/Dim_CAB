@@ -46,12 +46,19 @@ function createServer(opts={}){
       if(!me)return send(res,401,{error:'no_user'});
       db.seen(me.id,me.name);
       if(p==='/api/users')return send(res,200,db.names((url.searchParams.get('ids')||'').split(',').filter(Boolean).slice(0,200)));
-      const m=p.match(/^\/api\/([a-z]+)(?:\/([^/]+))?(?:\/(history))?$/);
+      const m=p.match(/^\/api\/([a-z]+)(?:\/([^/]+))?(?:\/(history|estado))?$/);
       if(!m||!COLS.has(m[1]))return send(res,404,{error:'not_found'});
       const col=m[1],id=m[2]?decodeURIComponent(m[2]):null;
       if(id&&(id.length>150||!/^[A-Za-z0-9_.~:@+-]+$/.test(id)))return send(res,400,{error:'invalid_argument'});
       if(req.method==='GET'&&!id)return send(res,200,{rev:db.rev(),docs:db.list(col)});
-      if(req.method==='GET'&&id&&m[3])return send(res,200,{history:db.history(col,id)});
+      if(req.method==='GET'&&id&&m[3]==='history')return send(res,200,{history:db.history(col,id)});
+      /* revisão aprovada: só o estado avança (aprovado → em obra → concluído), sem tocar no resto do projeto */
+      if(req.method==='POST'&&id&&m[3]==='estado'&&col==='projects'){
+        const body=await readBody(req);const old=db.get(col,id);if(!old)return send(res,404,{error:'not_found'});
+        if(!old.data.lock||!['aprovado','obra','concluido'].includes(body&&body.estado))return send(res,400,{error:'invalid_argument'});
+        const data={...old.data,estado:body.estado,upd:new Date().toISOString(),edit:me.id};
+        if(data.s&&data.s.obra)data.s={...data.s,obra:{...data.s.obra,estado:body.estado}};
+        db.put(col,id,data,me.id);return send(res,200,{id,rev:db.rev(),upd:data.upd});}
       if(req.method==='GET'&&id){const d=db.get(col,id);return d?send(res,200,d):send(res,404,{error:'not_found'});}
       if(req.method==='PUT'&&id){
         const body=await readBody(req);
@@ -63,10 +70,20 @@ function createServer(opts={}){
         /* o autor de um projeto mantém-se; quem grava fica em "edit" */
         const data={...body,autor:old&&old.data.autor?old.data.autor:me.id,upd:new Date().toISOString()};
         if(old&&col==='projects')data.edit=me.id;
-        db.put(col,id,data,me.id);return send(res,200,{id,rev:db.rev(),upd:data.upd});}
+        if(col==='projects'){
+          /* revisão aprovada = só de leitura; para alterar, nova revisão (X-New-Revision: 1). A aprovação regista quem a fez
+             a partir da identidade do pedido, nunca do que a página envia. */
+          const newRev=req.headers['x-new-revision']==='1',locked=!!(old&&old.data.lock);
+          if(locked&&!newRev)return send(res,423,{error:'locked',current:{rev:old.data.rev,aprov:old.data.aprov,estado:old.data.estado}});
+          const now=data.upd,obra=data.s&&data.s.obra?data.s.obra:null;
+          if(body.lock===true&&!locked&&!newRev){data.lock=true;data.estado='aprovado';data.aprov={id:me.id,nome:me.name,em:now};}
+          else{data.lock=false;data.aprov=null;if(data.estado==='aprovado'||data.estado==='obra'||data.estado==='concluido')data.estado='rascunho';}
+          if(obra)data.s={...data.s,obra:{...obra,estado:data.estado,aprov:data.aprov,rev:data.rev||obra.rev||'A'}};}
+        db.put(col,id,data,me.id);return send(res,200,{id,rev:db.rev(),upd:data.upd,aprov:data.aprov||null,estado:data.estado});}
       if(req.method==='DELETE'&&id){
         const old=db.get(col,id);if(!old)return send(res,404,{error:'not_found'});
         if(col==='projects'&&old.data.autor!==me.id&&!me.admin)return send(res,403,{error:'forbidden'});
+        if(col==='projects'&&old.data.lock&&!me.admin)return send(res,423,{error:'locked'});
         db.del(col,id,me.id);return send(res,200,{id,rev:db.rev()});}
       return send(res,405,{error:'method_not_allowed'});
     }catch(e){

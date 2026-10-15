@@ -22,7 +22,7 @@ const rui=await open('Rui');await rui.goto(url);
 await ana.waitForFunction(()=>!document.querySelector('#pj-save').disabled);
 await ana.fill('#proj','Obra Servidor');await ana.click('[data-tab=proj]');
 await ana.fill('[data-obra=cliente]','Câmara do Porto');await ana.fill('[data-obra=morada]','Rua de Teste 1, Porto');await ana.fill('[data-obra=desenho]','SOL-001');
-await ana.selectOption('[data-obra=estado]','aprovado');await ana.click('#pj-save');
+await ana.selectOption('[data-obra=estado]','analise');await ana.click('#pj-save');
 await ana.waitForFunction(()=>document.querySelector('#pj-body').innerText.includes('Obra Servidor'));
 check(true,'a Ana guardou o projeto');
 
@@ -32,12 +32,12 @@ check(seen,'o Rui vê o projeto da Ana sem recarregar');
 const row=await rui.$eval('#pj-body',e=>e.innerText.replace(/\s+/g,' '));
 check(/Ana/.test(row),`a coluna "Guardado por" mostra a Ana (${row.slice(0,80)})`);
 check(!(await rui.$('#pj-body [data-pdel]')),'o Rui não tem botão para apagar o projeto da Ana');
-check(/aprovado/i.test(row)&&/Câmara do Porto/.test(row),'a lista mostra o estado e o cliente');
-await rui.selectOption('#pj-est','obra');check(!(await rui.$('#pj-body [data-popen]')),'o filtro "Em obra" esconde o projeto aprovado');
-await rui.selectOption('#pj-est','aprovado');check(!!(await rui.$('#pj-body [data-popen]')),'o filtro "Aprovado" mostra-o');await rui.selectOption('#pj-est','');
+check(/em análise/i.test(row)&&/Câmara do Porto/.test(row),'a lista mostra o estado e o cliente');
+await rui.selectOption('#pj-est','obra');check(!(await rui.$('#pj-body [data-popen]')),'o filtro "Em obra" esconde o projeto em análise');
+await rui.selectOption('#pj-est','analise');check(!!(await rui.$('#pj-body [data-popen]')),'o filtro "Em análise" mostra-o');await rui.selectOption('#pj-est','');
 await rui.fill('#pj-q','câmara');check(!!(await rui.$('#pj-body [data-popen]')),'a procura encontra pelo cliente');await rui.fill('#pj-q','');
 await rui.click('[data-popen]');check((await rui.$eval('#proj',e=>e.value))==='Obra Servidor','o Rui abre o projeto');
-check((await rui.$eval('[data-obra=cliente]',e=>e.value))==='Câmara do Porto'&&(await rui.$eval('[data-obra=estado]',e=>e.value))==='aprovado','os dados da obra abrem com o projeto');
+check((await rui.$eval('[data-obra=cliente]',e=>e.value))==='Câmara do Porto'&&(await rui.$eval('[data-obra=estado]',e=>e.value))==='analise','os dados da obra abrem com o projeto');
 await rui.click('[data-tab=sld]');
 check(await until(rui,()=>/Dono de obra: Câmara do Porto/.test(document.body.innerHTML)&&/Desenho nº SOL-001/.test(document.body.innerHTML)),'a legenda do unifilar usa o cliente e o nº do desenho');
 

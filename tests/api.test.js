@@ -46,6 +46,43 @@ test('conflito: gravar sobre uma versão antiga dá 409 com a versão atual',asy
   assert.equal((await api('PUT','/api/projects/novo',{user:'Ana',body:{nome:'N'},headers:{'If-Match':'qualquer'}})).status,200,'documento novo não tem conflito');
 });
 
+test('aprovação: regista quem aprova, fica só de leitura, só o estado avança, nova revisão desbloqueia',async()=>{
+  const s=r=>({obra:{rev:r,aprov:{id:'local:falso',nome:'Falso',em:'2000-01-01'},estado:'aprovado'}});
+  /* a página não consegue fingir uma aprovação: sem lock, aprov e estado aprovado são limpos */
+  let r=await api('PUT','/api/projects/ap1',{user:'Ana',body:{nome:'Obra',rev:'A',estado:'aprovado',s:s('A')}});
+  let d=(await api('GET','/api/projects/ap1',{user:'Ana'})).json.data;
+  assert.equal(d.lock,false);assert.equal(d.aprov,null);assert.equal(d.estado,'rascunho');assert.equal(d.s.obra.aprov,null);
+  /* aprovar: o servidor regista a identidade do pedido */
+  r=await api('PUT','/api/projects/ap1',{user:'Rui',body:{nome:'Obra',rev:'A',estado:'analise',lock:true,s:s('A')}});
+  assert.equal(r.status,200);assert.equal(r.json.aprov.id,'local:rui');assert.equal(r.json.estado,'aprovado');
+  d=(await api('GET','/api/projects/ap1',{user:'Ana'})).json.data;
+  assert.equal(d.lock,true);assert.equal(d.aprov.nome,'Rui');assert.equal(d.s.obra.aprov.id,'local:rui');assert.equal(d.s.obra.estado,'aprovado');
+  /* só de leitura */
+  r=await api('PUT','/api/projects/ap1',{user:'Ana',body:{nome:'Mudada',rev:'A',s:s('A')}});
+  assert.equal(r.status,423);assert.equal(r.json.current.rev,'A');
+  assert.equal((await api('DELETE','/api/projects/ap1',{user:'Ana'})).status,423,'nem a autora apaga uma revisão aprovada');
+  /* estado: só os de depois da aprovação, e o resto não muda */
+  assert.equal((await api('POST','/api/projects/ap1/estado',{user:'Ana',body:{estado:'rascunho'}})).status,400);
+  assert.equal((await api('POST','/api/projects/ap1/estado',{user:'Ana',body:{estado:'obra'}})).status,200);
+  d=(await api('GET','/api/projects/ap1',{user:'Ana'})).json.data;
+  assert.equal(d.estado,'obra');assert.equal(d.s.obra.estado,'obra');assert.equal(d.lock,true);assert.equal(d.nome,'Obra');
+  /* nova revisão: desbloqueia, sem aprovação; a revisão A aprovada fica no histórico */
+  r=await api('PUT','/api/projects/ap1',{user:'Ana',body:{nome:'Obra B',rev:'B',estado:'rascunho',s:s('B')},headers:{'X-New-Revision':'1'}});
+  assert.equal(r.status,200);
+  d=(await api('GET','/api/projects/ap1',{user:'Ana'})).json.data;
+  assert.equal(d.lock,false);assert.equal(d.aprov,null);assert.equal(d.rev,'B');assert.equal(d.s.obra.aprov,null);
+  const h=(await api('GET','/api/projects/ap1/history',{user:'Ana'})).json.history;
+  assert.ok(h.some(v=>v.data&&v.data.lock&&v.data.rev==='A'&&v.data.aprov.id==='local:rui'),'a revisão A aprovada está no histórico');
+  /* estado por esta via só com revisão aprovada */
+  assert.equal((await api('POST','/api/projects/ap1/estado',{user:'Ana',body:{estado:'obra'}})).status,400);
+});
+
+test('projeto aprovado: só um administrador o pode apagar',async()=>{
+  await api('PUT','/api/projects/ap2',{user:'Ana',body:{nome:'X',lock:true,s:{obra:{}}}});
+  assert.equal((await api('DELETE','/api/projects/ap2',{user:'Ana'})).status,423,'nem a autora');
+  assert.equal((await api('DELETE','/api/projects/ap2',{user:'Chefe'})).status,200);
+});
+
 test('apagar projeto: só o autor ou um administrador',async()=>{
   await api('PUT','/api/projects/p2',{user:'Ana',body:{nome:'Obra B'}});
   assert.equal((await api('DELETE','/api/projects/p2',{user:'Rui'})).status,403);

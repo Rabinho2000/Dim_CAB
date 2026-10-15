@@ -16,7 +16,7 @@ async function apiConnect(){
   const hdr=()=>name?{'X-User-Name':encodeURIComponent(name)}:{};
   const call=async(method,url,body,extra)=>{
     const r=await fetch(url,{method,headers:{...hdr(),...(body?{'Content-Type':'application/json'}:{}),...extra},body:body?JSON.stringify(body):undefined});
-    if(!r.ok){const e=new Error('api '+r.status);e.code=r.status===403?'forbidden':r.status===409?'conflict':r.status===413?'quota_exceeded':'internal';
+    if(!r.ok){const e=new Error('api '+r.status);e.code=r.status===403?'forbidden':r.status===409?'conflict':r.status===423?'locked':r.status===413?'quota_exceeded':'internal';
       if(r.status===409)try{e.current=(await r.json()).current;}catch(x){}
       throw e;}
     return r.json();};
@@ -47,7 +47,8 @@ async function apiConnect(){
   const db={versioned:true,collection:col=>({
     doc:id=>{id=id||newId();const u=`/api/${col}/${encodeURIComponent(id)}`;
       return {id,
-        set:async(data,o)=>{const r=await call('PUT',u,data,o&&o.ifMatch?{'If-Match':o.ifMatch}:{});soon();return r;},
+        set:async(data,o)=>{const r=await call('PUT',u,data,{...(o&&o.ifMatch?{'If-Match':o.ifMatch}:{}),...(o&&o.newRevision?{'X-New-Revision':'1'}:{})});soon();return r;},
+        estado:async v=>{const r=await call('POST',u+'/estado',{estado:v});soon();return r;},
         delete:async()=>{await call('DELETE',u);soon();},
         history:async()=>(await call('GET',u+'/history')).history};},
     onSnapshot:fn=>{if(!subs.has(col))subs.set(col,[]);subs.get(col).push(fn);soon();

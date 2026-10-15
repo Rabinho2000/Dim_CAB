@@ -47,7 +47,7 @@ function bomData(R){
     quad.push({node:n,role:(r=>r===n?"":r)(BOM_ROLE[Q?Q.role:'CLI']||'Quadro'),env:b.isEnd?'Quadro existente':e?`Hager Orion plus ${e.ref} ou equivalente, ${e.H} × ${e.W} × ${e.Pf} mm`:'Armário de chão',
       items:b.devs.map(d=>({nome:d.nome,txt:d.txt,dif:d.dif}))});});
   const tCab=cabos.reduce((a,x)=>a+(x.total||0),0),tProt=prot.reduce((a,x)=>a+x.total,0);
-  return {proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
+  return {rev:(S.obra&&S.obra.rev)||'A',aprov:(S.obra&&S.obra.aprov)||null,proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
     tCab,tProt,total:tCab+tProt,est:cabos.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
 }
 
@@ -95,7 +95,7 @@ function xlsxBlob(sheets){ /* sheets: [[nome, xml]] */
 }
 function bomXlsx(B){
   const r=[],b=v=>({v,s:1}),h=v=>({v,s:7}),E=v=>v==null?'sem preço':{v,s:2};
-  r.push([{v:'Lista de materiais e orçamento',s:6}],[b('Projeto'),B.proj||'Projeto sem nome'],[b('Cliente'),B.cliente||'—'],[b('Morada'),B.morada||'—'],[b('Data'),B.data],[b('Local'),B.loc||'—'],[b('Potência'),`${fmt(B.Ptot,1)} kW`],[]);
+  r.push([{v:'Lista de materiais e orçamento',s:6}],[b('Projeto'),B.proj||'Projeto sem nome'],[b('Cliente'),B.cliente||'—'],[b('Revisão'),`${B.rev}${B.aprov?` · aprovada por ${B.aprov.nome||''} em ${dtxt(B.aprov.em)}`:' · não aprovada'}`],[b('Morada'),B.morada||'—'],[b('Data'),B.data],[b('Local'),B.loc||'—'],[b('Potência'),`${fmt(B.Ptot,1)} kW`],[]);
   r.push([{v:'Cabos',s:6}],[h('Função'),h('Cabo'),h('Metros'),h('€/m'),h('Total'),h('Preço'),h('Circuitos')]);
   const c0=r.length;B.cabos.forEach(x=>r.push([x.uso,x.des,{v:x.m,s:4},x.pm==null?'sem preço':{v:x.pm,s:5},x.pm==null?'':{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}`},x.pm==null?'sem compra':x.est?'estimado *':'compra 2026',x.circ.join('; ')]));
   const rCab=r.length+1;r.push([b('Total cabos'),'','','',{v:B.tCab,s:3,f:B.cabos.length?`SUM(E${c0+1}:E${r.length})`:'0'},B.est?'* com preços estimados':'']);
@@ -136,7 +136,7 @@ async function bomPdf(B){
   pdf.setFillColor(26,32,40);pdf.rect(0,0,W,34,'F');pdf.setFillColor(56,212,48);pdf.rect(0,34,W,1.2,'F');
   try{pdf.addImage(LOGO,'PNG',M,9,48,48*96/329);}catch(e){pdf.setFont('helvetica','bold');pdf.setFontSize(16);pdf.setTextColor(255);pdf.text('SOLCOR',M,20);}
   pdf.setFont('helvetica','bold');pdf.setFontSize(15);pdf.setTextColor(255);pdf.text('Lista de materiais e orçamento',W-M,16,{align:'right'});
-  pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(200,208,214);pdf.text(pdfTxt(B.proj||'Projeto sem nome'),W-M,23,{align:'right'});
+  pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(200,208,214);pdf.text(pdfTxt(`${B.proj||'Projeto sem nome'} · Rev. ${B.rev}`),W-M,23,{align:'right'});
   y=44;pdf.setTextColor(26,32,40);pdf.setFont('helvetica','normal');pdf.setFontSize(9);
   pdf.text(pdfTxt(`Projeto: ${B.proj||'Projeto sem nome'}   ·   Cliente: ${B.cliente||'—'}   ·   Potência: ${fmt(B.Ptot,1)} kW   ·   ${B.data}`),M,y);y+=4;
   pdf.text(pdfTxt(`Morada: ${B.morada||'—'}   ·   Local (clima): ${B.loc||'—'}`),M,y);y+=4;

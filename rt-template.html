@@ -177,6 +177,8 @@ button.pri:hover{border-color:#2DB327;background:#2DB327}
 .pill.warn{background:var(--warn-soft);color:var(--warn)}
 .pill.neu{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px currentColor} .pill.acc{background:var(--accent-soft);color:var(--accent-ink)}
 .eqimport{border:1px dashed var(--line,#ccd);border-radius:6px;padding:10px 12px;margin:10px 0;display:grid;gap:6px} .eqimport .file{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.lockbar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;background:var(--ok-soft);color:var(--ink);border:1px solid var(--ok);border-radius:6px;padding:8px 12px;margin:10px 0 0;font-size:13px}
+.obrarev{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-top:10px}
 .pjtools{display:flex;flex-wrap:wrap;gap:10px;align-items:end} .pjtools .pjsearch{flex:1 1 260px}
 .fields.obra{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .spec{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;font-size:11.5px;color:var(--muted)}
@@ -214,6 +216,7 @@ tr.cur td{background:var(--accent-soft)}
   <div class="actions"><button id="report" class="pri" title="Relatório de cálculo para a memória descritiva: dados gerais, cálculo de cada circuito e esquema unifilar">Relatório de cálculo (PDF)</button><button id="copy">Copiar tabela</button><button id="reset">Repor exemplo</button></div>
 </header>
 
+<div class="lockbar" id="lockbar" role="status" hidden></div>
 <nav class="tabs" role="tablist" aria-label="Secções">
   <button role="tab" data-tab="ac" aria-selected="true">Cabos AC</button>
   <button role="tab" data-tab="sld" aria-selected="false">Esquema unifilar</button>

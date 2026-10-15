@@ -47,7 +47,7 @@ function reportPDF(R){
   T('RTIEBT (Portaria 949-A/2006)',PW-M,32,{fs:9.5,c:[200,208,214],a:'r'});
   y=54;
   h2('1. Identificação da obra');
-  const ob=S.obra||{};kv([['Projeto',S.proj||'—','Cliente',ob.cliente||'—'],['Morada',ob.morada||'—','Nº do desenho',ob.desenho||'—'],['Local (clima)',S.loc||'—','Data',dt],['Potência AC',`${n1(R.Ptot)} kW`,'Inversores',String(S.invs.length)],
+  const ob=S.obra||{};kv([['Projeto',S.proj||'—','Cliente',ob.cliente||'—'],['Morada',ob.morada||'—','Nº do desenho',ob.desenho||'—'],['Revisão',`${ob.rev||'A'} · ${ob.aprov?`aprovada por ${ob.aprov.nome||''} em ${dtxt(ob.aprov.em)}`:'não aprovada'}`],['Local (clima)',S.loc||'—','Data',dt],['Potência AC',`${n1(R.Ptot)} kW`,'Inversores',String(S.invs.length)],
     ['Corrente total',`${n0(R.IbTot)} A`,'Circuitos',String(all.length)]],{lw:34});
 
   /* ----- 2. dados gerais ----- */
@@ -131,7 +131,7 @@ async function reportSld(pdf,R){
 function reportFooter(pdf){const n=pdf.getNumberOfPages();
   for(let i=1;i<=n;i++){pdf.setPage(i);const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
     pdf.setDrawColor(...RC.line);pdf.setLineWidth(0.2);pdf.line(16,ph-11,pw-16,ph-11);pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);pdf.setTextColor(...RC.mut);
-    pdf.text(`Solcor · Relatório de cálculo de cabos AC · ${S.proj||'Projeto sem nome'}`,16,ph-7);pdf.text(`Página ${i} de ${n}`,pw-16,ph-7,{align:'right'});}}
+    pdf.text(`Solcor · Relatório de cálculo de cabos AC · ${S.proj||'Projeto sem nome'} · Rev. ${(S.obra&&S.obra.rev)||'A'}`,16,ph-7);pdf.text(`Página ${i} de ${n}`,pw-16,ph-7,{align:'right'});}}
 async function makeReport(){
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   const R=solveAll();const pdf=reportPDF(R);await reportSld(pdf,R);reportFooter(pdf);return pdf;

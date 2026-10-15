@@ -33,7 +33,7 @@ function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XL
         {id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:35,S:'auto'},{id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:15,S:'auto'}],
   rInv:route('13','mono'),
   percs:[{id:uid++,orig:'QFV',dest:'QInterligação',L:140,S:'auto',...route('13','mono')},{id:uid++,orig:'QInterligação',dest:'Qentrada',L:7,S:'auto',...route('13','mono')}],gws:[],
-  obra:{cliente:'',morada:'',desenho:'',estado:'rascunho'},
+  obra:{cliente:'',morada:'',desenho:'',estado:'rascunho',rev:'A',aprov:null},
   icu:{modo:'',icc:10,sn:630}};}
 
 /* ---------- inversores ---------- */

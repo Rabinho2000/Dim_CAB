@@ -77,45 +77,90 @@ const hhmm=s=>{try{return new Date(s).toLocaleTimeString('pt-PT',{hour:'2-digit'
 const ESTADOS=[['rascunho','Rascunho','neu'],['analise','Em análise','warn'],['aprovado','Aprovado','ok'],['obra','Em obra','acc'],['concluido','Concluído','neu']];
 const estPill=k=>{const e=ESTADOS.find(x=>x[0]===k)||ESTADOS[0];return `<span class="pill ${e[2]}">${e[1]}</span>`;};
 /* põe os campos iguais ao projeto aberto (ao abrir, repor exemplo, etc.), sem mexer no campo que se está a escrever */
-const obraDef=()=>{S.obra=Object.assign({cliente:'',morada:'',desenho:'',estado:'rascunho'},S.obra||{});return S.obra;};
+const obraDef=()=>{S.obra=Object.assign({cliente:'',morada:'',desenho:'',estado:'rascunho',rev:'A',aprov:null},S.obra||{});return S.obra;};
+/* revisão aprovada: só de leitura (o servidor recusa gravar por cima); só o estado avança até concluído */
+const isLocked=()=>!!(S.obra&&S.obra.aprov);
+const nextRev=r=>{r=String(r||'A');return r.length===1&&r<'Z'?String.fromCharCode(r.charCodeAt(0)+1):r+'1';};
+const aprovTxt=a=>a?`aprovada por ${a.nome||who(a.id)} em ${dtxt(a.em)}`:'não aprovada';
+const PRE=['rascunho','analise'],POS=['aprovado','obra','concluido'];
 function syncObra(){obraDef();
   document.querySelectorAll('[data-obra]').forEach(el=>{const v=S.obra[el.dataset.obra]??'';if(el!==document.activeElement&&el.value!==v)el.value=v;});}
+/* painel da obra e barra no topo: estados possíveis, campos só de leitura, revisão, aprovar / nova revisão */
+function renderObraCtl(){
+  const o=obraDef(),lk=isLocked(),ks=lk?POS:PRE,sel=$('[data-obra=estado]');
+  const want=ESTADOS.filter(([k])=>ks.includes(k)).map(([k,l])=>`<option value="${k}">${l}</option>`).join('');if(sel.innerHTML!==want)sel.innerHTML=want;
+  if(!ks.includes(o.estado))o.estado=ks[0];if(sel.value!==o.estado)sel.value=o.estado;
+  ['cliente','morada','desenho'].forEach(k=>$(`[data-obra=${k}]`).disabled=lk);
+  const srv=!!(DBX&&DBX.versioned);
+  $('#obra-rev').innerHTML=`Revisão <b>${esc(o.rev||'A')}</b> · ${esc(aprovTxt(o.aprov))}${!lk&&!srv?' · a aprovação precisa do servidor da equipa':''}`;
+  $('#obra-aprov').hidden=lk;$('#obra-aprov').disabled=!srv||RO;$('#obra-aprov').textContent=`Aprovar revisão ${o.rev||'A'}`;
+  $('#obra-newrev').hidden=!lk;$('#obra-newrev').textContent=`Nova revisão (${nextRev(o.rev)})`;
+  const bar=$('#lockbar');bar.hidden=!lk;
+  if(lk)bar.innerHTML=`<span><b>Revisão ${esc(o.rev||'A')} ${esc(aprovTxt(o.aprov))}.</b> Só de leitura: as alterações deste projeto já não podem ser guardadas.</span><button class="linkb" data-newrev>Criar a revisão ${esc(nextRev(o.rev))}</button>`;
+}
+function badCount(){if(!last)return 0;return last.invC.concat(last.pC).filter(c=>c.Ib>0&&verdict(c).st==='bad').length;}
+function approveDlg(){
+  const o=obraDef(),n=badCount();
+  if(n)return toast(`Há ${n} circuito${n===1?'':'s'} a rever: corrige-${n===1?'o':'os'} antes de aprovar`);
+  openDlg(`Aprovar a revisão ${o.rev||'A'}`,`<p>Aprovar “${esc(S.proj||'Sem nome')}”, revisão ${esc(o.rev||'A')}, tal como está agora. Fica registado que foste tu e quando. A revisão aprovada fica só de leitura: para mudar depois, cria-se a revisão ${esc(nextRev(o.rev))} e esta fica nas versões do projeto.</p>
+    <div class="actions"><button class="pri" data-ap="ok">Aprovar</button><button class="ghost" data-ap="cancel">Cancelar</button></div>`);
+}
+function newRevDlg(){const o=obraDef();
+  openDlg(`Criar a revisão ${nextRev(o.rev)}`,`<p>A revisão ${esc(o.rev||'A')} (${esc(aprovTxt(o.aprov))}) fica guardada nas versões do projeto. A revisão ${esc(nextRev(o.rev))} começa em rascunho, com o projeto como está agora, e pode ser alterada e aprovada de novo.</p>
+    <div class="actions"><button class="pri" data-nr="ok">Criar a revisão ${esc(nextRev(o.rev))}</button><button class="ghost" data-nr="cancel">Cancelar</button></div>`);}
+function lockedDlg(){const o=obraDef();
+  openDlg('Revisão aprovada: só de leitura',`<p>A revisão ${esc(o.rev||'A')} deste projeto está ${esc(aprovTxt(o.aprov))} e já não pode ser alterada. Para guardar as tuas alterações, cria a revisão ${esc(nextRev(o.rev))} ou guarda-as como um projeto novo.</p>
+    <div class="actions"><button class="pri" data-nr="ok">Criar a revisão ${esc(nextRev(o.rev))}</button><button data-nr="copy">Guardar como projeto novo</button><button class="ghost" data-nr="cancel">Cancelar</button></div>`);}
 function bindObra(){
-  const opts=ESTADOS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
-  $('[data-obra=estado]').innerHTML=opts;$('#pj-est').innerHTML='<option value="">Todos</option>'+opts;
-  document.querySelectorAll('[data-obra]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{obraDef()[el.dataset.obra]=el.value;save();HOOKS.forEach(f=>last&&f(last));}));
+  $('#pj-est').innerHTML='<option value="">Todos</option>'+ESTADOS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
+  document.querySelectorAll('[data-obra]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',async()=>{
+    const k=el.dataset.obra,v=el.value;
+    /* revisão aprovada: o estado muda no servidor, sem tocar no resto */
+    if(k==='estado'&&isLocked()&&DBX&&DBX.versioned&&CUR){try{const r=await DBX.collection('projects').doc(CUR).estado(v);S.obra.estado=v;CURUPD=r.upd;save();toast('Estado atualizado');}
+      catch(e){el.value=S.obra.estado;eqErr(e);}return;}
+    obraDef()[k]=v;save();HOOKS.forEach(f=>last&&f(last));}));
   $('#pj-est').addEventListener('change',renderProj);
-  HOOKS.push(syncObra);syncObra();
+  $('#obra-aprov').addEventListener('click',approveDlg);$('#obra-newrev').addEventListener('click',newRevDlg);
+  $('#lockbar').addEventListener('click',e=>{if(e.target.closest('[data-newrev]'))newRevDlg();});
+  HOOKS.push(syncObra,renderObraCtl,()=>renderProj());syncObra();renderObraCtl();
 }
 function projState(){const s=JSON.parse(JSON.stringify(S));return s;}
 /* o projeto aberto tem uma versão mais recente gravada por outra pessoa (só no servidor próprio) */
-function newerCur(){if(!CUR||!CURUPD||!DBX||!DBX.versioned)return null;const p=PROJ.find(q=>q.id===CUR);return p&&p.upd!==CURUPD?p:null;}
+function newerCur(){if(!CUR||!CURUPD||!DBX||!DBX.versioned)return null;const p=PROJ.find(q=>q.id===CUR);
+  /* só se for mais recente: uma lista pedida antes da própria gravação pode chegar depois, com a versão anterior */
+  return p&&String(p.upd)>String(CURUPD)?p:null;}
 function renderProj(){
   const q=($('#pj-q').value||'').toLowerCase();const nv=newerCur();
   if(nv){$('#pj-status').innerHTML=`<span class="limt">${esc(who(nv.edit||nv.autor))} guardou uma versão mais recente deste projeto às ${hhmm(nv.upd)}.</span> <button class="linkb" id="pj-latest">Abrir a versão mais recente</button>`;
     if(SEENUPD!==nv.upd){SEENUPD=nv.upd;toast(`${who(nv.edit||nv.autor)} guardou uma versão mais recente do projeto aberto`);}}
-  else $('#pj-status').textContent=!DBX?'Os projetos partilhados não estão disponíveis nesta vista. O projeto atual continua guardado neste navegador.':CUR?`Projeto aberto: ${(PROJ.find(p=>p.id===CUR)||{}).nome||S.proj||'sem nome'}. “Guardar projeto atual” atualiza-o para toda a equipa.`:'O projeto atual ainda não foi guardado na equipa.';
-  ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);
+  else $('#pj-status').textContent=!DBX?'Os projetos partilhados não estão disponíveis nesta vista. O projeto atual continua guardado neste navegador.':CUR?`Projeto aberto: ${(PROJ.find(p=>p.id===CUR)||{}).nome||S.proj||'sem nome'}. `+(isLocked()?`Revisão ${(S.obra||{}).rev||'A'} aprovada: só de leitura. Para alterar, cria uma nova revisão.`:'“Guardar projeto atual” atualiza-o para toda a equipa.'):'O projeto atual ainda não foi guardado na equipa.';
+  ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);$('#pj-save').classList.toggle('pri',!(CUR&&isLocked()));
   const est=$('#pj-est').value;
   const list=PROJ.filter(p=>(!est||(p.estado||'rascunho')===est)&&(!q||[p.nome,p.cliente,NAMES[p.autor]].some(x=>(x||'').toLowerCase().includes(q))));
   $('#proj-badge').hidden=!PROJ.length;$('#proj-badge').textContent=PROJ.length;
-  $('#pj-body').innerHTML=list.length?list.map(p=>`<tr class="${p.id===CUR?'cur':''}"><td><b>${esc(p.nome||'Sem nome')}</b>${p.cliente||p.loc?`<span class="sub">${esc([p.cliente,p.loc].filter(Boolean).join(' · '))}</span>`:''}</td><td>${estPill(p.estado)}</td><td class="n">${p.nInv??'—'}</td><td class="n r">${p.P!=null?fmt(p.P,1)+' kW':'—'}</td>
+  $('#pj-body').innerHTML=list.length?list.map(p=>`<tr class="${p.id===CUR?'cur':''}"><td><b>${esc(p.nome||'Sem nome')}</b>${p.cliente||p.loc?`<span class="sub">${esc([p.cliente,p.loc].filter(Boolean).join(' · '))}</span>`:''}</td><td>${estPill(p.estado)}<span class="sub">Rev. ${esc(p.rev||'A')}</span></td><td class="n">${p.nInv??'—'}</td><td class="n r">${p.P!=null?fmt(p.P,1)+' kW':'—'}</td>
     <td>${esc(who(p.autor))}${p.edit&&p.edit!==p.autor?`<span class="sub">alterado por ${esc(who(p.edit))}</span>`:''}</td><td class="n">${dtxt(p.upd)}</td>
-    <td class="r"><button class="ghost" data-popen="${p.id}">Abrir</button><button class="ghost" data-pdup="${p.id}">Duplicar</button>${DBX&&DBX.versioned?`<button class="ghost" data-pver="${p.id}">Versões</button>`:''}${p.autor===ME||(USR&&USR.isOwner())?`<button class="ghost del" data-pdel="${p.id}">Apagar</button>`:''}</td></tr>`).join('')
+    <td class="r"><button class="ghost" data-popen="${p.id}">Abrir</button><button class="ghost" data-pdup="${p.id}">Duplicar</button>${DBX&&DBX.versioned?`<button class="ghost" data-pver="${p.id}">Versões</button>`:''}${(p.autor===ME&&!p.lock)||(USR&&USR.isOwner())?`<button class="ghost del" data-pdel="${p.id}">Apagar</button>`:''}</td></tr>`).join('')
     :`<tr><td colspan="7" class="hint">${DBX?(PROJ.length?'Nenhum projeto corresponde à procura.':'Ainda não há projetos guardados.'):'—'}</td></tr>`;
 }
 async function resolveNames(extra){if(!USR||!USR.profiles)return;
   const ids=[...new Set(PROJ.flatMap(p=>[p.autor,p.edit]).concat(extra||[]).filter(Boolean))].filter(i=>!(i in NAMES));if(!ids.length)return;
   try{const ps=await USR.profiles(ids);ids.forEach(i=>{NAMES[i]=(ps&&ps[i]&&ps[i].name)||'';});renderProj();}catch(e){}}
-async function projSave(asNew,force){
+async function projSave(asNew,force,opt={}){
   if(!DBX)return;const R=last;const nome=(S.proj||'').trim()||'Sem nome';
-  syncObra();const body={nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
+  syncObra();
+  if(asNew){S.obra.aprov=null;S.obra.rev='A';if(POS.includes(S.obra.estado))S.obra.estado='rascunho';}
+  else if(isLocked()&&!opt.newRev)return lockedDlg();
+  const body={nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,rev:S.obra.rev||'A',...(opt.approve?{lock:true}:{}),nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
   try{if(CUR&&!asNew){const old=PROJ.find(p=>p.id===CUR);if(old&&old.autor)body.autor=old.autor;body.edit=ME;
       /* no servidor próprio, grava só se ninguém tiver gravado depois da versão aberta (salvo "substituir") */
-      const r=await DBX.collection('projects').doc(CUR).set(body,DBX.versioned&&CURUPD&&!force?{ifMatch:CURUPD}:undefined);CURUPD=(r&&r.upd)||body.upd;}
-    else{const ref=DBX.collection('projects').doc();const r=await ref.set(body);CUR=ref.id;CURUPD=(r&&r.upd)||body.upd;}
-    closeDlg();toast(`Projeto “${nome}” guardado para a equipa`);renderProj();}
-  catch(e){if(e&&e.code==='conflict'&&e.current)return conflictDlg(e.current);eqErr(e);}
+      const o=DBX.versioned?{...(CURUPD&&!force?{ifMatch:CURUPD}:{}),...(opt.newRev?{newRevision:true}:{})}:undefined;
+      const r=await DBX.collection('projects').doc(CUR).set(body,o);done(r);}
+    else{const ref=DBX.collection('projects').doc();const r=await ref.set(body);CUR=ref.id;done(r);}
+    closeDlg();toast(opt.approve&&S.obra.aprov?`Revisão ${S.obra.rev} aprovada`:opt.newRev?`Revisão ${S.obra.rev} criada`:`Projeto “${nome}” guardado para a equipa`);renderProj();render();}
+  catch(e){if(e&&e.code==='conflict'&&e.current)return conflictDlg(e.current);if(e&&e.code==='locked')return lockedDlg();eqErr(e);}
+  /* o servidor devolve a aprovação (quem e quando) e o estado que ficou */
+  function done(r){CURUPD=(r&&r.upd)||body.upd;if(r&&'aprov' in r){S.obra.aprov=r.aprov;S.obra.estado=r.estado||S.obra.estado;}save();}
 }
 function openState(s){const o=JSON.parse(JSON.stringify(s));S=Object.assign(example(),o);(S.gws||[]).forEach(g=>g.id=uid++);S.invs.forEach(i=>i.id=uid++);S.percs.forEach(p=>p.id=uid++);(S.dc.arr||[]).forEach(a=>a.id=uid++);load();}
 /* janela dos projetos: conflito ao gravar e versões anteriores */
@@ -131,7 +176,7 @@ async function historyDlg(p){
   try{const h=(await DBX.collection('projects').doc(p.id).history()).filter(v=>v.op==='put'&&v.data&&v.data.s);HIST={p,h};
     await resolveNames(h.map(v=>v.autor));
     $('#pjdlg-body').innerHTML=`<p class="hint">Abrir uma versão anterior carrega-a como projeto atual; “Guardar projeto atual” repõe-na. A versão atual continua nesta lista.</p>
-      <div class="tablewrap"><table><thead><tr><th>Guardado</th><th>Por</th><th>Nome</th><th>Inversores</th><th class="r">Potência</th><th></th></tr></thead><tbody>${h.map((v,i)=>`<tr${i===0?' class="cur"':''}><td class="n">${dtxt(v.ts)}${i===0?'<span class="sub">versão atual</span>':''}</td><td>${esc(who(v.autor))}</td><td>${esc(v.data.nome||'')}</td><td class="n">${v.data.nInv??'—'}</td><td class="n r">${v.data.P!=null?fmt(v.data.P,1)+' kW':'—'}</td><td class="r"><button class="ghost" data-vopen="${i}">Abrir</button></td></tr>`).join('')}</tbody></table></div>`;
+      <div class="tablewrap"><table><thead><tr><th>Guardado</th><th>Por</th><th>Rev.</th><th>Nome</th><th>Inversores</th><th class="r">Potência</th><th></th></tr></thead><tbody>${h.map((v,i)=>`<tr${i===0?' class="cur"':''}><td class="n">${dtxt(v.ts)}${i===0?'<span class="sub">versão atual</span>':''}</td><td>${esc(who(v.autor))}</td><td>${esc(v.data.rev||'A')}${v.data.lock?' <span class="pill ok">aprovada</span>':''}</td><td>${esc(v.data.nome||'')}</td><td class="n">${v.data.nInv??'—'}</td><td class="n r">${v.data.P!=null?fmt(v.data.P,1)+' kW':'—'}</td><td class="r"><button class="ghost" data-vopen="${i}">Abrir</button></td></tr>`).join('')}</tbody></table></div>`;
   }catch(e){$('#pjdlg-body').innerHTML='<p class="hint">Não foi possível carregar as versões. Tenta outra vez.</p>';}
 }
 function bindProj(){
@@ -141,7 +186,10 @@ function bindProj(){
     openState(p.s);CURUPD=p.upd;showTab('ac');toast(`Versão de ${who(p.edit||p.autor)} aberta`);});
   $('#pjdlg').addEventListener('click',e=>{
     if(e.target.id==='pjdlg'||e.target.id==='pjdlg-close')return closeDlg();
-    const cf=e.target.closest('[data-cf]'),vo=e.target.closest('[data-vopen]');
+    const cf=e.target.closest('[data-cf]'),vo=e.target.closest('[data-vopen]'),ap=e.target.closest('[data-ap]'),nr=e.target.closest('[data-nr]');
+    if(ap){if(ap.dataset.ap==='ok')projSave(false,false,{approve:true});else closeDlg();return;}
+    if(nr){const v=nr.dataset.nr;if(v==='cancel')return closeDlg();if(v==='copy'){closeDlg();return projSave(true);}
+      const o=obraDef();o.rev=nextRev(o.rev);o.aprov=null;o.estado='rascunho';save();return projSave(false,false,{newRev:true});}
     if(cf&&CONFLICT){const c=CONFLICT;if(cf.dataset.cf==='mine')projSave(false,true);
       else if(cf.dataset.cf==='theirs'){openState(c.s);CURUPD=c.upd;closeDlg();showTab('ac');toast(`Versão de ${who(c.edit||c.autor)} aberta`);}
       else closeDlg();}
@@ -150,7 +198,7 @@ function bindProj(){
   $('#pj-body').addEventListener('click',async e=>{const o=e.target.closest('[data-popen]'),d=e.target.closest('[data-pdup]'),x=e.target.closest('[data-pdel]'),v=e.target.closest('[data-pver]');
     const p=PROJ.find(q=>q.id===(o||d||x||v||{}).dataset?.[o?'popen':d?'pdup':x?'pdel':'pver']);if(!p)return;
     if(o){openState(p.s);CUR=p.id;CURUPD=p.upd;showTab('ac');toast(`Projeto “${p.nome}” aberto`);}
-    if(d){openState({...p.s,proj:(p.s.proj||p.nome)+' (cópia)'});CUR=null;CURUPD=null;showTab('ac');toast('Cópia aberta: guarda-a para a criar na equipa');}
+    if(d){openState({...p.s,proj:(p.s.proj||p.nome)+' (cópia)',obra:{...((p.s||{}).obra||{}),rev:'A',aprov:null,estado:'rascunho'}});CUR=null;CURUPD=null;showTab('ac');toast('Cópia aberta: guarda-a para a criar na equipa');}
     if(v)historyDlg(p);
     if(x){if(x.dataset.armed!=='1'){x.dataset.armed='1';x.textContent='Confirmar';setTimeout(()=>{if(x.isConnected){x.dataset.armed='';x.textContent='Apagar';}},3000);return;}
       try{await DBX.collection('projects').doc(p.id).delete();if(CUR===p.id){CUR=null;CURUPD=null;}toast('Projeto apagado');}catch(err){eqErr(err);}}});
@@ -174,5 +222,5 @@ async function initShare(){
   sub('paineis',snap=>{CUST.pan=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(d=>d.modelo);rebuildEquip();});
   sub('gateways',snap=>{CUST.gw=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(d=>d.modelo&&d.In);rebuildEquip();});
   sub('precos',snap=>{CUST.pr=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(d=>d.s&&d.p);rebuildEquip();});
-  renderEq();renderProj();
+  renderEq();renderProj();renderObraCtl();
 }
