@@ -150,7 +150,11 @@ function noFitMsg(c){
   return smax<300?`${head} No método ${lab} a RTIEBT (${o.q}) só tem valores até ${fs(smax)} mm²: escolhe outra passagem (por exemplo caminho de cabos, ref. 13) ou divide o circuito.`
     :`${head} Nem com 3 cabos de ${fs(smax)} mm² por fase chega: divide o circuito ou escolhe uma passagem com menos agrupamento.`;
 }
+/* temperaturas só da tabela, pela região (decisão do utilizador, out. 2026): ar e solo de LOCS; região desconhecida → Porto */
+const locOf=loc=>LOCS.find(x=>x[0]===loc)||LOCS.find(x=>x[0]==='Porto');
+function syncTemps(){const l=locOf(S.loc);S.loc=l[0];S.tair=l[1];S.tsoil=l[2];}
 function solve(zf){
+  syncTemps();
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
     const estOf=x=>String(x.est||'').trim().toUpperCase(),nq=S.invs.filter(x=>x.q===i.q&&estOf(x)===estOf(i)).length;
     const nAgr=nq;

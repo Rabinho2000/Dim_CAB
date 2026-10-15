@@ -20,9 +20,9 @@ await ana.fill('#proj','Obra Aprovação');await ana.click('[data-tab=proj]');aw
 await until(ana,()=>document.querySelector('#pj-body').innerText.includes('Obra Aprovação'));
 
 /* com circuitos a rever não se aprova */
-await ana.click('[data-tab=ac]');await ana.fill('#tair','85');await ana.click('[data-tab=proj]');await ana.click('#obra-aprov');
+await ana.click('[data-tab=ac]');await ana.fill('#limT','0.1');await ana.click('[data-tab=proj]');await ana.click('#obra-aprov');
 check(await toastHas(ana,'a rever.*antes de aprovar')&&await ana.$eval('#pjdlg',e=>e.hidden),'com circuitos a rever, não deixa aprovar');
-await ana.click('[data-tab=ac]');await ana.fill('#tair','35');await ana.click('[data-tab=proj]');
+await ana.click('[data-tab=ac]');await ana.fill('#limT','3');await ana.click('[data-tab=proj]');
 
 /* a Ana aprova */
 check(/Aprovar revisão A/.test(await ana.$eval('#obra-aprov',e=>e.textContent)),'botão "Aprovar revisão A"');

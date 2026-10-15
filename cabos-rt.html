@@ -37,6 +37,7 @@ label.check{display:flex;align-items:center;gap:6px;color:var(--ink);align-self:
 input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0;width:100%}
 input[type=number]{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 input[type=checkbox]{width:auto}
+input.ro{background:var(--bg);border-style:dashed;color:var(--muted);cursor:default}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 button{font:inherit;font-weight:500;cursor:pointer;border-radius:4px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px}
 button:hover{border-color:var(--muted)}
@@ -250,11 +251,11 @@ tr.cur td{background:var(--accent-soft)}
     <div class="panel-head"><h2>Local</h2></div>
     <div class="fields">
       <label>Localização<select id="loc"></select></label>
-      <label>T ambiente (ar) <span class="u">°C</span><input id="tair" type="number" step="1"></label>
-      <label>T do solo <span class="u">°C</span><input id="tsoil" type="number" step="1"></label>
+      <label>T ambiente (ar) <span class="u">°C</span><input id="tair" type="number" readonly tabindex="-1" class="ro"></label>
+      <label>T do solo <span class="u">°C</span><input id="tsoil" type="number" readonly tabindex="-1" class="ro"></label>
     </div>
     <label>Resistividade térmica do solo (52-E6)<select id="rsolo"></select></label>
-    <p class="hint">As temperaturas são sugeridas pela localização e podem ser alteradas. O 52-D1 não inclui radiação solar; a opção “exposto ao sol” soma 10 °C como estimativa (a RTIEBT remete para a IEC 60287).</p>
+    <p class="hint">As temperaturas vêm da tabela da região escolhida (não se editam). O 52-D1 não inclui radiação solar; a opção “exposto ao sol” soma 10 °C como estimativa (a RTIEBT remete para a IEC 60287).</p>
   </section>
   <section class="panel">
     <div class="panel-head"><h2>Critérios</h2></div>
@@ -273,7 +274,7 @@ tr.cur td{background:var(--accent-soft)}
       <label data-icu="icc" hidden>Icc no ponto de ligação <span class="u">kA</span><input id="icu-icc" type="number" step="0.1" min="0.1"></label>
       <label data-icu="pt" hidden>Potência do PT <span class="u">kVA</span><input id="icu-sn" type="number" step="10" min="1"></label>
     </div>
-    <p class="hint">Poder de corte: verifica Icu ≥ Icc máx. no local de cada disjuntor, com a Icc no ponto de ligação ou a do PT (ucc 4 % até 630 kVA e 6 % acima, rede a 500 MVA, sem o cabo PT–quadro, do lado da segurança), diminuída pelos cabos até cada quadro. Não muda a escolha do disjuntor: marca-o “a rever” e indica o que chega. Material automático: alumínio quando o circuito tem mais de 15 m e mais de 30 kW (nunca abaixo de 16 mm² e sempre monocondutor); nos restantes, cobre. A queda de tensão é verificada em cada troço, como na folha Excel. Ib dos inversores = corrente máxima de saída da ficha técnica. Nos percursos soma-se a corrente dos inversores a montante; os monofásicos contam um terço, por se distribuírem pelas três fases.</p>
+    <p class="hint">Poder de corte: verifica Icu ≥ Icc máx. no local de cada disjuntor, com a Icc no ponto de ligação ou a do PT (ucc 4 % até 630 kVA e 6 % acima, rede a 500 MVA, sem o cabo PT–quadro, do lado da segurança), diminuída pelos cabos até cada quadro. Não muda a escolha do disjuntor: marca-o “a rever” e indica o que chega. Material automático: alumínio quando o circuito tem mais de 15 m e mais de 30 kW (nunca abaixo de 16 mm² e sempre monocondutor); nos restantes, cobre. A queda de tensão é verificada em cada troço, como na folha Excel. Ib dos inversores = potência aparente máxima da ficha ÷ (√3·400 V), ou ÷ 230 V nos monofásicos, como a folha Excel. Nos percursos soma-se a corrente dos inversores a montante; os monofásicos contam um terço, por se distribuírem pelas três fases.</p>
   </section>
 </div>
 
@@ -615,7 +616,11 @@ function noFitMsg(c){
   return smax<300?`${head} No método ${lab} a RTIEBT (${o.q}) só tem valores até ${fs(smax)} mm²: escolhe outra passagem (por exemplo caminho de cabos, ref. 13) ou divide o circuito.`
     :`${head} Nem com 3 cabos de ${fs(smax)} mm² por fase chega: divide o circuito ou escolhe uma passagem com menos agrupamento.`;
 }
+/* temperaturas só da tabela, pela região (decisão do utilizador, out. 2026): ar e solo de LOCS; região desconhecida → Porto */
+const locOf=loc=>LOCS.find(x=>x[0]===loc)||LOCS.find(x=>x[0]==='Porto');
+function syncTemps(){const l=locOf(S.loc);S.loc=l[0];S.tair=l[1];S.tsoil=l[2];}
 function solve(zf){
+  syncTemps();
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
     const estOf=x=>String(x.est||'').trim().toUpperCase(),nq=S.invs.filter(x=>x.q===i.q&&estOf(x)===estOf(i)).length;
     const nAgr=nq;
@@ -1088,17 +1093,17 @@ function refOf(kind,id){if(kind==='inv')return S.invs.find(x=>x.id===+id);const 
   if(b==null)return p;p.subs=p.subs||{};const sub=(p.subs[b]??={S:'auto'});return sub;}
 function routeOf(key){return key==='inv'?S.rInv:S.percs.find(p=>'p'+p.id===key);}
 function bind(){
-  $('#loc').innerHTML=LOCS.map(([n])=>`<option>${n}</option>`).join('')+'<option>Outra</option>';
+  $('#loc').innerHTML=LOCS.map(([n,a,s])=>`<option value="${n}">${n} (${a} °C)</option>`).join('');
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
   $('#folga').addEventListener('change',e=>{S.folga=e.target.checked;render();});
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
-  ['proj','tair','tsoil','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>{const el=document.getElementById(k);
+  ['proj','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
   /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
   const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
   [['icu-modo','modo'],['icu-icc','icc'],['icu-sn','sn']].forEach(([id,k])=>{const el=document.getElementById(id);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S.icu=Object.assign(example().icu,S.icu||{});S.icu[k]=k==='modo'?el.value:parseFloat(el.value);icuVis();render();});});
-  $('#loc').addEventListener('change',e=>{S.loc=e.target.value;const l=LOCS.find(x=>x[0]===S.loc);if(l){S.tair=l[1];S.tsoil=l[2];$('#tair').value=l[1];$('#tsoil').value=l[2];}render();});
+  $('#loc').addEventListener('change',e=>{S.loc=e.target.value;syncTemps();$('#tair').value=S.tair;$('#tsoil').value=S.tsoil;render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
     if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='est')i.est=e.target.value.trim().toUpperCase();else if(k==='cos'){const v=parseFloat(e.target.value);i.cos=v>0?Math.min(Math.max(v,0.5),1):null;}else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
@@ -1147,12 +1152,12 @@ function scVis(){const on=S.sc.on!==false;document.querySelectorAll('#sc-fields 
 let TAB='ac';const HOOKS=[];
 function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
   document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t);if(last)HOOKS.forEach(f=>f(last));}
-function load(){renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
+function load(){syncTemps();renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
   S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';
   document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
-  if(typeof loadDC==='function')loadDC();$('#rsolo').value=String(S.rsolo);$('#loc').value=S.loc;renderPercTable();renderInvTable();render();}
+  $('#rsolo').value=String(S.rsolo);$('#loc').value=S.loc;renderPercTable();renderInvTable();render();}
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2400);}
 
 

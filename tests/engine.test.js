@@ -135,9 +135,15 @@ test('fora do quadro: mais de 3 esteiras sobrepostas',()=>{
 });
 
 test('fora do quadro: temperatura acima do 52-D1',()=>{
-  const E=engine();E.set({tair:85});const c=E.solve().invC[0];
+  const E=engine();E.ev("LOCS.push(['Teste 85',85,18,0],['Teste 60',60,18,0])");E.set({loc:'Teste 85'});const c=E.solve().invC[0];
   assert.equal(c.ti.ft,null);assert.equal(c.noFit,true);assert.match(c.noFitMsg,/85 °C está fora do quadro 52-D1 para XLPE \(máximo 80 °C\)/);
-  E.set({tair:60});assert.equal(E.solve().invC[0].noFit,false,'60 °C está no quadro');
+  E.set({loc:'Teste 60'});assert.equal(E.solve().invC[0].noFit,false,'60 °C está no quadro');
+});
+
+test('temperaturas só da tabela, pela região',()=>{
+  const E=engine();E.set({loc:'Santarém',tair:20,tsoil:5});const c=E.solve().invC[0];
+  assert.equal(E.S().tair,40);assert.equal(E.S().tsoil,20);assert.equal(c.ti.t,40,'o valor escrito à mão não conta');
+  E.set({loc:'Outra',tair:20});E.solve();assert.equal(E.S().loc,'Porto');assert.equal(E.S().tair,35,'região desconhecida: Porto');
 });
 
 test('secção escolhida à mão que não existe no quadro volta a automático (sem erro)',()=>{
