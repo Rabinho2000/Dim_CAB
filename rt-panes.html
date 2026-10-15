@@ -29,10 +29,20 @@
 
 <div class="pane" data-pane="proj" hidden>
 <section class="panel">
+  <div class="panel-head"><h2>Dados da obra</h2></div>
+  <p class="hint">Do projeto aberto. Aparecem na legenda do esquema unifilar, no relatório de cálculo e no orçamento.</p>
+  <div class="fields obra">
+    <label>Cliente / dono de obra<input data-obra="cliente" maxlength="120"></label>
+    <label>Morada da instalação<input data-obra="morada" maxlength="160"></label>
+    <label>Nº do desenho<input data-obra="desenho" maxlength="40"></label>
+    <label>Estado<select data-obra="estado"></select></label>
+  </div>
+</section>
+<section class="panel">
   <div class="panel-head"><h2>Projetos da equipa</h2><div class="actions"><button id="pj-save" class="pri">Guardar projeto atual</button><button id="pj-new">Guardar como novo</button></div></div>
   <p class="hint" id="pj-user" hidden></p>
   <p class="hint" id="pj-status"></p>
-  <label class="grow pjsearch">Procurar<input id="pj-q" placeholder="Nome do projeto ou autor"></label>
-  <div class="tablewrap"><table id="pj-table"><thead><tr><th>Projeto</th><th>Inversores</th><th class="r">Potência</th><th>Guardado por</th><th>Atualizado</th><th></th></tr></thead><tbody id="pj-body"></tbody></table></div>
+  <div class="pjtools"><label class="grow pjsearch">Procurar<input id="pj-q" placeholder="Projeto, cliente ou autor"></label><label>Estado<select id="pj-est"></select></label></div>
+  <div class="tablewrap"><table id="pj-table"><thead><tr><th>Projeto</th><th>Estado</th><th>Inversores</th><th class="r">Potência</th><th>Guardado por</th><th>Atualizado</th><th></th></tr></thead><tbody id="pj-body"></tbody></table></div>
 </section>
 </div>

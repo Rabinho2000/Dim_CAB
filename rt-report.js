@@ -47,7 +47,7 @@ function reportPDF(R){
   T('RTIEBT (Portaria 949-A/2006)',PW-M,32,{fs:9.5,c:[200,208,214],a:'r'});
   y=54;
   h2('1. Identificação da obra');
-  kv([['Projeto',S.proj||'—'],['Local',S.loc||'—','Data',dt],['Potência AC',`${n1(R.Ptot)} kW`,'Inversores',String(S.invs.length)],
+  const ob=S.obra||{};kv([['Projeto',S.proj||'—','Cliente',ob.cliente||'—'],['Morada',ob.morada||'—','Nº do desenho',ob.desenho||'—'],['Local (clima)',S.loc||'—','Data',dt],['Potência AC',`${n1(R.Ptot)} kW`,'Inversores',String(S.invs.length)],
     ['Corrente total',`${n0(R.IbTot)} A`,'Circuitos',String(all.length)]],{lw:34});
 
   /* ----- 2. dados gerais ----- */

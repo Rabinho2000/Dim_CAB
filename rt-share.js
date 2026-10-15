@@ -73,6 +73,20 @@ function bindEq(){
 let CURUPD=null,SEENUPD=null,CONFLICT=null,HIST=null;
 const who=id=>NAMES[id]||(id&&id===ME?'Eu':'Alguém da equipa');
 const hhmm=s=>{try{return new Date(s).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
+/* dados da obra (S.obra) e estado do projeto */
+const ESTADOS=[['rascunho','Rascunho','neu'],['analise','Em análise','warn'],['aprovado','Aprovado','ok'],['obra','Em obra','acc'],['concluido','Concluído','neu']];
+const estPill=k=>{const e=ESTADOS.find(x=>x[0]===k)||ESTADOS[0];return `<span class="pill ${e[2]}">${e[1]}</span>`;};
+/* põe os campos iguais ao projeto aberto (ao abrir, repor exemplo, etc.), sem mexer no campo que se está a escrever */
+const obraDef=()=>{S.obra=Object.assign({cliente:'',morada:'',desenho:'',estado:'rascunho'},S.obra||{});return S.obra;};
+function syncObra(){obraDef();
+  document.querySelectorAll('[data-obra]').forEach(el=>{const v=S.obra[el.dataset.obra]??'';if(el!==document.activeElement&&el.value!==v)el.value=v;});}
+function bindObra(){
+  const opts=ESTADOS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
+  $('[data-obra=estado]').innerHTML=opts;$('#pj-est').innerHTML='<option value="">Todos</option>'+opts;
+  document.querySelectorAll('[data-obra]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{obraDef()[el.dataset.obra]=el.value;save();HOOKS.forEach(f=>last&&f(last));}));
+  $('#pj-est').addEventListener('change',renderProj);
+  HOOKS.push(syncObra);syncObra();
+}
 function projState(){const s=JSON.parse(JSON.stringify(S));return s;}
 /* o projeto aberto tem uma versão mais recente gravada por outra pessoa (só no servidor próprio) */
 function newerCur(){if(!CUR||!CURUPD||!DBX||!DBX.versioned)return null;const p=PROJ.find(q=>q.id===CUR);return p&&p.upd!==CURUPD?p:null;}
@@ -82,19 +96,20 @@ function renderProj(){
     if(SEENUPD!==nv.upd){SEENUPD=nv.upd;toast(`${who(nv.edit||nv.autor)} guardou uma versão mais recente do projeto aberto`);}}
   else $('#pj-status').textContent=!DBX?'Os projetos partilhados não estão disponíveis nesta vista. O projeto atual continua guardado neste navegador.':CUR?`Projeto aberto: ${(PROJ.find(p=>p.id===CUR)||{}).nome||S.proj||'sem nome'}. “Guardar projeto atual” atualiza-o para toda a equipa.`:'O projeto atual ainda não foi guardado na equipa.';
   ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);
-  const list=PROJ.filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(NAMES[p.autor]||'').toLowerCase().includes(q));
+  const est=$('#pj-est').value;
+  const list=PROJ.filter(p=>(!est||(p.estado||'rascunho')===est)&&(!q||[p.nome,p.cliente,NAMES[p.autor]].some(x=>(x||'').toLowerCase().includes(q))));
   $('#proj-badge').hidden=!PROJ.length;$('#proj-badge').textContent=PROJ.length;
-  $('#pj-body').innerHTML=list.length?list.map(p=>`<tr class="${p.id===CUR?'cur':''}"><td><b>${esc(p.nome||'Sem nome')}</b>${p.loc?`<span class="sub">${esc(p.loc)}</span>`:''}</td><td class="n">${p.nInv??'—'}</td><td class="n r">${p.P!=null?fmt(p.P,1)+' kW':'—'}</td>
+  $('#pj-body').innerHTML=list.length?list.map(p=>`<tr class="${p.id===CUR?'cur':''}"><td><b>${esc(p.nome||'Sem nome')}</b>${p.cliente||p.loc?`<span class="sub">${esc([p.cliente,p.loc].filter(Boolean).join(' · '))}</span>`:''}</td><td>${estPill(p.estado)}</td><td class="n">${p.nInv??'—'}</td><td class="n r">${p.P!=null?fmt(p.P,1)+' kW':'—'}</td>
     <td>${esc(who(p.autor))}${p.edit&&p.edit!==p.autor?`<span class="sub">alterado por ${esc(who(p.edit))}</span>`:''}</td><td class="n">${dtxt(p.upd)}</td>
     <td class="r"><button class="ghost" data-popen="${p.id}">Abrir</button><button class="ghost" data-pdup="${p.id}">Duplicar</button>${DBX&&DBX.versioned?`<button class="ghost" data-pver="${p.id}">Versões</button>`:''}${p.autor===ME||(USR&&USR.isOwner())?`<button class="ghost del" data-pdel="${p.id}">Apagar</button>`:''}</td></tr>`).join('')
-    :`<tr><td colspan="6" class="hint">${DBX?(PROJ.length?'Nenhum projeto corresponde à procura.':'Ainda não há projetos guardados.'):'—'}</td></tr>`;
+    :`<tr><td colspan="7" class="hint">${DBX?(PROJ.length?'Nenhum projeto corresponde à procura.':'Ainda não há projetos guardados.'):'—'}</td></tr>`;
 }
 async function resolveNames(extra){if(!USR||!USR.profiles)return;
   const ids=[...new Set(PROJ.flatMap(p=>[p.autor,p.edit]).concat(extra||[]).filter(Boolean))].filter(i=>!(i in NAMES));if(!ids.length)return;
   try{const ps=await USR.profiles(ids);ids.forEach(i=>{NAMES[i]=(ps&&ps[i]&&ps[i].name)||'';});renderProj();}catch(e){}}
 async function projSave(asNew,force){
   if(!DBX)return;const R=last;const nome=(S.proj||'').trim()||'Sem nome';
-  const body={nome,loc:S.loc,nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
+  syncObra();const body={nome,loc:S.loc,cliente:S.obra.cliente,estado:S.obra.estado,nInv:S.invs.length,P:R?Math.round(R.Ptot*10)/10:null,autor:ME,upd:isoNow(),s:projState()};
   try{if(CUR&&!asNew){const old=PROJ.find(p=>p.id===CUR);if(old&&old.autor)body.autor=old.autor;body.edit=ME;
       /* no servidor próprio, grava só se ninguém tiver gravado depois da versão aberta (salvo "substituir") */
       const r=await DBX.collection('projects').doc(CUR).set(body,DBX.versioned&&CURUPD&&!force?{ifMatch:CURUPD}:undefined);CURUPD=(r&&r.upd)||body.upd;}
@@ -141,7 +156,7 @@ function bindProj(){
       try{await DBX.collection('projects').doc(p.id).delete();if(CUR===p.id){CUR=null;CURUPD=null;}toast('Projeto apagado');}catch(err){eqErr(err);}}});
 }
 async function initShare(){
-  bindEq();bindProj();renderEq();renderProj();
+  bindEq();bindProj();bindObra();renderEq();renderProj();
   /* artifact do claude.ai ou servidor próprio (rt-api.js); aberto como ficheiro, fica só o projeto local */
   let db=null,user=null;
   if(typeof claude!=='undefined'&&claude.use)[db,user]=await Promise.all([claude.use('db'),claude.use('user')]);
