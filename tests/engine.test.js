@@ -227,15 +227,6 @@ test('cos φ por inversor: entra na queda de tensão; nos percursos conta o meno
   assert.equal(R.pC[0].cos,0.9,'percurso: o menor dos inversores a montante');
 });
 
-test('esteiras: largura numa camada (diâmetros típicos), reserva de 20 % e largura normalizada',()=>{
-  const E=engine();E.ev(require('fs').readFileSync(require('path').join(__dirname,'..','rt-tray.js'),'utf8'));
-  E.solve();const T=E.ev('solveTrays(solveAll())');
-  const c5=T.find(t=>/C5/.test(t.nome));
-  /* 3 × (1×240 Al) em trevo + neutro 1×120 por conjunto + terra 1×120: 3·(2·27,5+20) + 2·27,5 + 20 = 300 mm */
-  assert.equal(Math.round(c5.w),300);assert.equal(c5.std,400,'300 × 1,2 = 360 → 400 mm');assert.equal(c5.L,140);
-  const inv=T.find(t=>/Inversores/.test(t.nome));assert.equal(inv.cs.length,4);assert.equal(inv.L,50,'troço comum: o maior percurso do grupo');
-});
-
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

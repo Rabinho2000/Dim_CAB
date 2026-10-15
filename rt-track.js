@@ -1,5 +1,14 @@
 /* ---------- resumo dos projetos da equipa e acompanhamento em obra (separador Projetos) ---------- */
 const TSTEPS=[['lan','Lançado'],['lig','Ligado'],['ens','Ensaiado']];
+/* linhas dos cabos C1…Cn (código, origem, destino, cabo, comprimento, passagem, disjuntor, ΔU, estado) */
+function cableMapData(R){
+  return R.invC.concat(R.pC).filter(c=>c.res&&c.Ib>0).map(c=>{const o=c.res,P=cableParts(o,c.loaded),m=MODE[c.r.ref];
+    const orig=c.kind==='inv'?c.nome:c.ref.orig,dest=c.kind==='inv'?c.para:c.split?`${c.ref.dest} (entrada ${c.sub.nome})`:c.ref.dest;
+    return {code:c.code,orig,dest,modelo:c.kind==='inv'?c.modelo:'',cabo:cableDwg(c).replace(/^Cabo /,''),
+      fases:P.multi?P.cabo:P.fase,neutro:P.multi?'no mesmo cabo':P.neutro,terra:P.multi?'no mesmo cabo':P.terra,
+      L:c.L,Lc:c.Lc,pass:`Ref. ${m.ref} · ${m.d}`,brk:o.brk?`${o.In} A ${c.loaded===2?'2P':'4P'} · ${o.brk.name}`:`${o.In} A ${c.loaded===2?'2P':'4P'}`,
+      du:o.du,ok:verdict(c).st==='ok'};});
+}
 /* resumo: por estado, nº de projetos, kW AC e custo por kW (dos projetos guardados com custo) */
 function renderSummary(){
   const box=$('#pj-sum');if(!box)return;if(!PROJ.length){box.innerHTML='';return;}

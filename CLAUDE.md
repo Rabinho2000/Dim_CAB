@@ -16,15 +16,14 @@ node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "
 node tests/relatorio.js               # relatório de cálculo PDF (botão) para o exemplo e o caso sem secção: tests/relatorio_*.pdf e _pN.png
 node tests/dxf.js                     # unifilar em DXF: estrutura R12 e comparação visual com o SVG
 node tests/poder_corte.js             # poder de corte: não verificado por omissão; PT 2500 kVA → E1.2 42 kA a rever
-node tests/mapa_cabos.js              # identificação C1…Cn, mapa de cabos Excel/PDF e etiquetas
 node tests/comparar.js                # comparar alternativas sem mexer no projeto; aplicar
-node tests/avisos.js                  # Hager nos Quadros, esteiras, ΔU acumulada, seletividade, proteção de interface
+node tests/avisos.js                  # Hager nos Quadros, coluna Esteira (agrupamento), ΔU acumulada, seletividade, proteção de interface
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
 node tests/partilha_mock.js           # modo claude.ai simulado: projetos, equipamentos, gateway, descargas
 node tests/obra.js                    # resumo dos projetos e acompanhamento em obra (duas pessoas)
 node tests/aprovacao.js               # aprovar, só de leitura, estado até concluído, nova revisão, versões
 node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
-node tests/orcamento.js               # descarrega o orçamento (Excel e PDF) do exemplo e confere os totais com solveAll()
+node tests/orcamento.js               # descarrega o orçamento PDF do exemplo e confere os totais com solveAll()
 npm start                             # servidor em http://127.0.0.1:8080 (depois de npm run build)
 ```
 Os testes de interface usam Playwright (`npm i && npx playwright install chromium`).
@@ -38,14 +37,13 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-app.js` — interface: estado `S` e `localStorage`, tabelas, `render()`, popup "Novo quadro", tipos de quadro.
 - `rt-sc.js` — escada de disjuntores ABB (`BRK` de `brk.json`) e curto-circuito (desligado na interface, código mantido).
 - `rt-price.js` — preços de cabo e de terminais (`jmm/prices.json`, compras 2026 JMM + Indusmelec, a mais recente; secções sem compra interpoladas e marcadas "estimado"). Terminais (`termLines`/`termCost`): nas duas pontas, por conjunto em paralelo um por fase e um no neutro, mais um de terra; cobre = terminal de cravar, alumínio = bimetálico Cu/Al; multicondutores com ponteiras, não contadas. Entram em `R.termTot`, no orçamento (secção Terminais) e na comparação "Mais barato e também cumpre" (cabo + terminais).
-- `rt-cmap.js` — mapa de cabos para a obra: identificação `c.code` (C1…Cn, atribuída em `solveAll` pela ordem da tabela) que aparece também na tabela, no unifilar, no relatório e no orçamento; Excel e PDF (código, origem, destino, cabo, comprimento e "a prever" com folga, passagem, disjuntor, ΔU) e etiquetas PDF (2 por cabo, folha A4 de 24, 70 × 37 mm).
 - `rt-sld.js` — esquema unifilar SVG e exportação SVG/PNG/PDF.
 - `rt-report.js` — relatório de cálculo em PDF (botão "Relatório de cálculo (PDF)" no topo): identificação, dados gerais, quadro resumo, cálculo de cada circuito (modo e quadro RTIEBT, fatores, Iz, In, I₂, ΔU, cabo, disjuntor), circuitos a rever e o unifilar em A3. Texto vetorial jsPDF; Δ, φ, ≤, → na fonte Symbol (Helvetica só tem Latin-1).
 - `rt-docx.js` — relatório de cálculo em Word (botão "Word" ao lado do PDF): o mesmo conteúdo, com as linhas partilhadas de rt-report.js (`idRows`, `critRows`, `REPORT_NOTES`, `circRows`) e o unifilar em PNG; .docx gerado à mão (`zipStore`, que aceita binário). Respeitar a ordem dos elementos do esquema WordprocessingML (o Word recusa ficheiros fora de ordem). Teste: `tests/relatorio_docx.js`. Confirmado no Word pelo utilizador (out. 2026).
-- `rt-bom.js` — lista de materiais e orçamento (`bomData`: cabos por função/secção com o modelo de `costPerM`, total = `costTot`; proteções ABB como `brkTot`; composição dos quadros de `boardFor`). Exporta .xlsx gerado à mão (zip sem compressão, sem biblioteca nem rede) e PDF com jsPDF. Botões `data-bom` nos separadores Cabos AC e Quadros.
+- Identificação dos cabos `c.code` (C1…Cn, atribuída em `solveAll` pela ordem da tabela): aparece na tabela, no unifilar, no relatório, no orçamento e no acompanhamento em obra (`cableMapData` em rt-track.js).
+- `rt-bom.js` — orçamento em PDF (`bomData`: cabos por função/secção com o modelo de `costPerM`, total = `costTot`; proteções ABB como `brkTot`; composição dos quadros de `boardFor`). Só PDF (jsPDF), botões `data-bom` "Orçamento PDF" nos separadores Cabos AC e Quadros. `zipStore` (zip sem compressão) fica aqui para o relatório Word.
 - `rt-dxf.js` — unifilar em DXF R12 (AC1009) para o AutoCAD, convertido do SVG de `sldSVG` (`svgToDxf`): 1 px = 0,2 mm, camadas UNIFILAR / TEXTO / TRACEJADO, barramentos como POLYLINE com espessura, setas como SOLID, texto em ASCII com `\U+XXXX`. Se acrescentares um tipo de elemento SVG ao unifilar, acrescenta-o aqui. Teste: `tests/dxf.js` (redesenha o DXF ao lado do SVG em tests/dxf_A.png e dxf_B.png). Confirmado no AutoCAD pelo utilizador (out. 2026).
 - `mkhager.py` gera `hager.json` (PVP das envolventes Orion plus de `ORION`) a partir da tabela Hager `cat/hager.xlsx` (2026); o build injeta-o em rt-board.js (`HAGER`, `envPrice`, desconto `S.descHager`). Preço no separador Quadros e secção "Envolventes dos quadros (Hager)" no orçamento (só a caixa; quadros existentes e gateways não contam).
-- `rt-tray.js` / `rt-trayui.js` — esteiras (só passagens E/F): largura numa só camada (trevo 2·D, esteira 3·D, afastamento 5·D por conjunto, mais neutro e terra; 1·D entre circuitos), 20 % de reserva, largura normalizada (100…600 mm), comprimento do troço comum. **Diâmetros exteriores típicos de catálogo (`DIAM`), não são da RTIEBT: estimativa a confirmar com o fornecedor.** Quadro "Esteiras" no separador Cabos AC e metros por largura no orçamento (sem preço).
 - Cópias de segurança (server.js): `VACUUM INTO` a cada `BACKUP_HOURS` (24) para `BACKUP_DIR` (backups/ junto à base), mantém `BACKUP_KEEP` (14); `GET /api/backup` só para `ADMINS`. Exportar/importar projetos `.json` (`projExport`/`projImport` em rt-share.js): importados entram como projeto novo, rascunho, revisão A, sem aprovação. Teste: `tests/exportar.js`.
 - `rt-track.js` — separador Projetos: resumo por estado (nº, kW AC, €/kW; ao guardar, o projeto leva `custo`) e "Acompanhamento em obra": cada cabo (C1…Cn) lançado / ligado / ensaiado, com quem e quando, em `S.obra.track`. No servidor, `POST /api/projects/:id/track` funciona também numa revisão aprovada e não mexe no resto; as marcas vêm da versão mais recente da equipa (atualização a cada 4 s). Teste: `tests/obra.js`.
 - `rt-templates.js` — botão "Novo projeto" (antes "Repor exemplo"): modelos de topologia (`TPL`: exemplo de origem, QFV direto ao cliente, gateway C&I, residencial trifásico com gateway, residencial monofásico). Teste: `tests/modelos.js`.
@@ -62,6 +60,8 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `fontes/` — Excel original, quadros tipo e os dois DWG de esquemas unifilares de referência.
 
 ## Regras de dimensionamento (definidas pelo utilizador — não alterar sem pedir)
+
+- **Saídas pedidas** (decisão do utilizador, out. 2026): orçamento só em PDF. Foram retirados a pedido o dimensionamento de esteiras (largura, diâmetros), o mapa de cabos Excel/PDF, as etiquetas e o orçamento/lista de materiais em Excel; não voltar a propor. A coluna "Esteira" e o nº de esteiras continuam: são o agrupamento das RTIEBT.
 
 - **A ferramenta é só para cabos AC** (decisão do utilizador, out. 2026): sem lado DC (strings, cabo solar, fusíveis gPV). Um separador "Strings DC" chegou a ser feito e foi retirado a pedido; não voltar a propor.
 

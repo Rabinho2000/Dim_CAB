@@ -316,14 +316,13 @@ tr.cur td{background:var(--accent-soft)}
 </section>
 
 <section class="panel">
-  <div class="panel-head"><h2>Cabos e disjuntores sugeridos</h2><span class="hint" id="sumline"></span><div class="actions"><button id="cmp-open" title="Calcula variantes do projeto (material, esteiras, passagem, ΔU) sem lhe mexer">Comparar alternativas</button><button data-cmap="xlsx" title="Lista de cabos para a obra, com a identificação do unifilar">Mapa de cabos Excel</button><button data-cmap="pdf">Mapa de cabos PDF</button><button data-cmap="lbl" title="Duas etiquetas por cabo, folha A4 de 24 (70 × 37 mm)">Etiquetas</button><button data-bom="xlsx">Orçamento Excel</button><button data-bom="pdf" class="pri">Orçamento PDF</button></div></div>
+  <div class="panel-head"><h2>Cabos e disjuntores sugeridos</h2><span class="hint" id="sumline"></span><div class="actions"><button id="cmp-open" title="Calcula variantes do projeto (material, esteiras, passagem, ΔU) sem lhe mexer">Comparar alternativas</button><button data-bom="pdf" class="pri">Orçamento PDF</button></div></div>
   <div class="tablewrap">
     <table>
       <thead><tr><th>Circuito</th><th class="r">P <span class="u">kW</span></th><th class="r">Ib <span class="u">A</span></th><th>Cabo sugerido</th><th>Disjuntor</th><th class="r">Iz corrigida</th><th class="r">ΔU troço <span class="u">V · %</span></th><th class="r">Custo cabo</th><th>Secção</th><th>Estado</th></tr></thead>
       <tbody id="res-body"></tbody>
     </table>
   </div>
-  <div class="trays" id="trays"></div>
   <details>
     <summary>Como é feita a escolha</summary>
     <ul>

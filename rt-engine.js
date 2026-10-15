@@ -313,7 +313,7 @@ function solveAll(){
   if(S.sc&&S.sc.on!==false){let sig='';for(let k=0;k<5;k++){R=solve(nodeZ(R.pC));const s2=R.pC.map(c=>c.res?c.res.n+'x'+c.res.s+c.res.mat:'').join();if(s2===sig)break;sig=s2;}}
   const z=srcZ();R.ikSrc=1.05*400/(Math.sqrt(3)*zabs(z.max))/1000;
   applyIcu(R);
-  /* identificação dos cabos (mapa de cabos, unifilar, relatório, orçamento): ordem da tabela de resultados */
+  /* identificação dos cabos (acompanhamento em obra, unifilar, relatório, orçamento): ordem da tabela de resultados */
   R.invC.concat(R.pC).forEach((c,i)=>{c.code='C'+(i+1);});
   applySel(R);
   R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0);
