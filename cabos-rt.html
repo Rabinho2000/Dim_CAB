@@ -53,6 +53,11 @@ button.ghost:hover{color:var(--ink)} button.ghost.del:hover{color:var(--bad)}
 .kpi b{font-family:var(--f-mono);font-size:22px;font-weight:500}
 .kpi i{font-style:normal;font-size:12px;color:var(--muted);margin-left:3px}
 .kpi.bad{border-color:var(--bad)} .kpi.bad b{color:var(--bad)}
+.kpi.off{border-style:dashed;background:transparent}
+.kpi.off b{display:block;font-family:var(--f-body);font-size:15px;font-weight:600;color:var(--muted);margin:6px 0 4px}
+.kpi.off i{margin-left:0}
+.kpi-go{border:0;background:none;padding:0;font:inherit;font-size:12px;font-weight:600;color:#1f9e19;cursor:pointer}
+.kpi-go:hover{text-decoration:underline}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 @media (max-width:860px){.cols{grid-template-columns:1fr}}
 .tablewrap{overflow-x:auto}
@@ -311,14 +316,13 @@ tr.cur td{background:var(--accent-soft)}
 </section>
 
 <section class="panel">
-  <div class="panel-head"><h2>Cabos e disjuntores sugeridos</h2><span class="hint" id="sumline"></span><div class="actions"><button id="cmp-open" title="Calcula variantes do projeto (material, esteiras, passagem, ΔU) sem lhe mexer">Comparar alternativas</button><button data-cmap="xlsx" title="Lista de cabos para a obra, com a identificação do unifilar">Mapa de cabos Excel</button><button data-cmap="pdf">Mapa de cabos PDF</button><button data-cmap="lbl" title="Duas etiquetas por cabo, folha A4 de 24 (70 × 37 mm)">Etiquetas</button><button data-bom="xlsx">Orçamento Excel</button><button data-bom="pdf" class="pri">Orçamento PDF</button></div></div>
+  <div class="panel-head"><h2>Cabos e disjuntores sugeridos</h2><span class="hint" id="sumline"></span><div class="actions"><button id="cmp-open" title="Calcula variantes do projeto (material, esteiras, passagem, ΔU) sem lhe mexer">Comparar alternativas</button><button data-bom="pdf" class="pri">Orçamento PDF</button></div></div>
   <div class="tablewrap">
     <table>
       <thead><tr><th>Circuito</th><th class="r">P <span class="u">kW</span></th><th class="r">Ib <span class="u">A</span></th><th>Cabo sugerido</th><th>Disjuntor</th><th class="r">Iz corrigida</th><th class="r">ΔU troço <span class="u">V · %</span></th><th class="r">Custo cabo</th><th>Secção</th><th>Estado</th></tr></thead>
       <tbody id="res-body"></tbody>
     </table>
   </div>
-  <div class="trays" id="trays"></div>
   <details>
     <summary>Como é feita a escolha</summary>
     <ul>
@@ -352,7 +356,7 @@ tr.cur td{background:var(--accent-soft)}
 
 <div class="pane" data-pane="brd" hidden>
 <section class="panel">
-  <div class="panel-head"><h2>Sugestão de quadros</h2><div class="actions"><button data-bom="xlsx">Lista de materiais Excel</button><button data-bom="pdf" class="pri">Lista de materiais PDF</button></div></div>
+  <div class="panel-head"><h2>Sugestão de quadros</h2><div class="actions"><button data-bom="pdf" class="pri">Orçamento PDF</button></div></div>
   <p class="hint">Para cada quadro: a aparelhagem, os cabos que lá entram e a envolvente mínima onde tudo cabe com espaço para curvar e ligar os cabos. O raio de curvatura usado é ≈ 10 × Ø (cabos rígidos XV/LXV; os flexíveis RV-K/RZ1-K admitem cerca de metade); diâmetros e capacidade dos bornes são aproximados e devem ser confirmados no catálogo.</p>
   <div class="boards" id="boards"></div>
 </section>
@@ -768,7 +772,7 @@ function solveAll(){
   if(S.sc&&S.sc.on!==false){let sig='';for(let k=0;k<5;k++){R=solve(nodeZ(R.pC));const s2=R.pC.map(c=>c.res?c.res.n+'x'+c.res.s+c.res.mat:'').join();if(s2===sig)break;sig=s2;}}
   const z=srcZ();R.ikSrc=1.05*400/(Math.sqrt(3)*zabs(z.max))/1000;
   applyIcu(R);
-  /* identificação dos cabos (mapa de cabos, unifilar, relatório, orçamento): ordem da tabela de resultados */
+  /* identificação dos cabos (acompanhamento em obra, unifilar, relatório, orçamento): ordem da tabela de resultados */
   R.invC.concat(R.pC).forEach((c,i)=>{c.code='C'+(i+1);});
   applySel(R);
   R.brkTot=R.invC.concat(R.pC).reduce((a,c)=>a+(c.res&&c.res.brk&&!c.split&&!gwOf(c.ref.dest)?brkCost(c.res.brk):0),0);
@@ -971,8 +975,9 @@ function render(){
   const worst=Math.max(0,...all.filter(c=>c.res).map(c=>c.res.du));
   const ends=R.pC.filter(c=>!percFrom(c.ref.dest)&&c.res).sort((a,b)=>b.p-a.p);const main=ends[0];
   $('#kpis').innerHTML=[['Inversores',S.invs.length,''],['Potência total',fmt(R.Ptot,1),'kW'],['Corrente total',fmt(R.IbTot,0),'A'],
-    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],(R.icuOn?['Icc no ponto de ligação',fmt(R.ikSrc,1),'kA']:['Poder de corte','não verificado','indica a Icc ou o PT em Critérios']),['Cabos e terminais',eur0(R.costTot+R.termTot),R.costEst||R.invC.concat(R.pC).some(c=>c.term&&c.term.est)?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
-    .map(([l,v,u,b])=>`<div class="kpi${b?' bad':''}"><small>${l}</small><b>${v}</b><i>${u}</i></div>`).join('');
+    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],(R.icuOn?['Icc no ponto de ligação',fmt(R.ikSrc,1),'kA']:['Poder de corte','Não verificado','<button type="button" class="kpi-go" data-goto="icu-modo">Definir nos Critérios →</button>',false,'off']),['Cabos e terminais',eur0(R.costTot+R.termTot),R.costEst||R.invC.concat(R.pC).some(c=>c.term&&c.term.est)?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
+    .map(([l,v,u,b,x])=>`<div class="kpi${b?' bad':''}${x?' '+x:''}"><small>${l}</small><b>${v}</b><i>${u}</i></div>`).join('');
+  $('#kpis').querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{const f=document.getElementById(el.dataset.goto);f.scrollIntoView({behavior:'smooth',block:'center'});f.focus({preventScroll:true});});
   const rowHTML=c=>{
     const o=c.res;
     if(c.Ib<=0)return `<tr class="${c.kind==='perc'?'feeder':''}"><td>${esc(c.nome)}<span class="sub">${c.L} m</span></td><td class="n r">0,0</td><td colspan="8" class="hint">${c.kind==='perc'?'Nenhum inversor passa por este percurso. Confirma os nomes dos quadros.':'Indica a potência.'}</td></tr>`;
@@ -1678,57 +1683,7 @@ function renderBoards(R){
 }
 HOOKS.push(R=>{if(TAB==='brd')renderBoards(R);});
 
-/* ---------- dimensionamento das esteiras (passagens E/F: caminhos de cabos e escadas) ----------
-   Diâmetros exteriores: valores TÍPICOS de catálogo (estimativa, 0,6/1 kV) — confirmar com o catálogo do fornecedor; não são da RTIEBT.
-   Regra: uma só camada (é o que os fatores 52-E4/E5 supõem). Por conjunto: trevo = 2·D das fases, esteira = 3·D, com afastamento = 5·D;
-   mais o neutro e a terra ao lado. Multicondutor = D. Entre circuitos/conjuntos fica 1·D livre. Largura sugerida: a normalizada
-   ≥ largura ocupada × 1,2 (20 % de reserva). Comprimento: inversores — o maior percurso do grupo (troço comum); percursos — L. */
-const DIAM={mono:{Cu:{4:7.5,6:8,10:9,16:10,25:12,35:13,50:15,70:17,95:19,120:21,150:23,185:25.5,240:28.5,300:31.5},
-                  Al:{16:10,25:12,35:13,50:14.5,70:16.5,95:18.5,120:20,150:22,185:24.5,240:27.5,300:30}},
-  multi5:{1.5:11,2.5:12.5,4:14.5,6:16,10:19.5,16:23,25:28,35:31,50:36},multi3:{1.5:9.5,2.5:10.5,4:12,6:13.5,10:16,16:19,25:23,35:25.5}};
-const TRAY_W=[100,150,200,300,400,500,600],TRAY_RES=1.2;
-const diamOf=(form,mat,s)=>form==='mono'?(DIAM.mono[mat]||{})[s]:(DIAM[form]||{})[s];
-/* largura ocupada por um circuito numa camada (mm) e o maior diâmetro (para o espaço livre) */
-function circWidth(c){
-  const o=c.res;if(!o)return null;
-  if(o.cons==='multi'){const d=diamOf(c.loaded===2?'multi3':'multi5','Cu',o.s);return d?{w:d*o.n+d*(o.n-1),d}:null;}
-  const {sn,spe}=condSizes(o,c.loaded),D=diamOf('mono',o.mat,o.s),Dn=diamOf('mono',o.mat,sn),Dp=diamOf('mono',o.mat,spe);if(!D||!Dn||!Dp)return null;
-  const disp=c.r.disp||'trevo',ph=c.loaded===2?1:3,k=ph===1?1:disp==='trevo'?2:disp==='esteira'?3:5;
-  const set=(ph===1?D:k*D)+Dn;   /* fases + neutro de cada conjunto */
-  return {w:o.n*set+(o.n-1)*D+Dp,d:D};
-}
-function solveTrays(R){
-  R=R||last;if(!R)return [];const out=[],isTray=r=>{const m=MODE[r.ref];return m&&m.m==='EF';};
-  const add=(nome,r,cs,L,extra)=>{const ws=cs.map(circWidth);if(ws.some(w=>!w))return out.push({nome,r,cs,L,err:'Sem diâmetro típico para uma das secções'});
-    const dmax=Math.max(...ws.map(w=>w.d)),trays=Math.max(1,+r.trays||1);
-    const w=ws.reduce((a,x)=>a+x.w,0)+Math.max(0,cs.length-1)*dmax+(extra||0)*dmax*2;
-    const perTray=w/trays,need=perTray*TRAY_RES,std=TRAY_W.find(x=>x>=need-1e-9);
-    out.push({nome,r,cs,L,trays,w,perTray,need,std:std||null,extra:extra||0,err:std?null:`Largura ocupada ${Math.round(perTray)} mm por esteira: mais do que ${TRAY_W[TRAY_W.length-1]} mm — divide por mais esteiras`});};
-  /* inversores: um grupo por quadro e esteira */
-  const g=new Map();R.invC.filter(c=>c.res&&isTray(c.r)).forEach(c=>{const k=`${c.para}|${String(c.ref.est||'').toUpperCase()}`;(g.get(k)||g.set(k,[]).get(k)).push(c);});
-  g.forEach((cs,k)=>{const [q,e]=k.split('|');add(`Inversores → ${q}${e?` · esteira ${e}`:''}`,cs[0].r,cs,Math.max(...cs.map(c=>c.L)),0);});
-  /* percursos (os ramos de um mesmo percurso partido por gateway vão juntos) */
-  const pg=new Map();R.pC.filter(c=>c.res&&isTray(c.r)).forEach(c=>{(pg.get(c.base)||pg.set(c.base,[]).get(c.base)).push(c);});
-  pg.forEach((cs,p)=>add(`${cs[0].code}${cs.length>1?'…':''} · ${p.orig} → ${p.dest}`,p,cs,+p.L||0,Math.max(0,Math.round(+p.extra||0))));
-  return out;
-}
-
-/* ---------- quadro "Esteiras" no separador Cabos AC (motor em rt-tray.js) ---------- */
-function renderTrays(R){
-  const box=$('#trays');if(!box)return;const T=solveTrays(R);
-  if(!T.length){box.innerHTML='';return;}
-  box.innerHTML=`<h3>Esteiras (caminhos de cabos e escadas)</h3>
-    <p class="hint">Largura para uma só camada, como supõem os fatores de agrupamento 52-E4/E5, com 1 diâmetro livre entre circuitos e 20 % de reserva. <b>Diâmetros exteriores típicos de catálogo (estimativa): confirmar com o catálogo do fornecedor.</b></p>
-    <div class="tablewrap"><table><thead><tr><th>Esteira</th><th>Passagem</th><th class="r">Circuitos</th><th class="r">Largura ocupada</th><th class="r">Esteira sugerida</th><th class="r">Comprimento</th></tr></thead><tbody>${
-    T.map(t=>`<tr class="${t.err?'err':''}"><td><b>${esc(t.nome)}</b><span class="sub">${t.cs.map(c=>c.code).join(', ')}${t.extra?` + ${t.extra} outros`:''}</span></td>
-      <td>Ref. ${esc(t.r.ref)}${t.trays>1?` · ${t.trays} esteiras sobrepostas`:''}<span class="sub">${esc((MODE[t.r.ref]||{}).d||'')}</span></td>
-      <td class="n r">${t.cs.length+(t.extra||0)}</td><td class="n r">${t.w!=null?`${Math.round(t.perTray)} mm${t.trays>1?'<span class="sub">por esteira</span>':''}`:'—'}</td>
-      <td class="n r">${t.std?`<b>${t.std} mm</b>${t.trays>1?`<span class="sub">× ${t.trays}</span>`:''}`:'—'}${t.err?`<span class="sub limt">${esc(t.err)}</span>`:''}</td>
-      <td class="n r">${fmt(t.L,0)} m</td></tr>`).join('')}</tbody></table></div>`;
-}
-HOOKS.push(R=>{if(TAB==='ac')renderTrays(R);});
-
-/* ---------- lista de materiais e orçamento do projeto aberto: Excel (.xlsx) e PDF ----------
+/* ---------- lista de materiais e orçamento do projeto aberto (PDF) ----------
    Cabos: fases, neutro e terra em separado, metros = comprimento de cálculo (com folga) de cada circuito e €/m como em costPerM,
    de modo que o total dos cabos é igual a R.costTot. Proteções ABB: os mesmos aparelhos que R.brkTot (PVP com o desconto descABB).
    Quadros: a composição do separador Quadros (sem preço). */
@@ -1767,9 +1722,6 @@ function bomData(R){
     if(g){g.q+=l.q;if(!g.circ.includes(lab))g.circ.push(lab);}else{const p=pricePer(l.mat,'term',l.s);tm.set(k,{...l,pu:p.p,est:p.est,circ:[lab]});}});});
   const terms=[...tm.values()].sort((a,b)=>a.mat.localeCompare(b.mat)||a.s-b.s)
     .map(x=>({...x,des:`${x.mat==='Al'?'Terminal bimetálico Cu/Al':'Terminal de cravar Cu'} ${fs(x.s)} mm²`,total:x.q*x.pu}));
-  /* caminhos de cabos (rt-tray.js): metros por largura sugerida, sem preço (diâmetros típicos, estimativa) */
-  const trm=new Map();(typeof solveTrays==='function'?solveTrays(R):[]).forEach(t=>{if(!t.std)return;const g=trm.get(t.std)||{w:t.std,m:0,circ:[]};g.m+=t.L*t.trays;g.circ.push(t.nome);trm.set(t.std,g);});
-  const trays=[...trm.values()].sort((a,b)=>a.w-b.w);
   /* disjuntores e diferenciais ABB: os mesmos que entram em R.brkTot */
   const desc=(+S.descABB||0)/100,bm=new Map();
   const add=(k,v)=>{const g=bm.get(k);if(g){g.qty++;g.circ.push(v.circ);}else bm.set(k,{...v,qty:1,circ:[v.circ]});};
@@ -1790,10 +1742,10 @@ function bomData(R){
   /* envolventes Hager dos quadros novos (PVP 2026 com o desconto descHager); quadros existentes e gateways não contam */
   const envs=quad.filter(q=>q.envRef).map(q=>({node:q.node,ref:q.envRef,des:q.envDes,pvp:q.envPvp,total:q.envNet})),tEnv=envs.reduce((a,x)=>a+x.total,0);
   return {rev:(S.obra&&S.obra.rev)||'A',aprov:(S.obra&&S.obra.aprov)||null,proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
-    trays,descHager:+S.descHager||0,envs,tEnv,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tEnv,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
+    descHager:+S.descHager||0,envs,tEnv,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tEnv,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
 }
 
-/* ---------- .xlsx gerado aqui (Office Open XML num zip sem compressão): sem bibliotecas nem rede, abre no Excel com números e fórmulas ---------- */
+/* zip sem compressão (Office Open XML): usado pelo relatório Word (rt-docx.js) */
 const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRCT[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
 function zipStore(files){ /* files: [[nome, texto ou Uint8Array]] → Uint8Array */
@@ -1808,58 +1760,6 @@ function zipStore(files){ /* files: [[nome, texto ou Uint8Array]] → Uint8Array
   const end=Uint8Array.from([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(csz),...u32(off),...u16(0)]);
   const parts=loc.concat(cen,[end]),out=new Uint8Array(parts.reduce((a,x)=>a+x.length,0));let p=0;parts.forEach(x=>{out.set(x,p);p+=x.length;});return out;
 }
-const xesc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const colL=i=>{let s='';i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
-/* estilos: 0 normal · 1 negrito · 2 € · 3 € negrito · 4 metros 0,0 · 5 €/m 0,0000 · 6 título · 7 cabeçalho de tabela */
-const XSTYLES=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="0.0000\\ &quot;€&quot;"/></numFmts>
-<fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts>
-<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE3F7E1"/></patternFill></fill></fills>
-<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="8">${[[0,0,0],[0,1,0],[164,0,0],[164,1,0],[165,0,0],[166,0,0],[0,2,0],[0,1,2]].map(([n,f,l])=>`<xf numFmtId="${n}" fontId="${f}" fillId="${l}" borderId="0" xfId="0"${n?' applyNumberFormat="1"':''}${f?' applyFont="1"':''}${l?' applyFill="1"':''}/>`).join('')}</cellXfs>
-<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
-</styleSheet>`;
-/* rows: [[célula]] com célula = texto | número | {v, s, f} */
-function xSheet(rows,widths){
-  const cell=(c,r,x)=>{if(x==null||x==='')return '';const o=typeof x==='object'?x:{v:x};const ref=colL(c)+(r+1),s=o.s?` s="${o.s}"`:'';
-    if(o.f!=null)return `<c r="${ref}"${s}><f>${xesc(o.f)}</f><v>${+o.v||0}</v></c>`;
-    return typeof o.v==='number'?`<c r="${ref}"${s}><v>${o.v}</v></c>`:`<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${xesc(o.v)}</t></is></c>`;};
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${
-    rows.map((row,r)=>`<row r="${r+1}">${(row||[]).map((x,c)=>cell(c,r,x)).join('')}</row>`).join('')}</sheetData></worksheet>`;
-}
-function xlsxBlob(sheets){ /* sheets: [[nome, xml]] */
-  const f=[['[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
-    ['_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
-    ['xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s[0])}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`],
-    ['xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
-    ['xl/styles.xml',XSTYLES]].concat(sheets.map((s,i)=>[`xl/worksheets/sheet${i+1}.xml`,s[1]]));
-  return new Blob([zipStore(f)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-}
-function bomXlsx(B){
-  const r=[],b=v=>({v,s:1}),h=v=>({v,s:7}),E=v=>v==null?'sem preço':{v,s:2};
-  r.push([{v:'Lista de materiais e orçamento',s:6}],[b('Projeto'),B.proj||'Projeto sem nome'],[b('Cliente'),B.cliente||'—'],[b('Revisão'),`${B.rev}${B.aprov?` · aprovada por ${B.aprov.nome||''} em ${dtxt(B.aprov.em)}`:' · não aprovada'}`],[b('Morada'),B.morada||'—'],[b('Data'),B.data],[b('Local'),B.loc||'—'],[b('Potência'),`${fmt(B.Ptot,1)} kW`],[]);
-  r.push([{v:'Cabos',s:6}],[h('Função'),h('Cabo'),h('Metros'),h('€/m'),h('Total'),h('Preço'),h('Circuitos')]);
-  const c0=r.length;B.cabos.forEach(x=>r.push([x.uso,x.des,{v:x.m,s:4},x.pm==null?'sem preço':{v:x.pm,s:5},x.pm==null?'':{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}`},x.pm==null?'sem compra':x.est?'estimado *':'compra 2026',x.circ.join('; ')]));
-  const rCab=r.length+1;r.push([b('Total cabos'),'','','',{v:B.tCab,s:3,f:B.cabos.length?`SUM(E${c0+1}:E${r.length})`:'0'},B.est?'* com preços estimados':'']);
-  r.push([],[{v:'Terminais',s:6}],[h('Tipo'),h('Descrição'),h('Quantidade'),h('€/unid.'),h('Total'),h('Preço'),h('Circuitos')]);
-  const t0=r.length;B.terms.forEach(x=>r.push([x.mat==='Al'?'Bimetálico':'Cobre',x.des,x.q,{v:x.pu,s:5},{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}`},x.est?'estimado *':'compra 2026',x.circ.join('; ')]));
-  const rTerm=r.length+1;r.push([b('Total terminais'),'Duas pontas por circuito; multicondutores com ponteiras (não contadas)','','',{v:B.tTerm,s:3,f:B.terms.length?`SUM(E${t0+1}:E${r.length})`:'0'}]);
-  r.push([],[{v:'Disjuntores e diferenciais ABB',s:6}],[h('Tipo'),h('Descrição'),h('Quantidade'),h('PVP unit.'),h('Total'),h('Referência'),h('Circuitos')]);
-  const p0=r.length;B.prot.forEach(x=>r.push([x.tipo,x.des,x.qty,E(x.pvp),{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}*(1-${B.desc}/100)`},x.ref,x.circ.join('; ')]));
-  const rProt=r.length+1;r.push([b('Total proteções'),B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',{v:B.tProt,s:3,f:B.prot.length?`SUM(E${p0+1}:E${r.length})`:'0'}]);
-  r.push([],[{v:'Envolventes dos quadros (Hager)',s:6}],[h('Quadro'),h('Envolvente'),h('Quantidade'),h('PVP unit.'),h('Total'),h('Referência')]);
-  const e0=r.length;B.envs.forEach(x=>r.push([x.node,x.des,1,E(x.pvp),{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}*(1-${B.descHager}/100)`},x.ref]));
-  const rEnv=r.length+1;r.push([b('Total envolventes'),B.descHager?`PVP com desconto de ${B.descHager} %`:'PVP Hager 2026, sem desconto','','',{v:B.tEnv,s:3,f:B.envs.length?`SUM(E${e0+1}:E${r.length})`:'0'}]);
-  if(B.trays.length){r.push([],[{v:'Caminhos de cabos (estimativa)',s:6}],[h('Tipo'),h('Largura'),h('Metros'),h('€/m'),h('Total'),h('Nota'),h('Esteiras')]);
-    B.trays.forEach(x=>r.push(['Caminho de cabos',`${x.w} mm`,{v:x.m,s:4},'sem preço','','diâmetros típicos: confirmar',x.circ.join('; ')]));}
-  r.push([],[b('Total geral'),'','','',{v:B.total,s:3,f:`E${rCab}+E${rTerm}+E${rProt}+E${rEnv}`}]);
-  if(B.est)r.push([],['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']);
-  r.push(['Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito.']);
-  const q=[[{v:'Composição dos quadros',s:6}],[]];
-  B.quad.forEach(Q=>{q.push([{v:`${Q.node}${Q.role?" · "+Q.role:""}`,s:1}],['Envolvente',Q.env],[h('Aparelho'),h('Descrição'),h('Nota')]);Q.items.forEach(d=>q.push([d.nome,d.txt,d.dif||'']));q.push([]);});
-  return xlsxBlob([['Orçamento',xSheet(r,[16,48,12,12,14,22,60])],['Quadros',xSheet(q,[28,70,50])]]);
-}
-
 /* ---------- PDF (jsPDF, A4 ao alto, fonte Helvetica) ---------- */
 /* a Helvetica do PDF só tem o alfabeto WinAnsi: troca o que fica fora */
 const pdfTxt=s=>String(s??'').replace(/→/g,'->').replace(/[−–—]/g,'-').replace(/≤/g,'<=').replace(/≥/g,'>=').replace(/ΔU/g,'dU').replace(/[^\n\x20-\x7E\xA0-\xFF€×]/g,'');
@@ -1902,9 +1802,6 @@ async function bomPdf(B){
   table([{t:'Tipo',w:28},{t:'Descrição / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
     B.prot.map(x=>({cells:[x.tipo,`${x.des}\n${x.ref}`,String(x.qty),eur2(x.pvp),eur2(x.total)]}))
       .concat([{bold:true,cells:['Total proteções',B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',eur2(B.tProt)]}]));
-  if(B.trays.length){title('Caminhos de cabos (estimativa)');
-    table([{t:'Tipo',w:40},{t:'Largura',w:30},{t:'Metros',w:30,a:'r'},{t:'Nota',w:82}],
-      B.trays.map(x=>({cells:['Caminho de cabos',`${x.w} mm`,fmt(x.m,0)+' m','sem preço; diâmetros típicos de catálogo, confirmar']})));}
   if(B.envs.length){title('Envolventes dos quadros (Hager)');
     table([{t:'Quadro',w:28},{t:'Envolvente / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
       B.envs.map(x=>({cells:[x.node,`Hager ${x.des}\n${x.ref}`,'1',eur2(x.pvp),eur2(x.total)]}))
@@ -1923,70 +1820,8 @@ async function bomPdf(B){
 }
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-bom]');if(!b)return;
   try{const B=bomData(last);
-    if(b.dataset.bom==='xlsx')await saveFile(`${fileBase()}_orcamento.xlsx`,bomXlsx(B));
-    else await saveFile(`${fileBase()}_orcamento.pdf`,await bomPdf(B));
+    await saveFile(`${fileBase()}_orcamento.pdf`,await bomPdf(B));
   }catch(err){console.warn(err);toast('Não foi possível gerar o orçamento');}
-});
-
-/* ---------- mapa de cabos para a obra: identificação C1…Cn (solveAll), Excel, PDF e etiquetas ----------
-   A identificação segue a ordem da tabela de resultados (inversores e depois percursos) e aparece também no unifilar,
-   no relatório e no orçamento. Usa xSheet/xlsxBlob e pdfTxt de rt-bom.js, cableDwg de rt-sld.js. */
-function cableMapData(R){
-  return R.invC.concat(R.pC).filter(c=>c.res&&c.Ib>0).map(c=>{const o=c.res,P=cableParts(o,c.loaded),m=MODE[c.r.ref];
-    const orig=c.kind==='inv'?c.nome:c.ref.orig,dest=c.kind==='inv'?c.para:c.split?`${c.ref.dest} (entrada ${c.sub.nome})`:c.ref.dest;
-    return {code:c.code,orig,dest,modelo:c.kind==='inv'?c.modelo:'',cabo:cableDwg(c).replace(/^Cabo /,''),
-      fases:P.multi?P.cabo:P.fase,neutro:P.multi?'no mesmo cabo':P.neutro,terra:P.multi?'no mesmo cabo':P.terra,
-      L:c.L,Lc:c.Lc,pass:`Ref. ${m.ref} · ${m.d}`,brk:o.brk?`${o.In} A ${c.loaded===2?'2P':'4P'} · ${o.brk.name}`:`${o.In} A ${c.loaded===2?'2P':'4P'}`,
-      du:o.du,ok:verdict(c).st==='ok'};});
-}
-const cmapHead=()=>{const o=S.obra||{};return [S.proj||'Projeto sem nome',o.cliente,`Rev. ${o.rev||'A'}`].filter(Boolean).join(' · ');};
-function cmapXlsx(rows){
-  const b=v=>({v,s:1}),h=v=>({v,s:7}),r=[[{v:'Mapa de cabos',s:6}],[b('Projeto'),cmapHead()],[b('Data'),new Date().toLocaleDateString('pt-PT')],[]];
-  r.push(['Código','Origem','Destino','Cabo (designação do unifilar)','Fases','Neutro','Terra','Comprimento (m)','A prever c/ folga (m)','Passagem','Disjuntor','ΔU %','Estado'].map(h));
-  rows.forEach(x=>r.push([b(x.code),x.orig+(x.modelo?` (${x.modelo})`:''),x.dest,x.cabo,x.fases,x.neutro,x.terra,{v:x.L,s:4},{v:Math.round(x.Lc*10)/10,s:4},x.pass,x.brk,{v:Math.round(x.du*100)/100},x.ok?'OK':'A rever']));
-  r.push([],['“A prever c/ folga”: comprimento de cálculo (+20 % abaixo de 30 m, +10 % a partir de 30 m). A identificação Cn é a do unifilar.']);
-  return xlsxBlob([['Mapa de cabos',xSheet(r,[8,26,26,34,26,24,20,14,16,44,36,8,10])]]);
-}
-async function cmapPdf(rows){
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-  const {jsPDF}=window.jspdf;const pdf=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
-  const W=pdf.internal.pageSize.getWidth(),H=pdf.internal.pageSize.getHeight(),M=10;let y=M;
-  const cols=[{t:'Cód.',w:12},{t:'Origem',w:34},{t:'Destino',w:34},{t:'Cabo',w:60},{t:'L (m)',w:14,a:'r'},{t:'Prever (m)',w:17,a:'r'},{t:'Passagem',w:52},{t:'Disjuntor',w:42},{t:'dU %',w:12,a:'r'}];
-  const foot=()=>{pdf.setFont('helvetica','normal');pdf.setFontSize(7);pdf.setTextColor(120);pdf.text(pdfTxt(`Solcor · Mapa de cabos · ${cmapHead()}`),M,H-6);pdf.text(String(pdf.internal.getNumberOfPages()),W-M,H-6,{align:'right'});pdf.setTextColor(26,32,40);};
-  const head=()=>{pdf.setFont('helvetica','bold');pdf.setFontSize(8);pdf.setFillColor(227,247,225);pdf.rect(M,y-3.8,W-2*M,5.4,'F');let x=M;
-    cols.forEach(c=>{pdf.text(pdfTxt(c.t),c.a==='r'?x+c.w-1:x+1,y,{align:c.a==='r'?'right':'left'});x+=c.w;});y+=5;};
-  pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.setTextColor(26,32,40);pdf.text('Mapa de cabos',M,y+3);
-  pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.text(pdfTxt(`${cmapHead()} · ${new Date().toLocaleDateString('pt-PT')}`),W-M,y+3,{align:'right'});
-  pdf.setDrawColor(56,212,48);pdf.setLineWidth(0.6);pdf.line(M,y+5.5,W-M,y+5.5);y+=12;head();
-  rows.forEach(x=>{const cells=[x.code,x.orig+(x.modelo?` (${x.modelo})`:''),x.dest,x.cabo,fmt(x.L,0),fmt(x.Lc,1),x.pass,x.brk,fmt(x.du,2)];
-    pdf.setFont('helvetica','normal');pdf.setFontSize(8);const ls=cells.map((t,i)=>pdf.splitTextToSize(pdfTxt(t),cols[i].w-2));const h=Math.max(...ls.map(l=>l.length))*3.4+1.6;
-    if(y+h>H-12){foot();pdf.addPage();y=M+4;head();pdf.setFont('helvetica','normal');pdf.setFontSize(8);}
-    let cx=M;ls.forEach((l,i)=>{const c=cols[i];if(i===0)pdf.setFont('helvetica','bold');pdf.text(l,c.a==='r'?cx+c.w-1:cx+1,y,{align:c.a==='r'?'right':'left'});if(i===0)pdf.setFont('helvetica','normal');cx+=c.w;});
-    if(!x.ok){pdf.setTextColor(198,40,40);pdf.text('A rever',W-M,y,{align:'right'});pdf.setTextColor(26,32,40);}
-    pdf.setDrawColor(216,222,228);pdf.setLineWidth(0.2);pdf.line(M,y+h-3.2,W-M,y+h-3.2);y+=h;});
-  y+=3;pdf.setFontSize(7.5);pdf.setTextColor(90);pdf.text(pdfTxt('"Prever": comprimento de cálculo (+20 % abaixo de 30 m, +10 % a partir de 30 m). A identificação Cn é a do esquema unifilar.'),M,Math.min(y,H-12));
-  foot();return pdf.output('blob');
-}
-/* etiquetas: duas por cabo (uma em cada ponta), folha A4 de 24 etiquetas 70 × 37 mm (3 × 8, sem margens) */
-async function cmapLabels(rows){
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-  const {jsPDF}=window.jspdf;const pdf=new jsPDF({unit:'mm',format:'a4'});const LW=70,LH=37.125;
-  const labels=rows.flatMap(x=>[[x,x.orig],[x,x.dest]]);
-  labels.forEach(([x,ponta],i)=>{const k=i%24;if(i&&!k)pdf.addPage();const X=(k%3)*LW,Y=Math.floor(k/3)*LH;
-    pdf.setDrawColor(220);pdf.setLineWidth(0.1);pdf.rect(X+1,Y+1,LW-2,LH-2);
-    pdf.setFont('helvetica','bold');pdf.setFontSize(20);pdf.setTextColor(26,32,40);pdf.text(x.code,X+5,Y+11);
-    pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor(90);pdf.text(pdfTxt(`ponta: ${ponta}`),X+LW-5,Y+7.5,{align:'right',maxWidth:38});
-    pdf.setTextColor(26,32,40);pdf.setFont('helvetica','bold');pdf.setFontSize(8.5);pdf.text(pdfTxt(`${x.orig} -> ${x.dest}`),X+5,Y+18,{maxWidth:LW-10});
-    pdf.setFont('helvetica','normal');pdf.setFontSize(7.8);pdf.text(pdf.splitTextToSize(pdfTxt(x.cabo),LW-10).slice(0,2),X+5,Y+24);
-    pdf.text(pdfTxt(`${fmt(x.L,0)} m · ${x.brk.split(' · ')[0]}`),X+5,Y+33);});
-  return pdf.output('blob');
-}
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-cmap]');if(!b)return;
-  try{const rows=cableMapData(last);if(!rows.length)return toast('Sem cabos para o mapa');const k=b.dataset.cmap;
-    if(k==='xlsx')await saveFile(`${fileBase()}_mapa_cabos.xlsx`,cmapXlsx(rows));
-    else if(k==='pdf')await saveFile(`${fileBase()}_mapa_cabos.pdf`,await cmapPdf(rows));
-    else await saveFile(`${fileBase()}_etiquetas.pdf`,await cmapLabels(rows));
-  }catch(err){console.warn(err);toast('Não foi possível gerar o mapa de cabos');}
 });
 
 /* ---------- comparar alternativas: janela com as variantes de variants() (rt-engine.js), calculadas sem mexer no projeto aberto ---------- */
@@ -2464,6 +2299,15 @@ function bindPriceImport(){
 
 /* ---------- resumo dos projetos da equipa e acompanhamento em obra (separador Projetos) ---------- */
 const TSTEPS=[['lan','Lançado'],['lig','Ligado'],['ens','Ensaiado']];
+/* linhas dos cabos C1…Cn (código, origem, destino, cabo, comprimento, passagem, disjuntor, ΔU, estado) */
+function cableMapData(R){
+  return R.invC.concat(R.pC).filter(c=>c.res&&c.Ib>0).map(c=>{const o=c.res,P=cableParts(o,c.loaded),m=MODE[c.r.ref];
+    const orig=c.kind==='inv'?c.nome:c.ref.orig,dest=c.kind==='inv'?c.para:c.split?`${c.ref.dest} (entrada ${c.sub.nome})`:c.ref.dest;
+    return {code:c.code,orig,dest,modelo:c.kind==='inv'?c.modelo:'',cabo:cableDwg(c).replace(/^Cabo /,''),
+      fases:P.multi?P.cabo:P.fase,neutro:P.multi?'no mesmo cabo':P.neutro,terra:P.multi?'no mesmo cabo':P.terra,
+      L:c.L,Lc:c.Lc,pass:`Ref. ${m.ref} · ${m.d}`,brk:o.brk?`${o.In} A ${c.loaded===2?'2P':'4P'} · ${o.brk.name}`:`${o.In} A ${c.loaded===2?'2P':'4P'}`,
+      du:o.du,ok:verdict(c).st==='ok'};});
+}
 /* resumo: por estado, nº de projetos, kW AC e custo por kW (dos projetos guardados com custo) */
 function renderSummary(){
   const box=$('#pj-sum');if(!box)return;if(!PROJ.length){box.innerHTML='';return;}
