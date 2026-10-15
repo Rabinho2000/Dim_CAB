@@ -134,7 +134,7 @@ function renderProj(){
   if(nv){$('#pj-status').innerHTML=`<span class="limt">${esc(who(nv.edit||nv.autor))} guardou uma versão mais recente deste projeto às ${hhmm(nv.upd)}.</span> <button class="linkb" id="pj-latest">Abrir a versão mais recente</button>`;
     if(SEENUPD!==nv.upd){SEENUPD=nv.upd;toast(`${who(nv.edit||nv.autor)} guardou uma versão mais recente do projeto aberto`);}}
   else $('#pj-status').textContent=!DBX?'Os projetos partilhados não estão disponíveis nesta vista. O projeto atual continua guardado neste navegador.':CUR?`Projeto aberto: ${(PROJ.find(p=>p.id===CUR)||{}).nome||S.proj||'sem nome'}. `+(isLocked()?`Revisão ${(S.obra||{}).rev||'A'} aprovada: só de leitura. Para alterar, cria uma nova revisão.`:'“Guardar projeto atual” atualiza-o para toda a equipa.'):'O projeto atual ainda não foi guardado na equipa.';
-  ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);$('#pj-save').classList.toggle('pri',!(CUR&&isLocked()));
+  ['pj-save','pj-new'].forEach(id=>$('#'+id).disabled=!DBX||RO);$('#pj-expall').hidden=!DBX||!PROJ.length;$('#pj-save').classList.toggle('pri',!(CUR&&isLocked()));
   const est=$('#pj-est').value;
   const list=PROJ.filter(p=>(!est||(p.estado||'rascunho')===est)&&(!q||[p.nome,p.cliente,NAMES[p.autor]].some(x=>(x||'').toLowerCase().includes(q))));
   $('#proj-badge').hidden=!PROJ.length;$('#proj-badge').textContent=PROJ.length;
@@ -179,7 +179,31 @@ async function historyDlg(p){
       <div class="tablewrap"><table><thead><tr><th>Guardado</th><th>Por</th><th>Rev.</th><th>Nome</th><th>Inversores</th><th class="r">Potência</th><th></th></tr></thead><tbody>${h.map((v,i)=>`<tr${i===0?' class="cur"':''}><td class="n">${dtxt(v.ts)}${i===0?'<span class="sub">versão atual</span>':''}</td><td>${esc(who(v.autor))}</td><td>${esc(v.data.rev||'A')}${v.data.lock?' <span class="pill ok">aprovada</span>':''}</td><td>${esc(v.data.nome||'')}</td><td class="n">${v.data.nInv??'—'}</td><td class="n r">${v.data.P!=null?fmt(v.data.P,1)+' kW':'—'}</td><td class="r"><button class="ghost" data-vopen="${i}">Abrir</button></td></tr>`).join('')}</tbody></table></div>`;
   }catch(e){$('#pjdlg-body').innerHTML='<p class="hint">Não foi possível carregar as versões. Tenta outra vez.</p>';}
 }
+/* exportar / importar projetos (.json): um projeto ou todos os da equipa; ao importar entra como projeto novo, sem aprovação */
+const EXPV='solcor-cabos';
+function projExport(all){
+  const doc=all?{app:EXPV,v:1,exp:isoNow(),projects:PROJ.map(p=>({nome:p.nome,estado:p.estado,rev:p.rev,cliente:p.cliente,upd:p.upd,s:p.s}))}
+    :{app:EXPV,v:1,exp:isoNow(),project:projState()};
+  saveFile(all?`projetos_equipa_${new Date().toISOString().slice(0,10)}.json`:`${fileBase()}.cabos.json`,new Blob([JSON.stringify(doc,null,1)],{type:'application/json'}));
+}
+const freshCopy=s=>({...s,obra:{...((s&&s.obra)||{}),rev:'A',aprov:null,estado:'rascunho'}});
+async function projImport(file){
+  let o;try{o=JSON.parse(await file.text());}catch(e){return toast('Ficheiro inválido: não é JSON');}
+  const ok=s=>s&&Array.isArray(s.invs)&&Array.isArray(s.percs);
+  if(o&&o.app===EXPV&&ok(o.project)){openState(freshCopy(o.project));CUR=null;CURUPD=null;showTab('ac');return toast(`Projeto “${o.project.proj||'sem nome'}” importado: guarda-o para o criar na equipa`);}
+  if(o&&o.app===EXPV&&Array.isArray(o.projects)){const L=o.projects.filter(p=>ok(p.s));
+    if(!L.length)return toast('O ficheiro não tem projetos');
+    if(!DBX||RO){openState(freshCopy(L[0].s));CUR=null;CURUPD=null;showTab('ac');return toast(`Sem base partilhada: aberto só o primeiro dos ${L.length} projetos`);}
+    let n=0;for(const p of L){const s=freshCopy(p.s);
+      try{await DBX.collection('projects').doc().set({nome:p.nome||s.proj||'Sem nome',loc:s.loc,cliente:s.obra.cliente,estado:'rascunho',rev:'A',nInv:s.invs.length,P:null,autor:ME,upd:isoNow(),s});n++;}catch(e){eqErr(e);break;}}
+    return toast(`${n} projeto${n===1?'':'s'} importado${n===1?'':'s'} para a equipa (em rascunho, revisão A)`);}
+  if(ok(o)){openState(freshCopy(o));CUR=null;CURUPD=null;showTab('ac');return toast('Projeto importado');}
+  toast('Este ficheiro não é um projeto da ferramenta');
+}
 function bindProj(){
+  $('#pj-exp').addEventListener('click',()=>projExport(false));$('#pj-expall').addEventListener('click',()=>projExport(true));
+  $('#pj-imp').addEventListener('click',()=>$('#pj-impf').click());
+  $('#pj-impf').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)projImport(f);});
   $('#pj-save').addEventListener('click',()=>projSave(false));$('#pj-new').addEventListener('click',()=>projSave(true));
   $('#pj-q').addEventListener('input',renderProj);
   $('#pj-status').addEventListener('click',e=>{if(e.target.id!=='pj-latest')return;const p=newerCur();if(!p)return;

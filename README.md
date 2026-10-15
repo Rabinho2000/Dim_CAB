@@ -41,6 +41,6 @@ O servidor (`server/`) serve a página e guarda os projetos, equipamentos e pre�
 
 **Variáveis**: `PORT` (8080), `HOST` (127.0.0.1: deixa assim atrás do Tailscale), `DB_PATH` (data/solcor.db), `ADMINS` (e-mails separados por vírgulas; podem apagar projetos de outras pessoas).
 
-**Cópias de segurança**: copiar `data/solcor.db` com o servidor parado, ou usar `sqlite3 data/solcor.db ".backup copia.db"` com ele a correr. Não guardes a base numa pasta sincronizada (OneDrive): a sincronização pode estragar o ficheiro enquanto está a ser escrito.
+**Cópias de segurança**: automáticas a cada 24 h para `backups/` ao lado da base (as 14 mais recentes; `BACKUP_HOURS`, `BACKUP_KEEP`, `BACKUP_DIR`). Os administradores podem descarregar uma cópia em `/api/backup`. No separador Projetos, "Exportar" / "Importar" guardam ou abrem projetos em `.json` ("Exportar todos" leva os da equipa). Não guardes a base numa pasta sincronizada (OneDrive): a sincronização pode estragar o ficheiro enquanto está a ser escrito.
 
 Aberto como ficheiro (`cabos-rt.html`) ou como artifact do claude.ai, a ferramenta continua a funcionar como antes.

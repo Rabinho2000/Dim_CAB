@@ -111,6 +111,24 @@ test('pedidos inválidos',async()=>{
   assert.equal((await api('POST','/api/projects/p9',{user:'Ana',body:{}})).status,405);
 });
 
+test('cópias de segurança: automática ao arrancar, rodação e descarga só para administradores',async()=>{
+  const os=require('node:os'),fs=require('node:fs'),path=require('node:path');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'solcor-bk-')),dbp=path.join(dir,'t.db');
+  const s2=createServer({dbPath:dbp,admins:'local:chefe',backupHours:24,backupKeep:2});await new Promise(r=>s2.listen(0,'127.0.0.1',r));
+  const b2=`http://127.0.0.1:${s2.address().port}`,bk=path.join(dir,'backups');
+  try{
+    assert.equal(fs.readdirSync(bk).length,1,'uma cópia ao arrancar (não havia nenhuma)');
+    await fetch(b2+'/api/projects/x',{method:'PUT',headers:{'X-User-Name':'Ana','Content-Type':'application/json'},body:JSON.stringify({nome:'X'})});
+    for(let i=0;i<3;i++){await new Promise(r=>setTimeout(r,1100));s2.backupNow();}
+    assert.equal(fs.readdirSync(bk).length,2,'fica só com as 2 mais recentes (BACKUP_KEEP)');
+    const {DatabaseSync}=require('node:sqlite');const last=fs.readdirSync(bk).sort().pop();const c=new DatabaseSync(path.join(bk,last));
+    assert.equal(c.prepare("SELECT count(*) n FROM docs WHERE col='projects'").get().n,1,'a cópia tem o projeto');c.close();
+    assert.equal((await fetch(b2+'/api/backup',{headers:{'X-User-Name':'Ana'}})).status,403);
+    const r=await fetch(b2+'/api/backup',{headers:{'X-User-Name':'Chefe'}});assert.equal(r.status,200);
+    const buf=Buffer.from(await r.arrayBuffer());assert.equal(buf.subarray(0,15).toString(),'SQLite format 3','descarrega uma base SQLite');
+  }finally{await new Promise(r=>s2.close(r));}
+});
+
 test('a página é servida na raiz',async()=>{
   const r=await fetch(base+'/');assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/text\/html/);
   assert.match(await r.text(),/apiConnect/);

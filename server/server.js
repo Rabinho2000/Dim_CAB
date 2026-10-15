@@ -33,6 +33,24 @@ function createServer(opts={}){
   const db=openDb(opts.dbPath||process.env.DB_PATH||path.join(ROOT,'data','solcor.db'));
   const admins=new Set(String(opts.admins??process.env.ADMINS??'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean));
   const htmlPath=opts.html||process.env.HTML||path.join(ROOT,'cabos-rt.html');
+  /* cópias de segurança automáticas: a cada BACKUP_HOURS (24; 0 desliga) para BACKUP_DIR (backups/ ao lado da base), guarda as BACKUP_KEEP (14) mais recentes */
+  const dbFile=opts.dbPath||process.env.DB_PATH||path.join(ROOT,'data','solcor.db');
+  const bkDir=opts.backupDir||process.env.BACKUP_DIR||(dbFile===':memory:'?null:path.join(path.dirname(dbFile),'backups'));
+  const bkHours=+(opts.backupHours??process.env.BACKUP_HOURS??24),bkKeep=Math.max(1,+(opts.backupKeep??process.env.BACKUP_KEEP??14));
+  const stamp=()=>new Date().toISOString().replace(/[-:]/g,'').replace(/\..*/,'').replace('T','-');
+  function doBackup(){
+    if(!bkDir)return null;fs.mkdirSync(bkDir,{recursive:true});const f=path.join(bkDir,`solcor-${stamp()}.db`);
+    if(fs.existsSync(f))return f;db.backup(f);
+    const old=fs.readdirSync(bkDir).filter(n=>/^solcor-\d{8}-\d{6}\.db$/.test(n)).sort().reverse().slice(bkKeep);
+    old.forEach(n=>{try{fs.unlinkSync(path.join(bkDir,n));}catch(e){}});return f;
+  }
+  let bkTimer=null;
+  if(bkDir&&bkHours>0){
+    const last=fs.existsSync(bkDir)?fs.readdirSync(bkDir).filter(n=>/^solcor-\d{8}-\d{6}\.db$/.test(n)).sort().pop():null;
+    const lastT=last?fs.statSync(path.join(bkDir,last)).mtimeMs:0;
+    if(Date.now()-lastT>bkHours*3600e3)try{doBackup();}catch(e){console.error('cópia de segurança:',e.message);}
+    bkTimer=setInterval(()=>{try{doBackup();}catch(e){console.error('cópia de segurança:',e.message);}},bkHours*3600e3);bkTimer.unref();
+  }
 
   const server=http.createServer(async(req,res)=>{
     try{
@@ -45,6 +63,11 @@ function createServer(opts={}){
       if(p==='/api/rev')return send(res,200,{rev:db.rev()});
       if(!me)return send(res,401,{error:'no_user'});
       db.seen(me.id,me.name);
+      /* descarregar uma cópia da base agora (só administradores) */
+      if(p==='/api/backup'){if(!me.admin)return send(res,403,{error:'forbidden'});
+        const tmp=path.join(require('node:os').tmpdir(),`solcor-${process.pid}-${Date.now()}.db`);db.backup(tmp);
+        res.writeHead(200,{'Content-Type':'application/vnd.sqlite3','Content-Disposition':`attachment; filename="solcor-${stamp()}.db"`,'Cache-Control':'no-store'});
+        const st=fs.createReadStream(tmp);st.pipe(res);st.on('close',()=>fs.unlink(tmp,()=>{}));return;}
       if(p==='/api/users')return send(res,200,db.names((url.searchParams.get('ids')||'').split(',').filter(Boolean).slice(0,200)));
       const m=p.match(/^\/api\/([a-z]+)(?:\/([^/]+))?(?:\/(history|estado))?$/);
       if(!m||!COLS.has(m[1]))return send(res,404,{error:'not_found'});
@@ -90,7 +113,8 @@ function createServer(opts={}){
       if(e.code===400||e.code===413)return send(res,e.code,{error:e.message});
       console.error(e);return send(res,500,{error:'internal'});}
   });
-  server.on('close',()=>db.close());
+  server.on('close',()=>{if(bkTimer)clearInterval(bkTimer);db.close();});
+  server.backupNow=doBackup;
   return server;
 }
 

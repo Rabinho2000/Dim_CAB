@@ -33,6 +33,8 @@ function openDb(file){
     history:(col,id)=>q.hlist.all(col,id).map(h=>({n:h.n,op:h.op,autor:h.autor,ts:h.ts,data:h.data?JSON.parse(h.data):null})),
     seen:(id,name)=>q.user.run(id,name,new Date().toISOString()),
     names:ids=>Object.fromEntries(ids.map(i=>[i,{name:(q.uget.get(i)||{}).name||''}])),
+    /* cópia consistente da base, mesmo com o servidor a correr (SQLite VACUUM INTO) */
+    backup:file=>{db.exec(`VACUUM INTO '${String(file).replace(/'/g,"''")}'`);},
     close:()=>db.close()};
 }
 module.exports={openDb};
