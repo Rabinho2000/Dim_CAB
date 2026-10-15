@@ -14,6 +14,7 @@ node tests/separadores.js             # abre todos os separadores; tem de dar "E
 node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/sem gateway, contagem)
 node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
 node tests/relatorio.js               # relatório de cálculo PDF (botão) para o exemplo e o caso sem secção: tests/relatorio_*.pdf e _pN.png
+node tests/dxf.js                     # unifilar em DXF: estrutura R12 e comparação visual com o SVG
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
 node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
 node tests/orcamento.js               # descarrega o orçamento (Excel e PDF) do exemplo e confere os totais com solveAll()
@@ -33,6 +34,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-sld.js` — esquema unifilar SVG e exportação SVG/PNG/PDF.
 - `rt-report.js` — relatório de cálculo em PDF (botão "Relatório de cálculo (PDF)" no topo): identificação, dados gerais, quadro resumo, cálculo de cada circuito (modo e quadro RTIEBT, fatores, Iz, In, I₂, ΔU, cabo, disjuntor), circuitos a rever e o unifilar em A3. Texto vetorial jsPDF; Δ, φ, ≤, → na fonte Symbol (Helvetica só tem Latin-1).
 - `rt-bom.js` — lista de materiais e orçamento (`bomData`: cabos por função/secção com o modelo de `costPerM`, total = `costTot`; proteções ABB como `brkTot`; composição dos quadros de `boardFor`). Exporta .xlsx gerado à mão (zip sem compressão, sem biblioteca nem rede) e PDF com jsPDF. Botões `data-bom` nos separadores Cabos AC e Quadros.
+- `rt-dxf.js` — unifilar em DXF R12 (AC1009) para o AutoCAD, convertido do SVG de `sldSVG` (`svgToDxf`): 1 px = 0,2 mm, camadas UNIFILAR / TEXTO / TRACEJADO, barramentos como POLYLINE com espessura, setas como SOLID, texto em ASCII com `\U+XXXX`. Se acrescentares um tipo de elemento SVG ao unifilar, acrescenta-o aqui. Teste: `tests/dxf.js` (redesenha o DXF ao lado do SVG em tests/dxf_A.png e dxf_B.png).
 - `rt-board.js` — composição de cada quadro (`qfvParts`, `meterHost`) e separador Quadros (dimensão da envolvente, raio de curvatura).
 - `rt-share.js` — projetos e equipamentos partilhados, descargas. Usa `claude.use('db'|'user')` no claude.ai ou `apiConnect()` (`rt-api.js`) quando a página vem do servidor próprio; aberta como ficheiro, fica só o projeto local.
 - Dados da obra: `S.obra` = {cliente, morada, desenho, estado} (separador Projetos; estados em `ESTADOS` de rt-share.js: rascunho, em análise, aprovado, em obra, concluído). Usados na legenda do unifilar (dono de obra, morada, nº do desenho), no relatório e no orçamento; o cliente e o estado vão também para a lista de projetos (filtro e procura). `S.loc` continua a ser a localização para as temperaturas.

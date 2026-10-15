@@ -1,6 +1,7 @@
 node_modules/
 calc_dump.json
 tests/*.png
+tests/*.dxf
 tab_*.png
 data/
 tests/*.pdf

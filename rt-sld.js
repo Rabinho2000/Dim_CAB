@@ -162,6 +162,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-sld]
   const svg=sldLast||sldSVG(last);const k=b.dataset.sld;
   try{
     if(k==='svg')return saveFile(`${fileBase()}_unifilar.svg`,svg);
+    if(k==='dxf')return saveFile(`${fileBase()}_unifilar.dxf`,svgToDxf(svg).dxf);
     const cv=await svgToPng(svg,2);
     if(k==='png'){const blob=await new Promise(r=>cv.toBlob(r,'image/png'));return saveFile(`${fileBase()}_unifilar.png`,blob);}
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
