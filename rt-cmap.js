@@ -1,7 +1,17 @@
 /* ---------- mapa de cabos para a obra: identificação C1…Cn (solveAll), Excel, PDF e etiquetas ----------
    A identificação segue a ordem da tabela de resultados (inversores e depois percursos) e aparece também no unifilar,
    no relatório e no orçamento. Usa xSheet/xlsxBlob e pdfTxt de rt-bom.js, cableDwg de rt-sld.js. */
+/* strings DC (separador Strings DC): uma linha por MPPT, com os cabos + e − de cada string */
+function cableMapDC(){
+  if(typeof solveDC!=='function')return [];const R=solveDC(),m=MODE[R.D.route.ref];
+  return R.rows.filter(r=>r.cab&&r.voc).map(r=>({code:r.code,orig:`Strings do MPPT ${r.a.mppt} (${r.ns} × ${r.np} × ${r.a.pan})`,dest:`Inversor ${+r.a.ii+1}`,modelo:'',
+    cabo:`${r.np} string${r.np===1?'':'s'} × 2 × H1Z2Z2-K 1×${fs(r.cab.s)} mm²`,fases:'+ e −',neutro:'—',terra:'—',L:r.cab.L,Lc:r.cab.Lc,
+    pass:m?`Ref. ${m.ref} · ${m.d}`:'',brk:r.fuse?`gPV ${r.fuse.In} A (${r.fuse.n} fusíveis)`:'sem fusíveis',du:r.cab.du,ok:!r.errs.length}));
+}
 function cableMapData(R){
+  return cableMapAC(R).concat(cableMapDC());
+}
+function cableMapAC(R){
   return R.invC.concat(R.pC).filter(c=>c.res&&c.Ib>0).map(c=>{const o=c.res,P=cableParts(o,c.loaded),m=MODE[c.r.ref];
     const orig=c.kind==='inv'?c.nome:c.ref.orig,dest=c.kind==='inv'?c.para:c.split?`${c.ref.dest} (entrada ${c.sub.nome})`:c.ref.dest;
     return {code:c.code,orig,dest,modelo:c.kind==='inv'?c.modelo:'',cabo:cableDwg(c).replace(/^Cabo /,''),

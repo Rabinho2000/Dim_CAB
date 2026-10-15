@@ -17,6 +17,7 @@ node tests/relatorio.js               # relatório de cálculo PDF (botão) para
 node tests/dxf.js                     # unifilar em DXF: estrutura R12 e comparação visual com o SVG
 node tests/poder_corte.js             # poder de corte: não verificado por omissão; PT 2500 kVA → E1.2 42 kA a rever
 node tests/mapa_cabos.js              # identificação C1…Cn, mapa de cabos Excel/PDF e etiquetas
+node tests/dc.js                      # Strings DC: sugestão, erros, fusíveis, orçamento, mapa de cabos e relatório
 node tests/avisos.js                  # Hager nos Quadros, esteiras, ΔU acumulada, seletividade, proteção de interface
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
 node tests/partilha_mock.js           # modo claude.ai simulado: projetos, equipamentos, gateway, descargas
@@ -33,6 +34,7 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - `rt-template.html` — página, CSS (cores Solcor: verde #38D430, tinta #1A2028; fontes Syne / DM Sans / JetBrains Mono; fundo claro, faixa escura com o logótipo) e separadores. `rt-panes.html` — separadores Esquema unifilar, Quadros, Equipamentos, Projetos.
 - `rt-data.js` — tabelas RTIEBT (52-C1…C4, C9…C14, C30, D1, D2, E1…E6), modos de instalação 52H com imagens, `INVDB` (inversores, com dados DC), `PANELDB`.
 - `rt-engine.js` — motor de cálculo, sem DOM: constantes, `GWDB`, `example()`, fatores, `izBase`, `calc()` (Iz, In, ΔU), topologia, `solve()` (otimizador), `solveAll()`, `condSizes`, `cableParts`. Lê o estado global `S`. Testado em Node por `tests/engine.test.js` (carregado com `tests/engine-env.js`).
+- `rt-dc.js` — motor do lado DC, sem DOM (`solveDC`, estado `S.dc`): strings por MPPT (`arr`: índice do inversor `ii`, MPPT, módulo, módulos por string, strings em paralelo, distância). Verifica Voc a T mín. ≤ Vmax (erro), Vmp a quente/frio na gama MPP (aviso), strings ≤ entradas por MPPT e Isc ≤ Isc máx. (erro), Imp ≤ Imax (aviso: corte de potência). Fusíveis gPV quando (Np−1)·1,25·Isc > fusível máx. do módulo. Cabo solar H1Z2Z2-K por queda de tensão (ΔU DC máx., 1,5 % por omissão) e corrente 1,25·Isc com o quadro do cobre XLPE de 2 condutores carregados (não há quadro RTIEBT para o cabo solar; em E/F abaixo de 25 mm² usa a coluna E, como o AC). `rt-dcui.js` — separador Strings DC (sugestão com DC/AC ≈ 1,2). O lado DC entra no orçamento (cabo solar e fusíveis), no mapa de cabos (D1…Dn) e no relatório (secção 3.1).
 - `rt-app.js` — interface: estado `S` e `localStorage`, tabelas, `render()`, popup "Novo quadro", tipos de quadro.
 - `rt-sc.js` — escada de disjuntores ABB (`BRK` de `brk.json`) e curto-circuito (desligado na interface, código mantido).
 - `rt-price.js` — preços de cabo e de terminais (`jmm/prices.json`, compras 2026 JMM + Indusmelec, a mais recente; secções sem compra interpoladas e marcadas "estimado"). Terminais (`termLines`/`termCost`): nas duas pontas, por conjunto em paralelo um por fase e um no neutro, mais um de terra; cobre = terminal de cravar, alumínio = bimetálico Cu/Al; multicondutores com ponteiras, não contadas. Entram em `R.termTot`, no orçamento (secção Terminais) e na comparação "Mais barato e também cumpre" (cabo + terminais).
@@ -81,7 +83,9 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 
 ## Pendentes / a confirmar com o utilizador
 
-- Dados DC do inversor Sigen PV 150 M1 (marcado "a confirmar").
+- Dados DC do inversor Sigen PV 150 M1 (marcado "a confirmar"; o separador Strings DC diz que faltam).
+- Na base de inversores, confirmar se "Imax MPPT" é por MPPT ou por entrada (ex.: SUN2000-150K-MG0 tem 23 A com 3 entradas e Isc 66 A; SUN2000-100KTL-M2 tem 20 A com 2 entradas). Hoje só dá aviso de corte de potência.
+- Não há preços de cabo solar (família "Solar H1Z2Z2-K") nem de fusíveis gPV: o orçamento DC sai com as quantidades e "sem preço" até se acrescentarem em Equipamentos.
 - Nº de entradas do HomePro TP; calibres internos dos gateways além do C60-2.
 - Contador com gateway e vários inversores (hoje: indireto com TI por circuito).
 - Métodos B e B2 (quadros 52-C1…C4, 52-C13/C14) só têm valores até 120 mm² na RTIEBT (confirmado na folha Excel; não extrapolar). Sem secção que cumpra, o motor mostra a opção de maior Iz e `noFitMsg` explica o limite e sugere outra passagem (decisão do utilizador, out. 2026).

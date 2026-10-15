@@ -37,6 +37,14 @@ function bomData(R){
     if(g){g.q+=l.q;if(!g.circ.includes(lab))g.circ.push(lab);}else{const p=pricePer(l.mat,'term',l.s);tm.set(k,{...l,pu:p.p,est:p.est,circ:[lab]});}});});
   const terms=[...tm.values()].sort((a,b)=>a.mat.localeCompare(b.mat)||a.s-b.s)
     .map(x=>({...x,des:`${x.mat==='Al'?'Terminal bimetálico Cu/Al':'Terminal de cravar Cu'} ${fs(x.s)} mm²`,total:x.q*x.pu}));
+  /* lado DC (separador Strings DC): cabo solar por secção (+ e −, comprimento de cálculo) e fusíveis gPV; preço do cabo pela
+     família "Solar H1Z2Z2-K" dos preços (sem compra: sem preço) */
+  const DCR=typeof solveDC==='function'?solveDC():null,dcm=new Map(),dfm=new Map();
+  if(DCR)DCR.rows.forEach(r=>{if(!r.cab||!r.voc)return;const g=dcm.get(r.cab.s)||{s:r.cab.s,m:0,circ:[]};g.m+=r.cab.m;g.circ.push(r.code);dcm.set(r.cab.s,g);
+    if(r.fuse){const f=dfm.get(r.fuse.In)||{In:r.fuse.In,q:0,circ:[]};f.q+=r.fuse.n;f.circ.push(r.code);dfm.set(r.fuse.In,f);}});
+  const dcCab=[...dcm.values()].sort((a,b)=>a.s-b.s).map(x=>{const p=pricePer('Cu','solar',x.s);return {...x,des:`H1Z2Z2-K 1×${fs(x.s)} mm²`,pm:p?p.p:null,est:p?p.est:false,total:p?p.p*x.m:null};});
+  const dcFus=[...dfm.values()].sort((a,b)=>a.In-b.In).map(x=>({...x,des:`Fusível gPV ${x.In} A (com porta-fusível)`}));
+  const tDC=dcCab.reduce((a,x)=>a+(x.total||0),0);
   /* disjuntores e diferenciais ABB: os mesmos que entram em R.brkTot */
   const desc=(+S.descABB||0)/100,bm=new Map();
   const add=(k,v)=>{const g=bm.get(k);if(g){g.qty++;g.circ.push(v.circ);}else bm.set(k,{...v,qty:1,circ:[v.circ]});};
@@ -57,7 +65,7 @@ function bomData(R){
   /* envolventes Hager dos quadros novos (PVP 2026 com o desconto descHager); quadros existentes e gateways não contam */
   const envs=quad.filter(q=>q.envRef).map(q=>({node:q.node,ref:q.envRef,des:q.envDes,pvp:q.envPvp,total:q.envNet})),tEnv=envs.reduce((a,x)=>a+x.total,0);
   return {rev:(S.obra&&S.obra.rev)||'A',aprov:(S.obra&&S.obra.aprov)||null,proj:S.proj||'',cliente:(S.obra&&S.obra.cliente)||'',morada:(S.obra&&S.obra.morada)||'',data:new Date().toLocaleDateString('pt-PT'),loc:S.loc,Ptot:R.Ptot,desc:+S.descABB||0,cabos,prot,quad,
-    descHager:+S.descHager||0,envs,tEnv,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tEnv,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
+    dcCab,dcFus,tDC,descHager:+S.descHager||0,envs,tEnv,terms,tTerm,tCab,tProt,total:tCab+tTerm+tProt+tEnv+tDC,est:cabos.some(x=>x.est)||terms.some(x=>x.est),semPreco:cabos.filter(x=>x.pm==null)};
 }
 
 /* ---------- .xlsx gerado aqui (Office Open XML num zip sem compressão): sem bibliotecas nem rede, abre no Excel com números e fórmulas ---------- */
@@ -117,7 +125,12 @@ function bomXlsx(B){
   r.push([],[{v:'Envolventes dos quadros (Hager)',s:6}],[h('Quadro'),h('Envolvente'),h('Quantidade'),h('PVP unit.'),h('Total'),h('Referência')]);
   const e0=r.length;B.envs.forEach(x=>r.push([x.node,x.des,1,E(x.pvp),{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}*(1-${B.descHager}/100)`},x.ref]));
   const rEnv=r.length+1;r.push([b('Total envolventes'),B.descHager?`PVP com desconto de ${B.descHager} %`:'PVP Hager 2026, sem desconto','','',{v:B.tEnv,s:3,f:B.envs.length?`SUM(E${e0+1}:E${r.length})`:'0'}]);
-  r.push([],[b('Total geral'),'','','',{v:B.total,s:3,f:`E${rCab}+E${rTerm}+E${rProt}+E${rEnv}`}]);
+  let rDC=null;
+  if(B.dcCab.length){r.push([],[{v:'Lado DC (cabo solar e fusíveis)',s:6}],[h('Tipo'),h('Descrição'),h('Quantidade'),h('€/unid.'),h('Total'),h('Preço'),h('Strings')]);
+    const d0=r.length;B.dcCab.forEach(x=>r.push(['Cabo solar',x.des,{v:x.m,s:4},x.pm==null?'sem preço':{v:x.pm,s:5},x.pm==null?'':{v:x.total,s:2,f:`C${r.length+1}*D${r.length+1}`},x.pm==null?'sem compra':x.est?'estimado *':'compra 2026',x.circ.join('; ')]));
+    B.dcFus.forEach(x=>r.push(['Fusível',x.des,x.q,'sem preço','','',x.circ.join('; ')]));
+    rDC=r.length+1;r.push([b('Total lado DC'),'Metros: + e − de cada string, com a folga','','',{v:B.tDC,s:3,f:`SUM(E${d0+1}:E${r.length})`}]);}
+  r.push([],[b('Total geral'),'','','',{v:B.total,s:3,f:`E${rCab}+E${rTerm}+E${rProt}+E${rEnv}`+(rDC?`+E${rDC}`:'')}]);
   if(B.est)r.push([],['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']);
   r.push(['Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito.']);
   const q=[[{v:'Composição dos quadros',s:6}],[]];
@@ -167,6 +180,11 @@ async function bomPdf(B){
   table([{t:'Tipo',w:28},{t:'Descrição / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
     B.prot.map(x=>({cells:[x.tipo,`${x.des}\n${x.ref}`,String(x.qty),eur2(x.pvp),eur2(x.total)]}))
       .concat([{bold:true,cells:['Total proteções',B.desc?`PVP com desconto de ${B.desc} %`:'PVP ABB, sem desconto','','',eur2(B.tProt)]}]));
+  if(B.dcCab.length){title('Lado DC (cabo solar e fusíveis)');
+    table([{t:'Tipo',w:22},{t:'Descrição',w:62},{t:'Qtd.',w:22,a:'r'},{t:'€/unid.',w:24,a:'r'},{t:'Total',w:52,a:'r'}],
+      B.dcCab.map(x=>({cells:['Cabo solar',x.des,fmt(x.m,1)+' m',x.pm==null?'sem preço':x.pm.toLocaleString('pt-PT',{minimumFractionDigits:4,maximumFractionDigits:4})+(x.est?' *':''),x.pm==null?'—':eur2(x.total)]}))
+        .concat(B.dcFus.map(x=>({cells:['Fusível',x.des,String(x.q),'sem preço','—']})))
+        .concat([{bold:true,cells:['Total lado DC','','','',eur2(B.tDC)]}]));}
   if(B.envs.length){title('Envolventes dos quadros (Hager)');
     table([{t:'Quadro',w:28},{t:'Envolvente / referência',w:78},{t:'Qtd.',w:12,a:'r'},{t:'PVP unit.',w:24,a:'r'},{t:'Total',w:40,a:'r'}],
       B.envs.map(x=>({cells:[x.node,`Hager ${x.des}\n${x.ref}`,'1',eur2(x.pvp),eur2(x.total)]}))
