@@ -19,6 +19,7 @@ node tests/poder_corte.js             # poder de corte: não verificado por omis
 node tests/mapa_cabos.js              # identificação C1…Cn, mapa de cabos Excel/PDF e etiquetas
 node tests/avisos.js                  # Hager nos Quadros, esteiras, ΔU acumulada, seletividade, proteção de interface
 node tests/precos.js                  # Excel de compras na página = mkprice.py; atualização dos preços da equipa
+node tests/partilha_mock.js           # modo claude.ai simulado: projetos, equipamentos, gateway, descargas
 node tests/aprovacao.js               # aprovar, só de leitura, estado até concluído, nova revisão, versões
 node tests/partilha_servidor.js       # duas pessoas no servidor próprio: partilha, permissões, conflitos, versões (tests/conflito.png)
 node tests/orcamento.js               # descarrega o orçamento (Excel e PDF) do exemplo e confere os totais com solveAll()
@@ -91,5 +92,5 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 
 - O build junta tudo num único HTML (sem bundler). Bibliotecas externas só por CDN (jsPDF 2.5.1, JSZip 3.10.1 em cdnjs).
 - Partilha: claude.ai (`window.claude.use`) ou servidor próprio (`server/`, SQLite em `data/`, fora do git). Descargas: `claude.use('downloads')` ou `<a download>`.
-- `tests/partilha_mock.js` (modo claude.ai) já falhava antes do servidor, no passo do gateway (`#gw-body select[data-g=modelo]`); não está no `npm test`.
+- `tests/partilha_mock.js` simula o modo claude.ai (`window.claude.use`): projetos, equipamentos, gateway pela janela "Novo quadro" e descargas. Está no `npm test`.
 - Estado guardado em `localStorage` (`cabosrt.v1`).

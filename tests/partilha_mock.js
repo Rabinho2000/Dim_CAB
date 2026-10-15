@@ -27,7 +27,8 @@ console.log('eq',await p.$$eval('#eq-table tr',t=>t.filter(r=>r.innerText.includ
 await p.click('[data-eq=pr]');await p.selectOption('[data-ef=mat]','Cu');await p.selectOption('[data-ef=form]','mono');await p.fill('[data-ef=s]','120');await p.fill('[data-ef=p]','12.5');await p.fill('[data-ef=forn]','JMM');await p.click('#eq-save');await p.waitForTimeout(200);
 console.log('price rows',await p.$$eval('#eq-table tbody tr',t=>t.length));
 await p.click('[data-eq=gw]');await p.fill('[data-ef=marca]','Sigenergy');await p.fill('[data-ef=modelo]','Gateway HomeMax 3F');await p.fill('[data-ef=In]','80');await p.click('#eq-save');await p.waitForTimeout(200);
-await p.click('[data-tab=ac]');await p.click('#addgw');await p.selectOption('#gw-body select[data-g=modelo]','Gateway HomeMax 3F');await p.waitForTimeout(100);console.log('gw',await p.$eval('#gw-body',e=>e.querySelector('input[data-g=In]').value),await p.$eval('#res-body',e=>e.innerText.includes('gateway 80 A')));
+/* "Adicionar gateway" abre a janela "Novo quadro" (tipo gateway): escolhe-se o modelo e confirma-se */
+await p.click('[data-tab=ac]');await p.click('#addgw');await p.selectOption('#bp-gw','Gateway HomeMax 3F');await p.click('#bp-add');await p.waitForTimeout(150);console.log('gw',await p.$eval('#gw-body',e=>e.querySelector('input[data-g=In]').value),await p.$eval('#res-body',e=>e.innerText.includes('gateway 80 A')));
 // abrir projeto após alterar
 await p.click('[data-tab=ac]');await p.fill('#proj','Outro');await p.click('[data-tab=proj]');await p.click('[data-popen]');await p.waitForTimeout(200);
 console.log('proj name after open',await p.$eval('#proj',e=>e.value));
