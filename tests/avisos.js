@@ -9,14 +9,14 @@ const rowTxt=async re=>(await p.$$eval('#res-body tr',t=>t.map(r=>r.innerText.re
 const kpis=()=>p.$eval('#kpis',e=>e.innerText.replace(/\s+/g,' '));
 /* componentes Indusmelec no separador Quadros */
 await p.click('[data-tab=brd]');
-check(await p.$eval('[data-pane=brd]',e=>/Eldon MCS 2000 × 800 × 600/.test(e.innerText)&&/1SCA022871R5870/.test(e.innerText)&&/em Proteções/.test(e.innerText)&&/Montagem do quadro/.test(e.innerText)),'Quadros: QFV com armário Eldon, OT1250, proteções e montagem');
+check(await p.$eval('[data-pane=brd]',e=>/Eldon MCS 2000 × 800 × 600/.test(e.innerText)&&/1SCA022753R5250/.test(e.innerText)&&/em Proteções/.test(e.innerText)&&/Montagem do quadro/.test(e.innerText)),'Quadros: QFV com armário Eldon, OT800, proteções e montagem');
 await p.click('[data-tab=ac]');
 /* seletividade (o exemplo tem 1000 A + 1000 A em série) */
-check(/Seletividade a confirmar: 1000 A a montante < 1,6 × 1000 A a jusante \(C5\)/.test(await rowTxt(/^C6 /)),'C6: aviso de seletividade com C5');
+check(/Seletividade a confirmar: 800 A a montante < 1,6 × 800 A a jusante \(C5\)/.test(await rowTxt(/^C6 /)),'C6: aviso de seletividade com C5');
 check(/A REVER\s*0/i.test(await kpis()),'os avisos não contam como "a rever"');
 /* ΔU acumulada */
-check(!/ΔU acumulada até à injeção/.test(await rowTxt(/^C1 /)),'com o aviso a 5 %, o C1 (4,06 %) não avisa');
-await p.fill('#lim','3');check(/ΔU acumulada até à injeção 4,06 % > 3 %/.test(await rowTxt(/^C1 /)),'com 3 %, o C1 avisa (4,06 %)');await p.fill('#lim','5');
+check(!/ΔU acumulada até à injeção/.test(await rowTxt(/^C1 /)),'com o aviso a 5 %, o C1 (4,31 %) não avisa');
+await p.fill('#lim','3');check(/ΔU acumulada até à injeção 4,31 % > 3 %/.test(await rowTxt(/^C1 /)),'com 3 %, o C1 avisa (4,31 %)');await p.fill('#lim','5');
 /* esteiras dos inversores */
 for(const [i,v] of [[1,'a'],[2,'A'],[3,'B'],[4,'B']])await p.fill(`#inv-body tr:nth-child(${i}) input[data-k=est]`,v);
 check(await p.evaluate(()=>last.invC.every(c=>c.nAgr===2)&&S.invs[0].est==='A'),'Esteira A/A/B/B: 2 circuitos por esteira (letra em maiúsculas)');

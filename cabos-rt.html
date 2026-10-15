@@ -504,7 +504,10 @@ function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XL
 /* ---------- inversores ---------- */
 function invInfo(i){
   const d=INVALL.find(x=>x.modelo===i.modelo);
-  if(d)return {nome:d.modelo,pnom:d.pnom,Ib:d.iacmax||d.pnom*1000/(Math.sqrt(3)*400),iac:d.iac||d.iacmax,fases:d.fases,src:'Iac máx. da ficha'};
+  /* Ib = potência aparente máxima da ficha à tensão da rede (400 V; 230 V monofásico), como a folha Excel de origem.
+     A "Iac máx." das fichas vem muitas vezes a 380 V (ex.: 110 kVA → 167,1 A) e faria subir o disjuntor e a secção. */
+  if(d){const mono=d.fases===1,S=(d.pmax||1.1*d.pnom)*1000;
+    return {nome:d.modelo,pnom:d.pnom,Ib:S/(mono?230:Math.sqrt(3)*400),iac:d.iac||d.iacmax,fases:d.fases,src:`Smáx ${fmt(S/1000,1)} kVA / ${mono?'230 V':'(√3·400 V)'}`};}
   const p=+i.pman||0;return {nome:'Outro',pnom:p,Ib:p*1100/(Math.sqrt(3)*400),fases:3,src:'1,1 × Pnom / (√3·400)'};
 }
 

@@ -14,8 +14,17 @@ test('exemplo de origem: cabos e disjuntores escolhidos',()=>{
   const R=engine().solve();
   const got=[...rows(R).map(c=>`${c.nome} ${c.res.n}x${c.res.s} ${c.res.mat} ${c.res.In}A`)];
   assert.deepEqual(got,[
-    'Inversor 1 1x120 Al 200A','Inversor 2 1x95 Cu 200A','Inversor 3 1x240 Al 320A','Inversor 4 1x150 Cu 320A',
-    'QFV → QInterligação 3x240 Al 1000A','QInterligação → Qentrada 2x240 Cu 1000A']);
+    'Inversor 1 1x95 Al 160A','Inversor 2 1x70 Cu 160A','Inversor 3 1x150 Al 250A','Inversor 4 1x120 Cu 250A',
+    'QFV → QInterligação 3x240 Al 800A','QInterligação → Qentrada 2x150 Cu 800A']);
+});
+
+test('Ib = Smáx da ficha a 400 V (230 V monofásico), como a folha Excel; menor secção que cumpre',()=>{
+  const E=engine();E.set(scen({modelo:'SUN2000-100KTL-M2',L:10}));const c=E.solve().invC[0],o=c.res;
+  assert.ok(Math.abs(c.Ib-110000/(Math.sqrt(3)*400))<1e-9,'110 kVA / (√3·400) = 158,8 A (a ficha dá 160,4 A)');
+  assert.equal(o.In,160,'disjuntor de 160 A, não 200 A');
+  assert.equal(`${o.n}x${o.s} ${o.mat}`,'1x35 Cu','sozinho em caminho de cabos perfurado, 35 °C: 35 mm² já cumpre');
+  assert.ok(o.Iz>=o.In&&o.Iz<E.ev(`calc(solveAll().invC[0],{n:1,s:50,mat:'Cu',cons:'mono'}).Iz`));
+  E.set(scen({modelo:'SUN2000-6KTL-L1',L:10}));assert.ok(Math.abs(E.solve().invC[0].Ib-6000/230)<1e-9,'monofásico: Smáx / 230 V');
 });
 
 test('queda de tensão: fórmula da folha Excel (cos φ = 1), comprimento com folga',()=>{
@@ -92,14 +101,14 @@ test('inversores iguais no mesmo quadro ficam com o mesmo cabo',()=>{
 });
 
 test('sem secção que cumpra (B2 só até 120 mm²): mostra a de maior Iz e explica',()=>{
-  const E=engine();E.set(scen({modelo:'SUN2000-150K-MG0',L:5,n:2,ref:'3A'}));
+  const E=engine();E.set(scen({modelo:'SUN2000-150K-MG0',L:5,n:3,ref:'3A'}));
   const c=E.solve().pC[0],o=c.res;
   assert.equal(c.noFit,true);assert.equal(o.term,false);
   E.ctx.__c=c;const maxIz=E.ev('Math.max(...__c.opts.map(o=>calc(__c,o).Iz))');
   assert.equal(o.Iz,maxIz,'escolhe a opção de maior Iz');assert.equal(`${o.n}x${o.s}`,'3x120');
-  assert.match(c.noFitMsg,/Iz \d+ A < In 630 A/);assert.match(c.noFitMsg,/52-C14\) só tem valores até 120 mm²/);assert.match(c.noFitMsg,/ref\. 13/);
+  assert.match(c.noFitMsg,/Iz \d+ A < In 800 A/);assert.match(c.noFitMsg,/52-C14\) só tem valores até 120 mm²/);assert.match(c.noFitMsg,/ref\. 13/);
   /* a mesma carga em caminho de cabos (ref. 13) já tem solução */
-  E.set(scen({modelo:'SUN2000-150K-MG0',L:5,n:2,ref:'13'}));const d=E.solve().pC[0];
+  E.set(scen({modelo:'SUN2000-150K-MG0',L:5,n:3,ref:'13'}));const d=E.solve().pC[0];
   assert.equal(d.noFit,false);assert.equal(d.noFitMsg,null);assert.ok(d.res.term&&d.res.sob);
 });
 
@@ -156,8 +165,8 @@ test('poder de corte: Icc conhecida no ponto de ligação, diminui pelos cabos a
 test('poder de corte insuficiente: circuito a rever, sem mudar o disjuntor, e indica o que chega',()=>{
   const E=engine();const base=E.solve();
   E.set({icu:{modo:'icc',icc:40}});const R=E.solve();
-  const inv=R.invC[0].res;   /* XT3N250 36 kA no QFV: Icc mais baixa depois dos cabos */
-  assert.equal(inv.icuOk,true);
+  const inv=R.invC[0].res;   /* XT1B160 18 kA no QFV: não chega, indica a série que chega */
+  assert.equal(inv.icuOk,false);assert.ok(inv.icuAlt&&inv.icuAlt.icu>=inv.ikmax,'indica a série de poder de corte suficiente');
   E.set({icu:{modo:'pt',sn:2500}});const P=E.solve();
   const f=P.pC.find(c=>c.nome==='QInterligação → Qentrada').res;
   assert.equal(f.icuOk,false,'E1.2 42 kA < Icc de um PT de 2500 kVA');assert.ok(f.ikmax>42);assert.equal(f.icuAlt&&f.icuAlt.s,'E1.2N 1000','indica o E1.2N (66 kA), o mais barato que chega');assert.equal(f.icuAlt.icu,66);
@@ -204,8 +213,8 @@ test('agrupamento: esteiras dos inversores e outros circuitos na esteira de um p
 
 test('seletividade: aviso quando In a montante < 1,6 × o maior In a jusante',()=>{
   const E=engine();let R=E.solve();const by=n=>R.pC.find(c=>c.nome===n);
-  assert.equal(by('QFV → QInterligação').sel,null,'1000 A ≥ 1,6 × 320 A');
-  assert.deepEqual({...by('QInterligação → Qentrada').sel},{In:1000,dn:1000,code:'C5',k:1.6},'1000 A em série com 1000 A');
+  assert.equal(by('QFV → QInterligação').sel,null,'800 A ≥ 1,6 × 250 A');
+  assert.deepEqual({...by('QInterligação → Qentrada').sel},{In:800,dn:800,code:'C5',k:1.6},'800 A em série com 800 A');
   E.set({invs:[{modelo:'SUN2000-20K-MB0',pman:0,q:'QFV',L:20,S:'auto'}],percs:[{orig:'QFV',dest:'Qentrada',L:10,S:'auto',...route('13','mono')}],gws:[]});
   R=E.solve();assert.ok(R.pC[0].sel&&R.pC[0].sel.dn===R.invC[0].res.In);
 });
@@ -228,7 +237,7 @@ test('cos φ por inversor: entra na queda de tensão; nos percursos conta o meno
 });
 
 test('Indusmelec: modular S804P-C125 + F204 até 125 A; caixas moldadas com toroide WGC e unidade central 4 E/S por 4 circuitos',()=>{
-  const E=engine();E.set(scen({modelo:'PV 60 M1',L:10}));let R=E.ev('solveAll()');const c=R.invC[0];
+  const E=engine();const st=scen({modelo:'Outro',L:10});st.invs[0].pman=75;E.set(st);let R=E.ev('solveAll()');const c=R.invC[0];
   assert.equal(c.res.In,125);assert.equal(c.res.brk.s,'S804P');assert.equal(c.res.brk.k2,1.45);assert.match(c.res.brk.dif.name,/^F204A-125\/0,5/);
   E.set(scen({modelo:'SUN2000-150K-MG0',L:20,n:5}));R=E.ev('solveAll()');
   assert.equal(JSON.stringify(R.central),JSON.stringify([{node:'QFV',k:5,n:2}]),'5 caixas moldadas no QFV: 2 unidades centrais');

@@ -12,7 +12,7 @@ node --test tests/api.test.js         # API do servidor (base em memória)
 node dumpcalc.js && python verify.py  # verificação independente dos cálculos (tem de dar "ERROS 0")
 node tests/separadores.js             # abre todos os separadores; tem de dar "ERR []"
 node tests/cenarios_unifilar.js       # gera sA–sD.png com 4 topologias (com/sem gateway, contagem)
-node tests/sem_solucao.js             # 2 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
+node tests/sem_solucao.js             # 3 × 150 kW em tubo (B2): explicação "sem secção" em tests/sem_solucao.png
 node tests/relatorio.js               # relatório de cálculo PDF (botão) para o exemplo e o caso sem secção: tests/relatorio_*.pdf e _pN.png
 node tests/dxf.js                     # unifilar em DXF: estrutura R12 e comparação visual com o SVG
 node tests/poder_corte.js             # poder de corte: não verificado por omissão; PT 2500 kVA → E1.2 42 kA a rever
@@ -69,7 +69,8 @@ Correr sempre `npm test` depois de qualquer alteração. No Windows usar `python
 - Material automático: alumínio só se distância > 15 m **e** potência > 30 kW (editáveis); alumínio sempre monocondutor e nunca abaixo de 16 mm².
 - No máximo 3 cabos por fase. Preferir o menor nº de cabos por fase e, depois, a menor secção.
 - Inversores iguais no mesmo quadro ficam com o mesmo cabo, salvo se a distância obrigar; minimizar o nº de cabos diferentes na obra (subir no máximo 1 secção).
-- Disjuntor: Iac máx ≤ In ≤ Iz e I₂ ≤ 1,45·Iz (k₂ 1,45 modulares até 125 A, 1,30 caixa moldada). **Modular sempre que exista com o poder de corte pedido** (`pickBreaker`): até 125 A, aos 125 A S804P-C125 + interruptor diferencial F204A-125/0,5 (prática Indusmelec, aprovada pelo utilizador out. 2026; em 2P não há F202 de 125 A e fica a caixa moldada).
+- **Corrente de serviço Ib dos inversores = potência aparente máxima da ficha (Smáx) à tensão da rede: Smáx / (√3·400 V), monofásico Smáx / 230 V**, como a folha Excel de origem (decisão do utilizador, out. 2026: objetivo é a menor secção que cumpre). Não usar a "Iac máx." das fichas, que vem muitas vezes a 380 V (ex.: SUN2000-100KTL-M2 110 kVA → 158,8 A e disjuntor 160 A, em vez de 160,4 A → 200 A). Sem ficha: 1,1 × Pnom / (√3·400).
+- Disjuntor: Ib ≤ In ≤ Iz e I₂ ≤ 1,45·Iz (k₂ 1,45 modulares até 125 A, 1,30 caixa moldada). **Modular sempre que exista com o poder de corte pedido** (`pickBreaker`): até 125 A, aos 125 A S804P-C125 + interruptor diferencial F204A-125/0,5 (prática Indusmelec, aprovada pelo utilizador out. 2026; em 2P não há F202 de 125 A e fica a caixa moldada).
 - Diferencial das caixas moldadas XT1/XT3/XT5 (prática Indusmelec, aprovada out. 2026): toroide WGC escolhido pelo feixe fases + neutro (`toroidFor`: Ø55…180 ou 105×220, folga de 30 %) + bobina de abertura, e **uma unidade central diferencial 4 E/S (CBS-4, 2CSJ341001R0202) por cada 4 caixas moldadas do mesmo quadro** (`applyCentral`, `R.central`; entra em `brkTot` e no orçamento). E1.2: relé RGU-10 + toroide 105×220 + bobina de mínima tensão.
 - Queda de tensão verificada **só por troço** (3 %), nunca acumulada. Fórmula da folha Excel: u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n, ΔU% = u/230; L' = L+20 % (< 30 m) ou +10 % (≥ 30 m); b = 1 trifásico, 2 monofásico; ρ Cu 0,0225, Al 0,036. Mostrar ΔU em V e %.
 - Monocondutores em E/F: disposição selecionável (trevo, esteira sem afastamento, afastamento H/V). O utilizador só indica o nº de esteiras; o agrupamento é calculado.

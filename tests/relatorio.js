@@ -6,7 +6,7 @@ const fs=require('fs'),path=require('path'),url=require('url');
 const r=(ref,cons)=>({ref,cons,disp:'trevo',trays:1,sol:false});
 const CASES=[
   {nome:'exemplo',st:null,tem:['Relatório de cálculo','Identificação da obra','52-C','Fator de agrupamento','Disjuntor ABB','Esquema unifilar','Todos os circuitos cumprem']},
-  {nome:'sem_solucao',st:{invs:[1,2].map(()=>({modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:5,S:'auto'})),rInv:r('3A','mono'),percs:[{orig:'QFV',dest:'Qentrada',L:5,S:'auto',...r('3A','mono')}],gws:[]},
+  {nome:'sem_solucao',st:{invs:[1,2,3].map(()=>({modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:5,S:'auto'})),rInv:r('3A','mono'),percs:[{orig:'QFV',dest:'Qentrada',L:5,S:'auto',...r('3A','mono')}],gws:[]},
    tem:['Relatório de cálculo','Nenhuma secção cumpre','Circuitos a rever','Esquema unifilar']}];
 (async()=>{const b=await chromium.launch();const errs=[];
 for(const k of CASES){
