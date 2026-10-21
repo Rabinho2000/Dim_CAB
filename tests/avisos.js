@@ -27,6 +27,12 @@ await p.click('#route-inv [data-pick="est:B"]');await p.click('#picker .pcard[da
 check(await p.evaluate(()=>last.invC.map(c=>c.r.ref).join()==='13,13,3A,3A'&&S.rEst.B.ref==='3A'&&S.rEst.A.ref==='13'),'esteira B em tubo (3A), esteira A em caminho de cabos (13)');
 check(await p.evaluate(()=>last.invC[2].res.Iz!==last.invC[0].res.Iz),'os inversores da esteira B são calculados com a passagem deles');
 await p.click('#route-inv [data-pick="est:B"]');await p.click('#picker .pcard[data-ref="13"]');
+/* passagem própria de um inversor, na coluna "Passagem" da tabela */
+await p.click('#inv-body tr:nth-child(4) [data-pick^="invr:"]');await p.click('#picker .pcard[data-ref="11"]');
+check(await p.evaluate(()=>last.invC[3].r.ref==='11'&&!!S.invs[3].rt&&last.invC[2].r.ref==='13'),'Inversor 4 com passagem própria (ref. 11); os outros ficam como estavam');
+check(/Inversor 4 · passagem própria/.test(await p.$eval('#route-inv',e=>e.innerText))&&/Ref\. 11/.test(await p.$eval('#inv-body tr:nth-child(4)',e=>e.innerText)),'cartão da passagem própria e botão "Ref. 11" na tabela');
+await p.click('#inv-body tr:nth-child(4) [data-rtclr]');
+check(await p.evaluate(()=>!S.invs[3].rt&&last.invC[3].r.ref==='13'),'× volta à passagem da esteira');
 /* outros circuitos na esteira do percurso C5 */
 const fg0=await p.evaluate(()=>last.pC[0].res.fg);
 await p.fill('#p-body tr:first-child input[data-k=extra]','4');

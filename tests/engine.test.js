@@ -261,6 +261,10 @@ test('passagem por esteira: inversores com caminhos de cabo diferentes',()=>{
   /* esteira nova sem passagem: começa com a passagem geral */
   const s2=scen({modelo:'SUN2000-100KTL-M2',L:10,n:1,ref:'11'});s2.invs[0].est='c';E.set(s2);const c=E.solve().invC[0];
   assert.equal(c.r.ref,'11');assert.equal(E.S().rEst.C.ref,'11');
+  /* passagem própria de um inversor (coluna "Passagem"), sem letras de esteira */
+  const s3=scen({modelo:'SUN2000-100KTL-M2',L:10,n:3});s3.invs[2].rt=route('3A','multi');E.set(s3);const R3=E.solve().invC;
+  assert.equal(R3.map(c=>c.r.ref).join(),'13,13,3A');assert.equal(R3.map(c=>c.nAgr).join(),'2,2,1','a passagem própria não se agrupa com as outras');
+  assert.equal(R3[2].rtKey,'invr:'+E.S().invs[2].id);
   /* sem letra: a passagem geral, como antes */
   E.set(scen({modelo:'SUN2000-100KTL-M2',L:10,n:2,ref:'3A'}));assert.ok(E.solve().invC.every(c=>c.r.ref==='3A'&&c.nAgr===2));
 });

@@ -48,6 +48,7 @@ function renderInvTable(){
     <td class="n r">${fmt(info.pnom,1)}</td><td class="n r">${fmt(info.Ib,1)}<span class="sub">${info.fases===1?'1F 230 V':'3F 400 V'}</span></td>
     <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem (${routeFor(i).cons==='mono'?'mono':'multi'})</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
     <td><select data-k="q" aria-label="Quadro">${qs.concat(qs.includes(i.q)?[]:[i.q]).map(n=>`<option${n===i.q?' selected':''}>${esc(n)}</option>`).join('')}</select></td>
+    <td>${(r=>`<button type="button" class="rtbtn${i.rt?' own':''}" data-pick="invr:${i.id}" title="${esc(MODE[r.ref].d)}">Ref. ${esc(r.ref)} · ${METLAB[MODE[r.ref].m]}</button>${i.rt?`<button type="button" class="ghost rtclr" data-rtclr="${i.id}" title="Voltar à passagem geral">×</button>`:''}`)(routeFor(i))}</td>
     <td><input data-k="est" value="${esc(i.est||'')}" maxlength="3" placeholder="—" aria-label="Esteira" title="Letra da esteira (A, B, …): cada esteira tem a sua passagem, escolhida em baixo, e os inversores do mesmo quadro na mesma esteira contam juntos no agrupamento. Em branco: a passagem geral, todos os do quadro juntos." class="w-est"></td>
     <td><input data-k="cos" type="number" min="0.5" max="1" step="0.01" value="${+i.cos>0?i.cos:''}" placeholder="${fs(+S.cos||1)}" aria-label="cos φ" title="cos φ deste inversor (em branco: o dos Critérios). Nos percursos conta o menor dos inversores a montante." class="w-num"></td>
     <td><input data-k="L" type="number" min="0" step="1" value="${i.L}" aria-label="Distância m" class="w-num"></td>
@@ -75,9 +76,11 @@ function render(){
   const R=solveAll();last=R;
   const maxN=Math.max(1,...R.invC.map(c=>c.nAgr));
   /* uma passagem por esteira usada (coluna "Esteira") e a geral para os inversores sem letra */
-  const ests=[...new Set(R.invC.map(c=>c.est))].sort((a,b)=>a===''?-1:b===''?1:a.localeCompare(b));
-  $('#route-inv').innerHTML=(ests.length?ests:['']).map(e=>{const cs=R.invC.filter(c=>c.est===e),key=e?'est:'+e:'inv',r=e?routeFor({est:e}):S.rInv;
-    const head=ests.length>1||e?`<h4 class="rhead">${e?`Esteira ${esc(e)}`:'Sem esteira indicada (passagem geral)'} <span class="hint">${cs.map(c=>c.code||c.nome).join(', ')}</span></h4>`:'';
+  /* um cartão por passagem em uso: a geral, a de cada esteira e a de cada inversor com passagem própria */
+  const keys=[...new Set(R.invC.map(c=>c.rtKey))].sort((a,b)=>(a==='inv'?0:a.startsWith('est:')?1:2)-(b==='inv'?0:b.startsWith('est:')?1:2)||a.localeCompare(b,'pt',{numeric:true}));
+  $('#route-inv').innerHTML=(keys.length?keys:['inv']).map(key=>{const cs=R.invC.filter(c=>c.rtKey===key),r=routeOf(key);
+    const lab=key==='inv'?'Passagem geral':key.startsWith('est:')?`Esteira ${esc(key.slice(4))}`:`${esc(cs[0].nome)} · passagem própria`;
+    const head=keys.length>1||key!=='inv'?`<h4 class="rhead">${lab} <span class="hint">${cs.map(c=>c.code||c.nome).join(', ')}</span></h4>`:'';
     return head+routeCard(key,r,cs[0],Math.max(1,...cs.map(c=>c.nAgr)));}).join('');
   R.pC.forEach(c=>{if(c.split&&c!==R.pC.find(x=>x.base===c.base))return;const td=document.querySelector(`#p-body tr.rrow[data-id="${c.base.id}"] [data-route]`);if(td)td.innerHTML=routeCard('p'+c.base.id,c.base,c,c.split?c.nAgr:1);});
   const all=R.invC.concat(R.pC);
@@ -163,9 +166,11 @@ function bindGw(){
 /* referência editável de um circuito: inversor, percurso, ou cabo de um inversor até ao gateway (id "percurso_inversor") */
 function refOf(kind,id){if(kind==='inv')return S.invs.find(x=>x.id===+id);const [a,b]=String(id).split('_');const p=S.percs.find(x=>x.id===+a);if(!p)return null;
   if(b==null)return p;p.subs=p.subs||{};const sub=(p.subs[b]??={S:'auto'});return sub;}
-function routeOf(key){return key==='inv'?S.rInv:key.startsWith('est:')?routeFor({est:key.slice(4)}):S.percs.find(p=>'p'+p.id===key);}
+const invById=id=>S.invs.find(i=>String(i.id)===String(id));
+function routeOf(key){return key==='inv'?S.rInv:key.startsWith('est:')?routeFor({est:key.slice(4)}):key.startsWith('invr:')?routeFor(invById(key.slice(5))):S.percs.find(p=>'p'+p.id===key);}
 /* inversores que usam a passagem key ('inv' = sem esteira, 'est:A' = esteira A) */
-const invsOfRoute=key=>S.invs.filter(i=>key==='inv'?!estOf(i):key.startsWith('est:')&&estOf(i)===key.slice(4));
+const invsOfRoute=key=>key.startsWith('invr:')?[invById(key.slice(5))]:S.invs.filter(i=>!i.rt&&(key==='inv'?!estOf(i):key.startsWith('est:')&&estOf(i)===key.slice(4)));
+const isInvRoute=key=>key==='inv'||key.startsWith('est:')||key.startsWith('invr:');
 function bind(){
   $('#loc').innerHTML=LOCS.map(([n,a,s])=>`<option value="${n}">${n} (${a} °C)</option>`).join('');
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
@@ -184,10 +189,11 @@ function bind(){
     if(k==='modelo'||k==='pman'){const tr=document.querySelector(`#inv-body tr[data-id="${i.id}"]`);const info=invInfo(i);if(tr&&k==='pman'){tr.children[2].textContent=fmt(info.pnom,1);tr.children[3].firstChild.textContent=fmt(info.Ib,1);}}
     render();};
   ib.addEventListener('input',e=>{if(e.target.tagName==='INPUT')invEv(e);});ib.addEventListener('change',e=>{if(e.target.tagName==='SELECT')invEv(e);});
-  ib.addEventListener('click',e=>{const d=e.target.closest('[data-del]'),u=e.target.closest('[data-dup]');
+  ib.addEventListener('click',e=>{const d=e.target.closest('[data-del]'),u=e.target.closest('[data-dup]'),x=e.target.closest('[data-rtclr]');
     if(d){S.invs=S.invs.filter(x=>x.id!==+d.dataset.del);}
-    if(u){const src=S.invs.find(x=>x.id===+u.dataset.dup);const at=S.invs.indexOf(src);S.invs.splice(at+1,0,{...src,id:uid++,S:'auto'});}
-    if(d||u){renderInvTable();render();}});
+    if(u){const src=S.invs.find(x=>x.id===+u.dataset.dup);const at=S.invs.indexOf(src);S.invs.splice(at+1,0,{...src,id:uid++,S:'auto',rt:src.rt?{...src.rt}:undefined});}
+    if(x){const i=invById(x.dataset.rtclr);i.rt=undefined;i.S='auto';}
+    if(d||u||x){renderInvTable();render();}});
   $('#add').addEventListener('click',()=>{const l=S.invs[S.invs.length-1];S.invs.push({id:uid++,modelo:l?l.modelo:'SUN2000-50KTL-M3',pman:l?l.pman:0,q:l?l.q:(S.percs[0]?S.percs[0].orig:'QFV'),L:l?l.L:20,S:'auto'});renderInvTable();render();});
   const pb=$('#p-body');
   pb.addEventListener('input',e=>{const el=e.target,k=el.dataset.k;if(!k||el.dataset.rk)return;const p=S.percs.find(x=>x.id===+el.closest('tr').dataset.id);if(!p)return;
@@ -203,14 +209,15 @@ function bind(){
     const inp=document.querySelector('#p-body tr:last-child input[data-k="dest"]');if(inp){inp.focus();inp.select();}});
   /* cartões de passagem (inversores e percursos) */
   const routeEv=e=>{const el=e.target,key=el.dataset.rk;if(!key)return;const r=routeOf(key);const k=el.dataset.k;
-    if(k==='sol')r.sol=el.checked;else if(k==='trays')r.trays=parseInt(el.value)||1;else{r[k]=el.value;(key==='inv'||key.startsWith('est:')?invsOfRoute(key):[r]).forEach(x=>x.S='auto');}
-    if((key==='inv'||key.startsWith('est:'))&&k==='cons')renderInvTable();
+    if(k==='sol')r.sol=el.checked;else if(k==='trays')r.trays=parseInt(el.value)||1;else{r[k]=el.value;(isInvRoute(key)?invsOfRoute(key):[r]).forEach(x=>x.S='auto');}
+    if(isInvRoute(key)&&k==='cons')renderInvTable();
     render();};
   /* o nº de circuitos aplica-se ao sair do campo, para o cartão poder ser redesenhado sem perder o foco */
   document.addEventListener('change',e=>{if(e.target.dataset.rk)routeEv(e);});
   document.addEventListener('click',e=>{const p=e.target.closest('[data-pick]');if(p)openPicker(p.dataset.pick);
-    const c=e.target.closest('.pcard');if(c&&pickTarget){const r=routeOf(pickTarget);r.ref=c.dataset.ref;if(MODE[r.ref].m==='A2'&&r.cons==='mono')r.cons='multi';
-      (pickTarget==='inv'||pickTarget.startsWith('est:')?invsOfRoute(pickTarget):[r]).forEach(x=>x.S='auto');closePicker();renderInvTable();render();}});
+    const c=e.target.closest('.pcard');if(c&&pickTarget){if(pickTarget.startsWith('invr:')){const i=invById(pickTarget.slice(5));if(!i.rt)i.rt={...routeFor(i)};}
+      const r=routeOf(pickTarget);r.ref=c.dataset.ref;if(MODE[r.ref].m==='A2'&&r.cons==='mono')r.cons='multi';
+      (isInvRoute(pickTarget)?invsOfRoute(pickTarget):[r]).forEach(x=>x.S='auto');closePicker();renderInvTable();render();}});
   $('#pk-close').addEventListener('click',closePicker);
   $('#picker').addEventListener('click',e=>{if(e.target.id==='picker')closePicker();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closePicker();});
