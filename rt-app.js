@@ -46,9 +46,9 @@ function renderInvTable(){
   $('#inv-body').innerHTML=S.invs.map((i,k)=>{const info=invInfo(i);return `<tr data-id="${i.id}"><td class="n">${k+1}</td>
     <td><select data-k="modelo" aria-label="Modelo">${modelSel(i.modelo)}</select>${i.modelo==='__outro'?`<input data-k="pman" type="number" min="0" step="0.1" value="${i.pman||''}" placeholder="kW" class="pman" aria-label="Potência kW">`:''}</td>
     <td class="n r">${fmt(info.pnom,1)}</td><td class="n r">${fmt(info.Ib,1)}<span class="sub">${info.fases===1?'1F 230 V':'3F 400 V'}</span></td>
-    <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem (${S.rInv.cons==='mono'?'mono':'multi'})</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
+    <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem (${routeFor(i).cons==='mono'?'mono':'multi'})</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
     <td><select data-k="q" aria-label="Quadro">${qs.concat(qs.includes(i.q)?[]:[i.q]).map(n=>`<option${n===i.q?' selected':''}>${esc(n)}</option>`).join('')}</select></td>
-    <td><input data-k="est" value="${esc(i.est||'')}" maxlength="3" placeholder="—" aria-label="Esteira" title="Inversores do mesmo quadro com a mesma esteira contam juntos no agrupamento. Em branco: todos os do quadro juntos." class="w-est"></td>
+    <td><input data-k="est" value="${esc(i.est||'')}" maxlength="3" placeholder="—" aria-label="Esteira" title="Letra da esteira (A, B, …): cada esteira tem a sua passagem, escolhida em baixo, e os inversores do mesmo quadro na mesma esteira contam juntos no agrupamento. Em branco: a passagem geral, todos os do quadro juntos." class="w-est"></td>
     <td><input data-k="cos" type="number" min="0.5" max="1" step="0.01" value="${+i.cos>0?i.cos:''}" placeholder="${fs(+S.cos||1)}" aria-label="cos φ" title="cos φ deste inversor (em branco: o dos Critérios). Nos percursos conta o menor dos inversores a montante." class="w-num"></td>
     <td><input data-k="L" type="number" min="0" step="1" value="${i.L}" aria-label="Distância m" class="w-num"></td>
     <td class="r"><button class="ghost" data-dup="${i.id}" title="Duplicar">Duplicar</button><button class="ghost del" data-del="${i.id}">Remover</button></td></tr>`;}).join('');
@@ -74,7 +74,11 @@ function verdict(c){const o=c.res;
 function render(){
   const R=solveAll();last=R;
   const maxN=Math.max(1,...R.invC.map(c=>c.nAgr));
-  $('#route-inv').innerHTML=routeCard('inv',S.rInv,R.invC[0],maxN);
+  /* uma passagem por esteira usada (coluna "Esteira") e a geral para os inversores sem letra */
+  const ests=[...new Set(R.invC.map(c=>c.est))].sort((a,b)=>a===''?-1:b===''?1:a.localeCompare(b));
+  $('#route-inv').innerHTML=(ests.length?ests:['']).map(e=>{const cs=R.invC.filter(c=>c.est===e),key=e?'est:'+e:'inv',r=e?routeFor({est:e}):S.rInv;
+    const head=ests.length>1||e?`<h4 class="rhead">${e?`Esteira ${esc(e)}`:'Sem esteira indicada (passagem geral)'} <span class="hint">${cs.map(c=>c.code||c.nome).join(', ')}</span></h4>`:'';
+    return head+routeCard(key,r,cs[0],Math.max(1,...cs.map(c=>c.nAgr)));}).join('');
   R.pC.forEach(c=>{if(c.split&&c!==R.pC.find(x=>x.base===c.base))return;const td=document.querySelector(`#p-body tr.rrow[data-id="${c.base.id}"] [data-route]`);if(td)td.innerHTML=routeCard('p'+c.base.id,c.base,c,c.split?c.nAgr:1);});
   const all=R.invC.concat(R.pC);
   const bad=all.filter(c=>c.Ib>0&&(!c.res||!passes(c.res)||c.res.icuOk===false||c.res.du>S.limT||c.gwErr));
@@ -102,7 +106,7 @@ function render(){
 /* ---------- seletor de passagem ---------- */
 let pickTarget=null;
 function openPicker(key){
-  pickTarget=key;const r=key==='inv'?S.rInv:S.percs.find(p=>'p'+p.id===key);
+  pickTarget=key;const r=routeOf(key);
   const card=m=>`<button class="pcard${m.ref===r.ref?' on':''}" data-ref="${m.ref}"><span class="tile">${m.img.map(s=>`<img src="${s}" alt="">`).join('')}</span><b>Ref. ${m.ref} · ${METLAB[m.m]}</b><span>${esc(m.d)}</span></button>`;
   $('#pk-fav').innerHTML=FAV.map(f=>card(MODE[f])).join('');
   $('#pk-all').innerHTML=MODES.filter(m=>!FAV.includes(m.ref)).map(card).join('');
@@ -159,7 +163,9 @@ function bindGw(){
 /* referência editável de um circuito: inversor, percurso, ou cabo de um inversor até ao gateway (id "percurso_inversor") */
 function refOf(kind,id){if(kind==='inv')return S.invs.find(x=>x.id===+id);const [a,b]=String(id).split('_');const p=S.percs.find(x=>x.id===+a);if(!p)return null;
   if(b==null)return p;p.subs=p.subs||{};const sub=(p.subs[b]??={S:'auto'});return sub;}
-function routeOf(key){return key==='inv'?S.rInv:S.percs.find(p=>'p'+p.id===key);}
+function routeOf(key){return key==='inv'?S.rInv:key.startsWith('est:')?routeFor({est:key.slice(4)}):S.percs.find(p=>'p'+p.id===key);}
+/* inversores que usam a passagem key ('inv' = sem esteira, 'est:A' = esteira A) */
+const invsOfRoute=key=>S.invs.filter(i=>key==='inv'?!estOf(i):key.startsWith('est:')&&estOf(i)===key.slice(4));
 function bind(){
   $('#loc').innerHTML=LOCS.map(([n,a,s])=>`<option value="${n}">${n} (${a} °C)</option>`).join('');
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
@@ -197,14 +203,14 @@ function bind(){
     const inp=document.querySelector('#p-body tr:last-child input[data-k="dest"]');if(inp){inp.focus();inp.select();}});
   /* cartões de passagem (inversores e percursos) */
   const routeEv=e=>{const el=e.target,key=el.dataset.rk;if(!key)return;const r=routeOf(key);const k=el.dataset.k;
-    if(k==='sol')r.sol=el.checked;else if(k==='trays')r.trays=parseInt(el.value)||1;else{r[k]=el.value;(key==='inv'?S.invs:[r]).forEach(x=>x.S='auto');}
-    if(key==='inv'&&k==='cons')renderInvTable();
+    if(k==='sol')r.sol=el.checked;else if(k==='trays')r.trays=parseInt(el.value)||1;else{r[k]=el.value;(key==='inv'||key.startsWith('est:')?invsOfRoute(key):[r]).forEach(x=>x.S='auto');}
+    if((key==='inv'||key.startsWith('est:'))&&k==='cons')renderInvTable();
     render();};
   /* o nº de circuitos aplica-se ao sair do campo, para o cartão poder ser redesenhado sem perder o foco */
   document.addEventListener('change',e=>{if(e.target.dataset.rk)routeEv(e);});
   document.addEventListener('click',e=>{const p=e.target.closest('[data-pick]');if(p)openPicker(p.dataset.pick);
     const c=e.target.closest('.pcard');if(c&&pickTarget){const r=routeOf(pickTarget);r.ref=c.dataset.ref;if(MODE[r.ref].m==='A2'&&r.cons==='mono')r.cons='multi';
-      (pickTarget==='inv'?S.invs:[r]).forEach(x=>x.S='auto');closePicker();render();}});
+      (pickTarget==='inv'||pickTarget.startsWith('est:')?invsOfRoute(pickTarget):[r]).forEach(x=>x.S='auto');closePicker();renderInvTable();render();}});
   $('#pk-close').addEventListener('click',closePicker);
   $('#picker').addEventListener('click',e=>{if(e.target.id==='picker')closePicker();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closePicker();});

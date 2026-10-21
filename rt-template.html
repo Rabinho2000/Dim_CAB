@@ -211,6 +211,7 @@ tr.cur td{background:var(--accent-soft)}
 .bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
 .bnotes{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink)}
 .bnotes li{margin-bottom:4px}
+.rhead{margin:14px 0 6px;font-size:13px}.rhead .hint{font-weight:400;margin-left:6px}
 .bind{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
 .bind h3 .hint{font-family:var(--f-body);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
 .bind table.bom{width:100%;table-layout:fixed;font-size:12.5px}
@@ -285,11 +286,12 @@ tr.cur td{background:var(--accent-soft)}
   </div>
   <div class="tablewrap">
     <table id="inv-table">
-      <thead><tr><th>#</th><th>Modelo</th><th class="r">Pnom <span class="u">kW</span></th><th class="r">Iac máx <span class="u">A</span></th><th>Cabo</th><th>Liga ao quadro</th><th title="Inversores do mesmo quadro com a mesma esteira contam juntos no agrupamento">Esteira</th><th title="Em branco: o cos φ dos Critérios">cos φ</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Modelo</th><th class="r">Pnom <span class="u">kW</span></th><th class="r" title="Potência aparente máxima da ficha ÷ (√3·400 V), ou ÷ 230 V nos monofásicos">Ib <span class="u">A</span></th><th>Cabo</th><th>Liga ao quadro</th><th title="Cada esteira (A, B, …) tem a sua passagem; os inversores do mesmo quadro na mesma esteira contam juntos no agrupamento">Esteira</th><th title="Em branco: o cos φ dos Critérios">cos φ</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
       <tbody id="inv-body"></tbody>
     </table>
   </div>
   <h3>Passagem dos cabos dos inversores</h3>
+  <p class="hint">Para inversores com caminhos de cabo diferentes, dá-lhes letras diferentes na coluna "Esteira": cada esteira tem a sua passagem.</p>
   <div id="route-inv"></div>
 </section>
 

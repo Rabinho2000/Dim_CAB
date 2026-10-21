@@ -21,6 +21,12 @@ await p.fill('#lim','3');check(/ΔU acumulada até à injeção 4,31 % > 3 %/.te
 for(const [i,v] of [[1,'a'],[2,'A'],[3,'B'],[4,'B']])await p.fill(`#inv-body tr:nth-child(${i}) input[data-k=est]`,v);
 check(await p.evaluate(()=>last.invC.every(c=>c.nAgr===2)&&S.invs[0].est==='A'),'Esteira A/A/B/B: 2 circuitos por esteira (letra em maiúsculas)');
 check(/agrupamento\s*[\d,]+/.test(await p.$eval('#route-inv',e=>e.innerText))&&!/4 circuitos/.test(await p.$eval('#route-inv',e=>e.innerText)),'o cartão da passagem já não diz 4 circuitos');
+/* cada esteira tem a sua passagem: a B passa para tubo à vista (ref. 3A) */
+check(await p.$$eval('#route-inv [data-pick]',b=>b.map(x=>x.dataset.pick).join())==='est:A,est:B','um cartão de passagem por esteira (A e B)');
+await p.click('#route-inv [data-pick="est:B"]');await p.click('#picker .pcard[data-ref="3A"]');
+check(await p.evaluate(()=>last.invC.map(c=>c.r.ref).join()==='13,13,3A,3A'&&S.rEst.B.ref==='3A'&&S.rEst.A.ref==='13'),'esteira B em tubo (3A), esteira A em caminho de cabos (13)');
+check(await p.evaluate(()=>last.invC[2].res.Iz!==last.invC[0].res.Iz),'os inversores da esteira B são calculados com a passagem deles');
+await p.click('#route-inv [data-pick="est:B"]');await p.click('#picker .pcard[data-ref="13"]');
 /* outros circuitos na esteira do percurso C5 */
 const fg0=await p.evaluate(()=>last.pC[0].res.fg);
 await p.fill('#p-body tr:first-child input[data-k=extra]','4');

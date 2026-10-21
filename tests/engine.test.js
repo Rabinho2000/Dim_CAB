@@ -252,6 +252,19 @@ test('Indusmelec: modular S804P-C125 + F204 até 125 A; caixas moldadas com toro
   assert.ok(Math.abs(R.brkTot-(sum+2*E.ev('BRK.acc.central[1]')))<1e-6,'brkTot = disjuntores + toroides/bobinas + 2 unidades centrais');
 });
 
+test('passagem por esteira: inversores com caminhos de cabo diferentes',()=>{
+  const E=engine();const st=scen({modelo:'SUN2000-100KTL-M2',L:10,n:2});st.invs[0].est='A';st.invs[1].est='B';
+  st.rEst={A:route('13','mono'),B:route('3A','multi')};E.set(st);const R=E.solve();const [a,b]=R.invC;
+  assert.equal(a.r.ref,'13');assert.equal(b.r.ref,'3A');assert.equal(a.res.cons,'mono');assert.equal(b.res.cons,'multi');
+  assert.equal(a.nAgr,1);assert.equal(b.nAgr,1,'esteiras diferentes não se agrupam');
+  assert.ok(b.res.s>a.res.s,'em tubo (3A, multicondutor) a secção é maior');
+  /* esteira nova sem passagem: começa com a passagem geral */
+  const s2=scen({modelo:'SUN2000-100KTL-M2',L:10,n:1,ref:'11'});s2.invs[0].est='c';E.set(s2);const c=E.solve().invC[0];
+  assert.equal(c.r.ref,'11');assert.equal(E.S().rEst.C.ref,'11');
+  /* sem letra: a passagem geral, como antes */
+  E.set(scen({modelo:'SUN2000-100KTL-M2',L:10,n:2,ref:'3A'}));assert.ok(E.solve().invC.every(c=>c.r.ref==='3A'&&c.nAgr===2));
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');
