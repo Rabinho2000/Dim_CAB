@@ -17,22 +17,21 @@ check(/A REVER\s*0/i.test(await kpis()),'os avisos não contam como "a rever"');
 /* ΔU acumulada */
 check(!/ΔU acumulada até à injeção/.test(await rowTxt(/^C1 /)),'com o aviso a 5 %, o C1 (4,31 %) não avisa');
 await p.fill('#lim','3');check(/ΔU acumulada até à injeção 4,31 % > 3 %/.test(await rowTxt(/^C1 /)),'com 3 %, o C1 avisa (4,31 %)');await p.fill('#lim','5');
-/* esteiras dos inversores */
-for(const [i,v] of [[1,'a'],[2,'A'],[3,'B'],[4,'B']])await p.fill(`#inv-body tr:nth-child(${i}) input[data-k=est]`,v);
-check(await p.evaluate(()=>last.invC.every(c=>c.nAgr===2)&&S.invs[0].est==='A'),'Esteira A/A/B/B: 2 circuitos por esteira (letra em maiúsculas)');
-check(/agrupamento\s*[\d,]+/.test(await p.$eval('#route-inv',e=>e.innerText))&&!/4 circuitos/.test(await p.$eval('#route-inv',e=>e.innerText)),'o cartão da passagem já não diz 4 circuitos');
-/* cada esteira tem a sua passagem: a B passa para tubo à vista (ref. 3A) */
-check(await p.$$eval('#route-inv [data-pick]',b=>b.map(x=>x.dataset.pick).join())==='est:A,est:B','um cartão de passagem por esteira (A e B)');
-await p.click('#route-inv [data-pick="est:B"]');await p.click('#picker .pcard[data-ref="3A"]');
-check(await p.evaluate(()=>last.invC.map(c=>c.r.ref).join()==='13,13,3A,3A'&&S.rEst.B.ref==='3A'&&S.rEst.A.ref==='13'),'esteira B em tubo (3A), esteira A em caminho de cabos (13)');
-check(await p.evaluate(()=>last.invC[2].res.Iz!==last.invC[0].res.Iz),'os inversores da esteira B são calculados com a passagem deles');
-await p.click('#route-inv [data-pick="est:B"]');await p.click('#picker .pcard[data-ref="13"]');
-/* passagem própria de um inversor, na coluna "Passagem" da tabela */
-await p.click('#inv-body tr:nth-child(4) [data-pick^="invr:"]');await p.click('#picker .pcard[data-ref="11"]');
-check(await p.evaluate(()=>last.invC[3].r.ref==='11'&&!!S.invs[3].rt&&last.invC[2].r.ref==='13'),'Inversor 4 com passagem própria (ref. 11); os outros ficam como estavam');
-check(/Inversor 4 · passagem própria/.test(await p.$eval('#route-inv',e=>e.innerText))&&/Ref\. 11/.test(await p.$eval('#inv-body tr:nth-child(4)',e=>e.innerText)),'cartão da passagem própria e botão "Ref. 11" na tabela');
-await p.click('#inv-body tr:nth-child(4) [data-rtclr]');
-check(await p.evaluate(()=>!S.invs[3].rt&&last.invC[3].r.ref==='13'),'× volta à passagem da esteira');
+/* passagens dos inversores: a geral e uma acrescentada, com os inversores marcados */
+check(await p.evaluate(()=>!document.querySelector('#inv-body [data-k=est], #inv-body [data-pick]')),'a tabela dos inversores já não tem as colunas Esteira e Passagem');
+await p.click('#rt-add');
+check(await p.$$eval('#route-inv [data-pick]',b=>b.map(x=>x.dataset.pick).join())==='inv,rt:1'&&await p.$eval('[data-rtname="1"]',e=>e.value)==='Passagem 1','"Adicionar passagem" cria o cartão Passagem 1');
+for(const n of [3,4])await p.click(`#route-inv .rtinvs label:nth-of-type(${n}) input`);
+check(await p.evaluate(()=>last.invC.map(c=>c.rtKey).join()==='inv,inv,rt:1,rt:1'&&last.invC.every(c=>c.nAgr===2)),'inversores 3 e 4 na Passagem 1: 2 circuitos em cada passagem');
+check(/Passagem geral\s*inversores 1, 2/.test(await p.$eval('#route-inv',e=>e.innerText)),'a passagem geral diz que inversores tem');
+await p.fill('[data-rtname="1"]','Tubo cobertura');await p.press('[data-rtname="1"]','Tab');
+await p.click('#route-inv [data-pick="rt:1"]');await p.click('#picker .pcard[data-ref="3A"]');
+check(await p.evaluate(()=>last.invC.map(c=>c.r.ref).join()==='13,13,3A,3A'&&S.rts[0].nome==='Tubo cobertura'&&S.rInv.ref==='13'),'Passagem 1 em tubo (3A) com nome próprio; a geral fica em caminho de cabos');
+check(await p.evaluate(()=>last.invC[2].res.Iz!==last.invC[0].res.Iz),'os inversores da passagem 1 são calculados com a passagem deles');
+await p.click('#route-inv .rtinvs label:nth-of-type(4) input');
+check(await p.evaluate(()=>last.invC[3].rtKey==='inv'&&last.invC[3].nAgr===3),'desmarcar o inversor 4: volta à passagem geral');
+await p.click('[data-rtdel="1"]');
+check(await p.evaluate(()=>!S.rts.length&&last.invC.every(c=>c.rtKey==='inv'&&c.nAgr===4)),'remover a passagem: os inversores voltam à geral');
 /* outros circuitos na esteira do percurso C5 */
 const fg0=await p.evaluate(()=>last.pC[0].res.fg);
 await p.fill('#p-body tr:first-child input[data-k=extra]','4');

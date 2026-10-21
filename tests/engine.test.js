@@ -252,21 +252,16 @@ test('Indusmelec: modular S804P-C125 + F204 até 125 A; caixas moldadas com toro
   assert.ok(Math.abs(R.brkTot-(sum+2*E.ev('BRK.acc.central[1]')))<1e-6,'brkTot = disjuntores + toroides/bobinas + 2 unidades centrais');
 });
 
-test('passagem por esteira: inversores com caminhos de cabo diferentes',()=>{
-  const E=engine();const st=scen({modelo:'SUN2000-100KTL-M2',L:10,n:2});st.invs[0].est='A';st.invs[1].est='B';
-  st.rEst={A:route('13','mono'),B:route('3A','multi')};E.set(st);const R=E.solve();const [a,b]=R.invC;
-  assert.equal(a.r.ref,'13');assert.equal(b.r.ref,'3A');assert.equal(a.res.cons,'mono');assert.equal(b.res.cons,'multi');
-  assert.equal(a.nAgr,1);assert.equal(b.nAgr,1,'esteiras diferentes não se agrupam');
-  assert.ok(b.res.s>a.res.s,'em tubo (3A, multicondutor) a secção é maior');
-  /* esteira nova sem passagem: começa com a passagem geral */
-  const s2=scen({modelo:'SUN2000-100KTL-M2',L:10,n:1,ref:'11'});s2.invs[0].est='c';E.set(s2);const c=E.solve().invC[0];
-  assert.equal(c.r.ref,'11');assert.equal(E.S().rEst.C.ref,'11');
-  /* passagem própria de um inversor (coluna "Passagem"), sem letras de esteira */
-  const s3=scen({modelo:'SUN2000-100KTL-M2',L:10,n:3});s3.invs[2].rt=route('3A','multi');E.set(s3);const R3=E.solve().invC;
-  assert.equal(R3.map(c=>c.r.ref).join(),'13,13,3A');assert.equal(R3.map(c=>c.nAgr).join(),'2,2,1','a passagem própria não se agrupa com as outras');
-  assert.equal(R3[2].rtKey,'invr:'+E.S().invs[2].id);
-  /* sem letra: a passagem geral, como antes */
-  E.set(scen({modelo:'SUN2000-100KTL-M2',L:10,n:2,ref:'3A'}));assert.ok(E.solve().invC.every(c=>c.r.ref==='3A'&&c.nAgr===2));
+test('passagens: inversores com caminhos de cabo diferentes; projetos antigos convertidos',()=>{
+  const E=engine();const st=scen({modelo:'SUN2000-100KTL-M2',L:10,n:3});st.rts=[{...route('3A','multi'),id:1,nome:'Tubo'}];st.invs[2].rtId=1;E.set(st);
+  const R=E.solve().invC;assert.equal(R.map(c=>c.r.ref).join(),'13,13,3A');assert.equal(R.map(c=>c.nAgr).join(),'2,2,1','agrupam só os da mesma passagem e do mesmo quadro');
+  assert.equal(R.map(c=>c.rtKey).join(),'inv,inv,rt:1');assert.equal(R[2].res.cons,'multi');assert.ok(R[2].res.s>R[0].res.s,'em tubo a secção é maior');
+  /* passagem removida: o inversor volta à geral */
+  E.set({...st,rts:[]});assert.equal(E.solve().invC[2].r.ref,'13');
+  /* projeto antigo: letras da coluna Esteira (S.rEst) e passagem própria (i.rt) */
+  const old=scen({modelo:'SUN2000-100KTL-M2',L:10,n:3});old.invs[0].est='a';old.invs[1].est='A';old.invs[2].rt=route('11','mono');old.rEst={A:route('3A','mono')};E.set(old);
+  const O=E.solve().invC,S1=E.S();assert.equal(O.map(c=>c.r.ref).join(),'3A,3A,11');assert.equal(S1.rts.map(r=>r.nome).join(),'Esteira A,Inversor 3');
+  assert.ok(S1.invs.every(i=>i.est===undefined&&i.rt===undefined)&&S1.rEst===undefined,'campos antigos retirados');
 });
 
 test('secção forçada pelo utilizador é respeitada',()=>{

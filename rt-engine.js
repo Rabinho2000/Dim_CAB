@@ -31,7 +31,7 @@ function example(){return {proj:'',loc:'Porto',tair:35,tsoil:18,rsolo:1,isol:'XL
   dc:{tmin:-3,tcell:70,lim:1.5,ifuse:25,f:1,sel:0,arr:[]},
   invs:[{id:uid++,modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:50,S:'auto'},{id:uid++,modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:5,S:'auto'},
         {id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:35,S:'auto'},{id:uid++,modelo:'SUN2000-150K-MG0',pman:0,q:'QFV',L:15,S:'auto'}],
-  rInv:route('13','mono'),rEst:{},
+  rInv:route('13','mono'),rts:[],
   percs:[{id:uid++,orig:'QFV',dest:'QInterligação',L:140,S:'auto',...route('13','mono')},{id:uid++,orig:'QInterligação',dest:'Qentrada',L:7,S:'auto',...route('13','mono')}],gws:[],
   obra:{cliente:'',morada:'',desenho:'',estado:'rascunho',rev:'A',aprov:null},
   icu:{modo:'',icc:10,sn:630}};}
@@ -153,18 +153,26 @@ function noFitMsg(c){
 /* temperaturas só da tabela, pela região (decisão do utilizador, out. 2026): ar e solo de LOCS; região desconhecida → Porto */
 const locOf=loc=>LOCS.find(x=>x[0]===loc)||LOCS.find(x=>x[0]==='Porto');
 function syncTemps(){const l=locOf(S.loc);S.loc=l[0];S.tair=l[1];S.tsoil=l[2];}
-/* passagem de cada inversor: a própria (i.rt, escolhida na coluna "Passagem"), senão a da sua esteira (coluna "Esteira",
-   S.rEst[letra]), senão a passagem geral S.rInv. Uma esteira nova começa com uma cópia da geral.
-   Agrupamento: contam juntos os inversores do mesmo quadro, na mesma esteira e com o mesmo tipo de passagem (ref.). */
-const estOf=i=>String(i.est||'').trim().toUpperCase();
-function routeFor(i){if(i.rt)return i.rt;const e=estOf(i);if(!e)return S.rInv;S.rEst=S.rEst||{};return S.rEst[e]??={...S.rInv};}
+/* passagens dos cabos dos inversores: a geral (S.rInv) e as acrescentadas com "Adicionar passagem" (S.rts: {id, nome, ...passagem}).
+   Cada inversor está numa só (i.rtId; sem rtId = geral). Agrupamento: inversores da mesma passagem ligados ao mesmo quadro.
+   Projetos antigos: cada letra da coluna "Esteira" (S.rEst) e cada passagem própria (i.rt) passam a ser uma passagem. */
+function migrateRoutes(){
+  if(!Array.isArray(S.rts))S.rts=[];let n=S.rts.reduce((a,r)=>Math.max(a,+r.id||0),0);const byE={};
+  S.invs.forEach((i,k)=>{const e=String(i.est||'').trim().toUpperCase();
+    if(i.rt){const r={...i.rt,id:++n,nome:`Inversor ${k+1}`};S.rts.push(r);i.rtId=r.id;}
+    else if(e&&i.rtId==null){let r=byE[e];if(!r){r={...((S.rEst||{})[e]||S.rInv),id:++n,nome:`Esteira ${e}`};S.rts.push(r);byE[e]=r;}i.rtId=r.id;}
+    delete i.rt;delete i.est;});
+  delete S.rEst;
+}
+const rtOf=i=>(i&&i.rtId!=null&&(S.rts||[]).find(r=>r.id===i.rtId))||S.rInv;
+const rtKeyOf=i=>{const r=rtOf(i);return r===S.rInv?'inv':'rt:'+r.id;};
 function solve(zf){
-  syncTemps();
+  syncTemps();migrateRoutes();
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
-    const rt=routeFor(i),nq=S.invs.filter(x=>x.q===i.q&&estOf(x)===estOf(i)&&routeFor(x).ref===rt.ref).length;
+    const rt=rtOf(i),nq=S.invs.filter(x=>x.q===i.q&&rtOf(x)===rt).length;
     const nAgr=nq;
     return {cos:+i.cos>0?+i.cos:null,ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
-      L:+i.L||0,r:{...rt,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:rt.cons},consForced:i.cons==='mono',ti:tempInfo(rt),nAgr,path:pathOf(i.q),est:estOf(i),rtKey:i.rt?'invr:'+i.id:estOf(i)?'est:'+estOf(i):'inv'};});
+      L:+i.L||0,r:{...rt,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:rt.cons},consForced:i.cons==='mono',ti:tempInfo(rt),nAgr,path:pathOf(i.q),rtKey:rtKeyOf(i)};});
   const pC=S.percs.flatMap(p=>{const fe=invC.filter(c=>c.path.includes(p));const gw=gwOf(p.orig),gwD=gwOf(p.dest);
     /* ordem inversor → QFV → gateway: do QFV sai um cabo por inversor até à respetiva entrada do gateway */
     if(gwD&&p.split!==false&&fe.length){p.subs=p.subs||{};const sp=gwSpec(gwD);
@@ -309,8 +317,8 @@ function variants(){
   const V=[mk('atual','Projeto atual',()=>{},'como está'),
     mk('cu','Sempre cobre',st=>{st.mat='Cu';},'material = cobre em todos os circuitos'),
     mk('al','Sempre alumínio (≥ 16 mm²)',st=>{st.mat='Al';},'alumínio sempre que a secção o permita'),
-    mk('est','Uma esteira por inversor',st=>{st.invs.forEach((i,k)=>{i.est=String(k+1);});},'sem agrupamento entre os cabos dos inversores'),
-    mk('tubo','Inversores em tubo à vista (ref. 3A)',st=>{st.rInv={...st.rInv,ref:'3A'};Object.keys(st.rEst||{}).forEach(k=>{st.rEst[k]={...st.rEst[k],ref:'3A'};});st.invs.forEach(i=>{if(i.rt)i.rt={...i.rt,ref:'3A'};});},'em vez da passagem atual dos inversores'),
+    mk('est','Uma esteira por inversor',st=>{const old=st.rts||[];st.rts=st.invs.map((i,k)=>({...(old.find(r=>r.id===i.rtId)||st.rInv),id:1000+k,nome:`Inversor ${k+1}`}));st.invs.forEach((i,k)=>{i.rtId=1000+k;});},'sem agrupamento entre os cabos dos inversores'),
+    mk('tubo','Inversores em tubo à vista (ref. 3A)',st=>{st.rInv={...st.rInv,ref:'3A'};st.rts=(st.rts||[]).map(r=>({...r,ref:'3A'}));},'em vez da passagem atual dos inversores'),
     mk('du2','ΔU máx. por troço 2 %',st=>{st.limT=2;},'mais exigente do que os 3 % habituais')];
   /* secções escolhidas à mão ficam como estão em todas as alternativas */
   return V.map(v=>{let R=null,err=null;try{R=solveProject(v.st);}catch(e){err=e.message;}return {...v,sum:R?summarize(R,v.st):null,err};});

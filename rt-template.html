@@ -212,7 +212,9 @@ tr.cur td{background:var(--accent-soft)}
 .bnotes{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink)}
 .bnotes li{margin-bottom:4px}
 .rhead{margin:14px 0 6px;font-size:13px}
-.rtbtn{white-space:nowrap;font-size:12.5px;padding:5px 8px}.rtbtn.own{border-color:var(--accent);font-weight:600}.rtclr{font-size:11.5px;padding:2px 4px;margin-left:2px}.rhead .hint{font-weight:400;margin-left:6px}
+.rthead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0 6px}.rthead input{width:auto;min-width:180px;font-weight:600}.rthead .del{margin-left:auto}
+.rtinvs{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 8px;font-size:13px}.rtinvs label{display:inline-flex;gap:4px;align-items:center}.rtinvs input{width:auto}
+.rt-add{margin-top:10px}.rhead .hint{font-weight:400;margin-left:6px}
 .bind{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
 .bind h3 .hint{font-family:var(--f-body);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
 .bind table.bom{width:100%;table-layout:fixed;font-size:12.5px}
@@ -287,13 +289,14 @@ tr.cur td{background:var(--accent-soft)}
   </div>
   <div class="tablewrap">
     <table id="inv-table">
-      <thead><tr><th>#</th><th>Modelo</th><th class="r">Pnom <span class="u">kW</span></th><th class="r" title="Potência aparente máxima da ficha ÷ (√3·400 V), ou ÷ 230 V nos monofásicos">Ib <span class="u">A</span></th><th>Cabo</th><th>Liga ao quadro</th><th title="Tipo de passagem deste inversor. Por omissão a passagem geral (ou a da sua esteira), definida em baixo.">Passagem</th><th title="Cada esteira (A, B, …) tem a sua passagem; os inversores do mesmo quadro na mesma esteira contam juntos no agrupamento">Esteira</th><th title="Em branco: o cos φ dos Critérios">cos φ</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Modelo</th><th class="r">Pnom <span class="u">kW</span></th><th class="r" title="Potência aparente máxima da ficha ÷ (√3·400 V), ou ÷ 230 V nos monofásicos">Ib <span class="u">A</span></th><th>Cabo</th><th>Liga ao quadro</th><th title="Em branco: o cos φ dos Critérios">cos φ</th><th>Distância <span class="u">m</span></th><th></th></tr></thead>
       <tbody id="inv-body"></tbody>
     </table>
   </div>
   <h3>Passagem dos cabos dos inversores</h3>
-  <p class="hint">Cada inversor pode ter o seu tipo de passagem (coluna "Passagem" da tabela). Os inversores sem passagem própria usam a passagem geral ou a da sua esteira.</p>
+  <p class="hint">Os inversores que não estão noutra passagem usam a passagem geral. Para inversores com caminhos de cabo diferentes, usa "Adicionar passagem" e marca os inversores que passam por lá. Contam juntos no agrupamento os inversores da mesma passagem ligados ao mesmo quadro.</p>
   <div id="route-inv"></div>
+  <button type="button" id="rt-add" class="rt-add">Adicionar passagem</button>
 </section>
 
 <section class="panel">
