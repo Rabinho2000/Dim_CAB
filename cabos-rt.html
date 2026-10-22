@@ -581,6 +581,13 @@ function options(c){
   /* menos cabos primeiro (1 por fase antes de 2 ou 3) e, para o mesmo nº de cabos, a menor secção */
   return out.sort((a,b)=>a.n-b.n||a.s-b.s);
 }
+/* todos os cabos tabelados para a passagem do circuito, para escolher à mão e verificar: cobre e alumínio (≥ 16 mm²),
+   monocondutor e multicondutor, 1 a 3 por fase. Só os que existem no quadro da RTIEBT do método (nunca extrapolar). */
+function allCables(c){const out=[];
+  for(const mat of ['Cu','Al'])for(const cons of ['mono','multi'])for(let n=1;n<=3;n++)for(const s of SECS){
+    if(mat==='Al'&&s<16)continue;if(izBase({...c.r,cons},mat,s,c.loaded))out.push({n,s,mat,cons});}
+  return out;
+}
 /* reatância X (Ω/m) da tabela da folha Excel: X = 2π·50·l, l = 0,05 + 0,46·log(2·am/d) mH/km */
 const XTAB={Cu:{1.5:1.0312e-4,2.5:9.9389e-5,4:9.2844e-5,6:8.7875e-5,10:8.7140e-5,16:8.2232e-5,25:8.1456e-5,35:7.8487e-5,50:7.8089e-5,70:7.5512e-5,95:7.5239e-5,120:7.3660e-5,150:7.3740e-5,185:7.3747e-5,240:7.3301e-5,300:7.2994e-5},
             Al:{16:8.2232e-5,25:8.1456e-5,35:7.8487e-5,50:7.8089e-5,70:7.5512e-5,95:7.3446e-5,120:7.3660e-5,150:7.3740e-5,185:7.3747e-5,240:7.3301e-5,300:7.2994e-5}};
@@ -1044,7 +1051,12 @@ function render(){
     const o=c.res;
     if(c.Ib<=0)return `<tr class="${c.kind==='perc'?'feeder':''}"><td>${esc(c.nome)}<span class="sub">${c.L} m</span></td><td class="n r">0,0</td><td colspan="8" class="hint">${c.kind==='perc'?'Nenhum inversor passa por este percurso. Confirma os nomes dos quadros.':'Indica a potência.'}</td></tr>`;
     const {st,why}=verdict(c);
-    const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção"><option value="auto">Auto</option>${c.opts.map(x=>{const v=`${x.n}x${x.s}|${x.mat}|${x.cons}`;return `<option value="${v}"${c.ref.S===v?' selected':''}>${x.n>1?x.n+'×':''}${fs(x.s)} ${x.mat}${x.cons==='multi'?' multi':''}</option>`;}).join('')}</select>`;
+    /* sugeridas (as que o motor considera) e, para verificar, qualquer outro cabo tabelado para esta passagem */
+    const okey=x=>`${x.n}x${x.s}|${x.mat}|${x.cons}`,optH=x=>{const v=okey(x);return `<option value="${v}"${c.ref.S===v?' selected':''}>${x.n>1?x.n+'×':''}${fs(x.s)} ${x.mat}${x.cons==='multi'?' multi':''}</option>`;};
+    const sug=new Set(c.opts.map(okey)),rest=allCables(c).filter(x=>!sug.has(okey(x)));
+    const grp=[['Cu','mono','Cobre · monocondutores'],['Cu','multi','Cobre · multicondutor'],['Al','mono','Alumínio · monocondutores'],['Al','multi','Alumínio · multicondutor']]
+      .map(([m,k,l])=>{const xs=rest.filter(x=>x.mat===m&&x.cons===k);return xs.length?`<optgroup label="${l} (verificar)">${xs.map(optH).join('')}</optgroup>`:'';}).join('');
+    const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção" title="Auto: o motor escolhe. Podes escolher qualquer cabo tabelado para esta passagem; se não cumprir, o circuito fica a rever com o motivo."><option value="auto">Auto</option><optgroup label="Sugeridas">${c.opts.map(optH).join('')}</optgroup>${grp}</select>`;
     const label=(c.code?`<b class="ccode">${c.code}</b> `:'')+(c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome));
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;
     return `<tr class="${c.kind==='perc'?'feeder ':''}${st==='bad'?'err':''}"><td>${label}<span class="sub">${sub}</span></td><td class="n r">${fmt(c.p,1)}</td><td class="n r">${fmt(c.Ib,1)}</td>

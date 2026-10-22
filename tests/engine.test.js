@@ -264,6 +264,15 @@ test('passagens: inversores com caminhos de cabo diferentes; projetos antigos co
   assert.ok(S1.invs.every(i=>i.est===undefined&&i.rt===undefined)&&S1.rEst===undefined,'campos antigos retirados');
 });
 
+test('qualquer cabo tabelado pode ser escolhido à mão para verificar, mesmo que não cumpra',()=>{
+  const E=engine();const st=scen({modelo:'SUN2000-100KTL-M2',L:10});st.invs[0].S='1x25|Cu|mono';E.set(st);
+  let c=E.solve().invC[0];assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat} ${c.res.cons}`,'1x25 Cu mono','fica o cabo escolhido');
+  assert.equal(c.auto,false);assert.equal(c.res.term,false,'In > Iz: não cumpre e fica a rever');
+  const st2=scen({modelo:'SUN2000-100KTL-M2',L:10});st2.invs[0].S='1x95|Al|multi';E.set(st2);c=E.solve().invC[0];
+  assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat} ${c.res.cons}`,'1x95 Al multi','alumínio multicondutor também se verifica');
+  const all=E.ev('allCables(solveAll().invC[0])');assert.ok(all.length>100&&all.every(x=>!(x.mat==='Al'&&x.s<16)));
+});
+
 test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');

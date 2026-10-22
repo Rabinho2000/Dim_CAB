@@ -93,7 +93,12 @@ function render(){
     const o=c.res;
     if(c.Ib<=0)return `<tr class="${c.kind==='perc'?'feeder':''}"><td>${esc(c.nome)}<span class="sub">${c.L} m</span></td><td class="n r">0,0</td><td colspan="8" class="hint">${c.kind==='perc'?'Nenhum inversor passa por este percurso. Confirma os nomes dos quadros.':'Indica a potência.'}</td></tr>`;
     const {st,why}=verdict(c);
-    const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção"><option value="auto">Auto</option>${c.opts.map(x=>{const v=`${x.n}x${x.s}|${x.mat}|${x.cons}`;return `<option value="${v}"${c.ref.S===v?' selected':''}>${x.n>1?x.n+'×':''}${fs(x.s)} ${x.mat}${x.cons==='multi'?' multi':''}</option>`;}).join('')}</select>`;
+    /* sugeridas (as que o motor considera) e, para verificar, qualquer outro cabo tabelado para esta passagem */
+    const okey=x=>`${x.n}x${x.s}|${x.mat}|${x.cons}`,optH=x=>{const v=okey(x);return `<option value="${v}"${c.ref.S===v?' selected':''}>${x.n>1?x.n+'×':''}${fs(x.s)} ${x.mat}${x.cons==='multi'?' multi':''}</option>`;};
+    const sug=new Set(c.opts.map(okey)),rest=allCables(c).filter(x=>!sug.has(okey(x)));
+    const grp=[['Cu','mono','Cobre · monocondutores'],['Cu','multi','Cobre · multicondutor'],['Al','mono','Alumínio · monocondutores'],['Al','multi','Alumínio · multicondutor']]
+      .map(([m,k,l])=>{const xs=rest.filter(x=>x.mat===m&&x.cons===k);return xs.length?`<optgroup label="${l} (verificar)">${xs.map(optH).join('')}</optgroup>`:'';}).join('');
+    const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção" title="Auto: o motor escolhe. Podes escolher qualquer cabo tabelado para esta passagem; se não cumprir, o circuito fica a rever com o motivo."><option value="auto">Auto</option><optgroup label="Sugeridas">${c.opts.map(optH).join('')}</optgroup>${grp}</select>`;
     const label=(c.code?`<b class="ccode">${c.code}</b> `:'')+(c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome));
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;
     return `<tr class="${c.kind==='perc'?'feeder ':''}${st==='bad'?'err':''}"><td>${label}<span class="sub">${sub}</span></td><td class="n r">${fmt(c.p,1)}</td><td class="n r">${fmt(c.Ib,1)}</td>

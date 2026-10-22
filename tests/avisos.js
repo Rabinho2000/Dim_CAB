@@ -43,4 +43,10 @@ await p.click('[data-tab=sld]');check(/Proteção de interface \(a especificar\)
 await p.click('[data-tab=ac]');await p.fill('#pint','');await p.click('[data-tab=brd]');
 check(!(await p.$eval('[data-pane=brd]',e=>/Proteção de interface/.test(e.innerText))),'em branco: sem proteção de interface');
 await p.click('[data-tab=ac]');await (await p.$('#res-body')).screenshot({path:__dirname+'/avisos.png'});
+/* escolha manual: qualquer cabo tabelado, agrupado por material e constituição; um que não cumpre fica a rever */
+const selC2='#res-body select[data-sel^="inv:"] >> nth=1';
+check(await p.$eval('#res-body select[data-sel^="inv:"]',s=>[...s.querySelectorAll('optgroup')].map(g=>g.label).join('|')).then(t=>/Sugeridas/.test(t)&&/Alumínio · multicondutor/.test(t)&&/Cobre · multicondutor/.test(t)),'lista com as sugeridas e todos os outros cabos tabelados');
+await p.selectOption(selC2,'1x25|Cu|mono');
+check(/^C2 .*1×25 mm²/.test(await rowTxt(/^C2 /))&&/IN > IZ/i.test(await rowTxt(/^C2 /))&&await p.evaluate(()=>verdict(last.invC[1]).st==='bad'),'C2 com 1×25 Cu escolhido à mão: fica o cabo e o circuito a rever (In > Iz)');
+await p.selectOption(selC2,'auto');check(await p.evaluate(()=>verdict(last.invC[1]).st==='ok'),'Auto volta a escolher um cabo que cumpre');
 console.log('ERR',errs);await b.close();process.exit(errs.length?1:0);})();

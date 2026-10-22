@@ -109,6 +109,13 @@ function options(c){
   /* menos cabos primeiro (1 por fase antes de 2 ou 3) e, para o mesmo nº de cabos, a menor secção */
   return out.sort((a,b)=>a.n-b.n||a.s-b.s);
 }
+/* todos os cabos tabelados para a passagem do circuito, para escolher à mão e verificar: cobre e alumínio (≥ 16 mm²),
+   monocondutor e multicondutor, 1 a 3 por fase. Só os que existem no quadro da RTIEBT do método (nunca extrapolar). */
+function allCables(c){const out=[];
+  for(const mat of ['Cu','Al'])for(const cons of ['mono','multi'])for(let n=1;n<=3;n++)for(const s of SECS){
+    if(mat==='Al'&&s<16)continue;if(izBase({...c.r,cons},mat,s,c.loaded))out.push({n,s,mat,cons});}
+  return out;
+}
 /* reatância X (Ω/m) da tabela da folha Excel: X = 2π·50·l, l = 0,05 + 0,46·log(2·am/d) mH/km */
 const XTAB={Cu:{1.5:1.0312e-4,2.5:9.9389e-5,4:9.2844e-5,6:8.7875e-5,10:8.7140e-5,16:8.2232e-5,25:8.1456e-5,35:7.8487e-5,50:7.8089e-5,70:7.5512e-5,95:7.5239e-5,120:7.3660e-5,150:7.3740e-5,185:7.3747e-5,240:7.3301e-5,300:7.2994e-5},
             Al:{16:8.2232e-5,25:8.1456e-5,35:7.8487e-5,50:7.8089e-5,70:7.5512e-5,95:7.3446e-5,120:7.3660e-5,150:7.3740e-5,185:7.3747e-5,240:7.3301e-5,300:7.2994e-5}};
