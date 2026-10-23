@@ -83,7 +83,7 @@ td.r,th.r{text-align:right}
 .pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
 tr.feeder td{background:var(--sunk)}
 tr.err td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
-.ovr{width:auto;padding:3px 5px;font-size:12px}
+.ovr{width:auto;max-width:190px;padding:3px 5px;font-size:12px}
 .accw{display:flex;align-items:center;gap:8px;min-width:130px}
 .bar{position:relative;height:8px;background:var(--sunk);border-radius:2px;overflow:hidden;flex:1;min-width:50px}
 .bar i{position:absolute;inset:0 auto 0 0;background:var(--dc)}
@@ -214,7 +214,7 @@ tr.cur td{background:var(--accent-soft)}
 .rhead{margin:14px 0 6px;font-size:13px}
 .rthead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0 6px}.rthead input{width:auto;min-width:180px;font-weight:600}.rthead .del{margin-left:auto}
 .rtinvs{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 8px;font-size:13px}.rtinvs label{display:inline-flex;gap:4px;align-items:center}.rtinvs input{width:auto}
-.rt-add{margin-top:10px}.rhead .hint{font-weight:400;margin-left:6px}
+.rt-add{margin-top:10px}.rtwarn{margin:10px 0 0;padding:8px 12px;border-left:3px solid var(--bad,#BF3328);background:rgba(191,51,40,.06);font-size:13px}.rhead .hint{font-weight:400;margin-left:6px}
 .bind{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
 .bind h3 .hint{font-family:var(--f-body);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
 .bind table.bom{width:100%;table-layout:fixed;font-size:12.5px}
@@ -294,7 +294,7 @@ tr.cur td{background:var(--accent-soft)}
     </table>
   </div>
   <h3>Passagem dos cabos dos inversores</h3>
-  <p class="hint">Os inversores que não estão noutra passagem usam a passagem geral. Para inversores com caminhos de cabo diferentes, usa "Adicionar passagem" e marca os inversores que passam por lá. Contam juntos no agrupamento os inversores da mesma passagem ligados ao mesmo quadro.</p>
+  <p class="hint">Usa "Adicionar passagem" para cada caminho de cabo e marca os inversores que passam por lá. Cada inversor está numa só passagem; contam juntos no agrupamento os inversores da mesma passagem ligados ao mesmo quadro.</p>
   <div id="route-inv"></div>
   <button type="button" id="rt-add" class="rt-add">Adicionar passagem</button>
 </section>

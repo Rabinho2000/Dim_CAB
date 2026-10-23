@@ -210,7 +210,7 @@ test('alternativa mais barata conta cabo + terminais',()=>{
 test('agrupamento: esteiras dos inversores e outros circuitos na esteira de um percurso',()=>{
   const E=engine();const base=E.solve(),st=E.S();
   assert.ok(base.invC.every(c=>c.nAgr===4),'por omissão: os 4 do QFV juntos');
-  E.set({invs:st.invs.map((i,k)=>({...i,est:k<2?'a':'B'})),percs:st.percs});let R=E.solve();
+  E.set({invs:st.invs.map((i,k)=>({...i,rtId:undefined,est:k<2?'a':'B'})),percs:st.percs});let R=E.solve();
   assert.deepEqual([...R.invC.map(c=>c.nAgr)],[2,2,2,2],'esteiras A e B: 2 em cada (a letra não distingue maiúsculas)');
   assert.ok(R.invC[0].res.fg>base.invC[0].res.fg&&R.invC[0].res.s<=base.invC[0].res.s,'menos agrupamento: fator maior, secção igual ou menor');
   E.set({percs:st.percs.map((p,k)=>k===0?{...p,extra:4}:p)});R=E.solve();
@@ -226,7 +226,7 @@ test('seletividade: aviso quando In a montante < 1,6 × o maior In a jusante',()
 });
 
 test('solveProject: calcula outro projeto sem mexer no aberto',()=>{
-  const E=engine();const before=JSON.stringify(E.S());
+  const E=engine();E.solve();const before=JSON.stringify(E.S());
   const R=E.ev(`solveProject({invs:[{modelo:'SUN2000-50KTL-M3',pman:0,q:'QFV',L:30,S:'auto'}],percs:[{orig:'QFV',dest:'Qentrada',L:10,S:'auto',ref:'13',cons:'mono',disp:'trevo',trays:1,sol:false}],gws:[]})`);
   assert.equal(R.invC.length,1);assert.equal(JSON.stringify(E.S()),before,'S ficou igual');
   assert.equal(E.solve().invC.length,4,'o projeto aberto continua com os 4 inversores');
@@ -255,9 +255,11 @@ test('Indusmelec: modular S804P-C125 + F204 até 125 A; caixas moldadas com toro
 test('passagens: inversores com caminhos de cabo diferentes; projetos antigos convertidos',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-100KTL-M2',L:10,n:3});st.rts=[{...route('3A','multi'),id:1,nome:'Tubo'}];st.invs[2].rtId=1;E.set(st);
   const R=E.solve().invC;assert.equal(R.map(c=>c.r.ref).join(),'13,13,3A');assert.equal(R.map(c=>c.nAgr).join(),'2,2,1','agrupam só os da mesma passagem e do mesmo quadro');
-  assert.equal(R.map(c=>c.rtKey).join(),'inv,inv,rt:1');assert.equal(R[2].res.cons,'multi');assert.ok(R[2].res.s>R[0].res.s,'em tubo a secção é maior');
-  /* passagem removida: o inversor volta à geral */
-  E.set({...st,rts:[]});assert.equal(E.solve().invC[2].r.ref,'13');
+  assert.equal(R.map(c=>c.rtKey).join(),'rt:2,rt:2,rt:1','projeto sem passagem nos outros: ficam numa passagem nova (uma vez)');assert.equal(R[2].res.cons,'multi');assert.ok(R[2].res.s>R[0].res.s,'em tubo a secção é maior');
+  assert.equal(E.S().rts.map(r=>r.nome).join(),'Tubo,Passagem 2');assert.ok(R.every(c=>!c.gwErr));
+  /* sem passagem geral: passagem removida, o inversor fica sem passagem e a rever */
+  E.set({...st,rts:[{...route('13','mono'),id:2,nome:'Passagem 2'}],rtV:2});const N=E.solve().invC;
+  assert.equal(N.map(c=>c.rtKey).join(),'none,none,none','rtId de passagem que já não existe');assert.ok(N.every(c=>c.gwErr==='Sem passagem atribuída'&&c.nAgr===1));
   /* projeto antigo: letras da coluna Esteira (S.rEst) e passagem própria (i.rt) */
   const old=scen({modelo:'SUN2000-100KTL-M2',L:10,n:3});old.invs[0].est='a';old.invs[1].est='A';old.invs[2].rt=route('11','mono');old.rEst={A:route('3A','mono')};E.set(old);
   const O=E.solve().invC,S1=E.S();assert.equal(O.map(c=>c.r.ref).join(),'3A,3A,11');assert.equal(S1.rts.map(r=>r.nome).join(),'Esteira A,Inversor 3');
@@ -269,8 +271,8 @@ test('qualquer cabo tabelado pode ser escolhido à mão para verificar, mesmo qu
   let c=E.solve().invC[0];assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat} ${c.res.cons}`,'1x25 Cu mono','fica o cabo escolhido');
   assert.equal(c.auto,false);assert.equal(c.res.term,false,'In > Iz: não cumpre e fica a rever');
   const st2=scen({modelo:'SUN2000-100KTL-M2',L:10});st2.invs[0].S='1x95|Al|multi';E.set(st2);c=E.solve().invC[0];
-  assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat} ${c.res.cons}`,'1x95 Al multi','alumínio multicondutor também se verifica');
-  const all=E.ev('allCables(solveAll().invC[0])');assert.ok(all.length>100&&all.every(x=>!(x.mat==='Al'&&x.s<16)));
+  assert.equal(c.auto,true,'não há multicondutor de alumínio: volta a automático');assert.match(c.dropMsg,/multicondutor de alumínio/);
+  const all=E.ev('allCables(solveAll().invC[0])');assert.ok(all.length>80&&all.every(x=>x.mat==='Cu'||(x.s>=16&&x.cons==='mono')));
 });
 
 test('secção forçada pelo utilizador é respeitada',()=>{

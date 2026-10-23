@@ -83,7 +83,7 @@ td.r,th.r{text-align:right}
 .pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
 tr.feeder td{background:var(--sunk)}
 tr.err td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
-.ovr{width:auto;padding:3px 5px;font-size:12px}
+.ovr{width:auto;max-width:190px;padding:3px 5px;font-size:12px}
 .accw{display:flex;align-items:center;gap:8px;min-width:130px}
 .bar{position:relative;height:8px;background:var(--sunk);border-radius:2px;overflow:hidden;flex:1;min-width:50px}
 .bar i{position:absolute;inset:0 auto 0 0;background:var(--dc)}
@@ -214,7 +214,7 @@ tr.cur td{background:var(--accent-soft)}
 .rhead{margin:14px 0 6px;font-size:13px}
 .rthead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0 6px}.rthead input{width:auto;min-width:180px;font-weight:600}.rthead .del{margin-left:auto}
 .rtinvs{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 8px;font-size:13px}.rtinvs label{display:inline-flex;gap:4px;align-items:center}.rtinvs input{width:auto}
-.rt-add{margin-top:10px}.rhead .hint{font-weight:400;margin-left:6px}
+.rt-add{margin-top:10px}.rtwarn{margin:10px 0 0;padding:8px 12px;border-left:3px solid var(--bad,#BF3328);background:rgba(191,51,40,.06);font-size:13px}.rhead .hint{font-weight:400;margin-left:6px}
 .bind{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
 .bind h3 .hint{font-family:var(--f-body);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
 .bind table.bom{width:100%;table-layout:fixed;font-size:12.5px}
@@ -294,7 +294,7 @@ tr.cur td{background:var(--accent-soft)}
     </table>
   </div>
   <h3>Passagem dos cabos dos inversores</h3>
-  <p class="hint">Os inversores que não estão noutra passagem usam a passagem geral. Para inversores com caminhos de cabo diferentes, usa "Adicionar passagem" e marca os inversores que passam por lá. Contam juntos no agrupamento os inversores da mesma passagem ligados ao mesmo quadro.</p>
+  <p class="hint">Usa "Adicionar passagem" para cada caminho de cabo e marca os inversores que passam por lá. Cada inversor está numa só passagem; contam juntos no agrupamento os inversores da mesma passagem ligados ao mesmo quadro.</p>
   <div id="route-inv"></div>
   <button type="button" id="rt-add" class="rt-add">Adicionar passagem</button>
 </section>
@@ -581,11 +581,12 @@ function options(c){
   /* menos cabos primeiro (1 por fase antes de 2 ou 3) e, para o mesmo nº de cabos, a menor secção */
   return out.sort((a,b)=>a.n-b.n||a.s-b.s);
 }
-/* todos os cabos tabelados para a passagem do circuito, para escolher à mão e verificar: cobre e alumínio (≥ 16 mm²),
-   monocondutor e multicondutor, 1 a 3 por fase. Só os que existem no quadro da RTIEBT do método (nunca extrapolar). */
+/* todos os cabos tabelados para a passagem do circuito, para escolher à mão e verificar: cobre mono e multicondutor,
+   alumínio só monocondutor (≥ 16 mm²; não há multicondutor de alumínio), 1 a 3 por fase. Só os que existem no quadro
+   da RTIEBT do método (nunca extrapolar). */
 function allCables(c){const out=[];
   for(const mat of ['Cu','Al'])for(const cons of ['mono','multi'])for(let n=1;n<=3;n++)for(const s of SECS){
-    if(mat==='Al'&&s<16)continue;if(izBase({...c.r,cons},mat,s,c.loaded))out.push({n,s,mat,cons});}
+    if(mat==='Al'&&(s<16||cons==='multi'))continue;if(izBase({...c.r,cons},mat,s,c.loaded))out.push({n,s,mat,cons});}
   return out;
 }
 /* reatância X (Ω/m) da tabela da folha Excel: X = 2π·50·l, l = 0,05 + 0,46·log(2·am/d) mH/km */
@@ -632,26 +633,32 @@ function noFitMsg(c){
 /* temperaturas só da tabela, pela região (decisão do utilizador, out. 2026): ar e solo de LOCS; região desconhecida → Porto */
 const locOf=loc=>LOCS.find(x=>x[0]===loc)||LOCS.find(x=>x[0]==='Porto');
 function syncTemps(){const l=locOf(S.loc);S.loc=l[0];S.tair=l[1];S.tsoil=l[2];}
-/* passagens dos cabos dos inversores: a geral (S.rInv) e as acrescentadas com "Adicionar passagem" (S.rts: {id, nome, ...passagem}).
-   Cada inversor está numa só (i.rtId; sem rtId = geral). Agrupamento: inversores da mesma passagem ligados ao mesmo quadro.
-   Projetos antigos: cada letra da coluna "Esteira" (S.rEst) e cada passagem própria (i.rt) passam a ser uma passagem. */
+/* passagens dos cabos dos inversores: só as acrescentadas com "Adicionar passagem" (S.rts: {id, nome, ...passagem}), sem
+   passagem geral predefinida (pedido do utilizador, out. 2026). Cada inversor está numa só (i.rtId); um inversor sem passagem
+   fica a rever (calculado provisoriamente com S.rInv, o modelo das passagens novas). Agrupamento: inversores da mesma
+   passagem ligados ao mesmo quadro. Projetos antigos: cada letra da coluna "Esteira" (S.rEst) e cada passagem própria (i.rt)
+   passam a ser uma passagem, e os inversores que estavam na passagem geral ficam numa passagem nova (uma vez, S.rtV=2). */
 function migrateRoutes(){
   if(!Array.isArray(S.rts))S.rts=[];let n=S.rts.reduce((a,r)=>Math.max(a,+r.id||0),0);const byE={};
   S.invs.forEach((i,k)=>{const e=String(i.est||'').trim().toUpperCase();
     if(i.rt){const r={...i.rt,id:++n,nome:`Inversor ${k+1}`};S.rts.push(r);i.rtId=r.id;}
-    else if(e&&i.rtId==null){let r=byE[e];if(!r){r={...((S.rEst||{})[e]||S.rInv),id:++n,nome:`Esteira ${e}`};S.rts.push(r);byE[e]=r;}i.rtId=r.id;}
+    else if(e&&!rtOf(i)){let r=byE[e];if(!r){r={...((S.rEst||{})[e]||S.rInv),id:++n,nome:`Esteira ${e}`};S.rts.push(r);byE[e]=r;}i.rtId=r.id;}
     delete i.rt;delete i.est;});
   delete S.rEst;
+  if(S.rtV!==2){const free=S.invs.filter(i=>!rtOf(i));
+    if(free.length){const r={...S.rInv,id:++n,nome:`Passagem ${S.rts.length+1}`};S.rts.push(r);free.forEach(i=>{i.rtId=r.id;});}
+    S.rtV=2;}
 }
-const rtOf=i=>(i&&i.rtId!=null&&(S.rts||[]).find(r=>r.id===i.rtId))||S.rInv;
-const rtKeyOf=i=>{const r=rtOf(i);return r===S.rInv?'inv':'rt:'+r.id;};
+const rtOf=i=>(i&&i.rtId!=null&&(S.rts||[]).find(r=>r.id===i.rtId))||null;
+const rtKeyOf=i=>{const r=rtOf(i);return r?'rt:'+r.id:'none';};
+const NORT='Sem passagem atribuída';
 function solve(zf){
   syncTemps();migrateRoutes();
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
-    const rt=rtOf(i),nq=S.invs.filter(x=>x.q===i.q&&rtOf(x)===rt).length;
+    const own=rtOf(i),rt=own||S.rInv,nq=own?S.invs.filter(x=>x.q===i.q&&rtOf(x)===own).length:1;
     const nAgr=nq;
     return {cos:+i.cos>0?+i.cos:null,ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
-      L:+i.L||0,r:{...rt,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:rt.cons},consForced:i.cons==='mono',ti:tempInfo(rt),nAgr,path:pathOf(i.q),rtKey:rtKeyOf(i)};});
+      L:+i.L||0,r:{...rt,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:rt.cons},consForced:i.cons==='mono',ti:tempInfo(rt),nAgr,path:pathOf(i.q),rtKey:rtKeyOf(i),gwErr:own?'':NORT};});
   const pC=S.percs.flatMap(p=>{const fe=invC.filter(c=>c.path.includes(p));const gw=gwOf(p.orig),gwD=gwOf(p.dest);
     /* ordem inversor → QFV → gateway: do QFV sai um cabo por inversor até à respetiva entrada do gateway */
     if(gwD&&p.split!==false&&fe.length){p.subs=p.subs||{};const sp=gwSpec(gwD);
@@ -680,7 +687,8 @@ function solve(zf){
     /* secção escolhida à mão que não está nas opções: entra se existir no quadro do método; senão volta a automático com aviso */
     c.dropMsg=null;
     if(c.ref.S!=='auto'&&!c.opts.some(o=>okey(o)===c.ref.S)){const [ns,mat,cons]=c.ref.S.split('|');const [n,s]=ns.split('x').map(Number);
-      if(izBase({...c.r,cons},mat,s,c.loaded))c.opts=c.opts.concat([{n,s,mat,cons}]);
+      if(mat==='Al'&&cons==='multi'){c.dropMsg='Não há cabo multicondutor de alumínio: voltou a automático.';c.ref.S='auto';}
+      else if(izBase({...c.r,cons},mat,s,c.loaded))c.opts=c.opts.concat([{n,s,mat,cons}]);
       else{c.dropMsg=`A secção escolhida (${n>1?n+' × ':''}${fs(s)} mm² ${mat}${cons==='multi'?' multicondutor':''}) não existe no quadro da RTIEBT para esta passagem: voltou a automático.`;c.ref.S='auto';}}
     /* sem nenhuma secção que cumpra In ≤ Iz: mostra-se a de maior Iz (a que fica mais perto), não a menor */
     const big=()=>c.opts.reduce((bi,o,j)=>calc(c,o).Iz>calc(c,c.opts[bi]).Iz?j:bi,0);
@@ -1004,7 +1012,7 @@ function renderInvTable(){
   $('#inv-body').innerHTML=S.invs.map((i,k)=>{const info=invInfo(i);return `<tr data-id="${i.id}"><td class="n">${k+1}</td>
     <td><select data-k="modelo" aria-label="Modelo">${modelSel(i.modelo)}</select>${i.modelo==='__outro'?`<input data-k="pman" type="number" min="0" step="0.1" value="${i.pman||''}" placeholder="kW" class="pman" aria-label="Potência kW">`:''}</td>
     <td class="n r">${fmt(info.pnom,1)}</td><td class="n r">${fmt(info.Ib,1)}<span class="sub">${info.fases===1?'1F 230 V':'3F 400 V'}</span></td>
-    <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem (${rtOf(i).cons==='mono'?'mono':'multi'})</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
+    <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem${rtOf(i)?` (${rtOf(i).cons==='mono'?'mono':'multi'})`:''}</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
     <td><select data-k="q" aria-label="Quadro">${qs.concat(qs.includes(i.q)?[]:[i.q]).map(n=>`<option${n===i.q?' selected':''}>${esc(n)}</option>`).join('')}</select></td>
     <td><input data-k="cos" type="number" min="0.5" max="1" step="0.01" value="${+i.cos>0?i.cos:''}" placeholder="${fs(+S.cos||1)}" aria-label="cos φ" title="cos φ deste inversor (em branco: o dos Critérios). Nos percursos conta o menor dos inversores a montante." class="w-num"></td>
     <td><input data-k="L" type="number" min="0" step="1" value="${i.L}" aria-label="Distância m" class="w-num"></td>
@@ -1031,13 +1039,13 @@ function verdict(c){const o=c.res;
 function render(){
   const R=solveAll();last=R;
   const maxN=Math.max(1,...R.invC.map(c=>c.nAgr));
-  /* passagens dos inversores: a geral e as acrescentadas, cada uma com os inversores que passam por lá (checkboxes) */
-  const rts=S.rts||[],onlyGeral=!rts.length,num=c=>c.nome.replace('Inversor ','');
-  $('#route-inv').innerHTML=['inv'].concat(rts.map(r=>'rt:'+r.id)).map(key=>{const cs=R.invC.filter(c=>c.rtKey===key),r=routeOf(key);
-    const head=key==='inv'?(onlyGeral?'':`<div class="rthead"><b>Passagem geral</b><span class="hint">${cs.length?'inversores '+cs.map(num).join(', '):'nenhum inversor'}</span></div>`)
-      :`<div class="rthead"><input data-rtname="${r.id}" value="${esc(r.nome||'')}" aria-label="Nome da passagem"><button type="button" class="ghost del" data-rtdel="${r.id}">Remover passagem</button></div>
+  /* passagens dos inversores: só as acrescentadas, cada uma com os inversores que passam por lá (checkboxes); sem passagem geral */
+  const rts=S.rts||[],num=c=>c.nome.replace('Inversor ',''),free=R.invC.filter(c=>c.rtKey==='none');
+  $('#route-inv').innerHTML=rts.map(r=>'rt:'+r.id).map(key=>{const cs=R.invC.filter(c=>c.rtKey===key),r=routeOf(key);
+    const head=`<div class="rthead"><input data-rtname="${r.id}" value="${esc(r.nome||'')}" aria-label="Nome da passagem"><button type="button" class="ghost del" data-rtdel="${r.id}">Remover passagem</button></div>
         <div class="rtinvs"><span class="hint">Inversores nesta passagem:</span>${S.invs.map((i,k)=>`<label><input type="checkbox" data-rtinv="${r.id}" value="${i.id}"${i.rtId===r.id?' checked':''}> ${k+1}</label>`).join('')}</div>`;
-    return head+routeCard(key,r,cs[0],Math.max(1,...cs.map(c=>c.nAgr)));}).join('');
+    return head+routeCard(key,r,cs[0],Math.max(1,...cs.map(c=>c.nAgr)));}).join('')
+    +(free.length?`<p class="rtwarn">${rts.length?'Sem passagem':'Ainda não há passagens'}: ${free.length===1?'inversor':'inversores'} ${free.map(num).join(', ')}. ${rts.length?'Marca-os numa passagem':'Usa "Adicionar passagem" e marca os inversores'}; até lá ficam a rever.</p>`:'');
   R.pC.forEach(c=>{if(c.split&&c!==R.pC.find(x=>x.base===c.base))return;const td=document.querySelector(`#p-body tr.rrow[data-id="${c.base.id}"] [data-route]`);if(td)td.innerHTML=routeCard('p'+c.base.id,c.base,c,c.split?c.nAgr:1);});
   const all=R.invC.concat(R.pC);
   const bad=all.filter(c=>c.Ib>0&&(!c.res||!passes(c.res)||c.res.icuOk===false||c.res.du>S.limT||c.gwErr));
@@ -1051,12 +1059,19 @@ function render(){
     const o=c.res;
     if(c.Ib<=0)return `<tr class="${c.kind==='perc'?'feeder':''}"><td>${esc(c.nome)}<span class="sub">${c.L} m</span></td><td class="n r">0,0</td><td colspan="8" class="hint">${c.kind==='perc'?'Nenhum inversor passa por este percurso. Confirma os nomes dos quadros.':'Indica a potência.'}</td></tr>`;
     const {st,why}=verdict(c);
-    /* sugeridas (as que o motor considera) e, para verificar, qualquer outro cabo tabelado para esta passagem */
-    const okey=x=>`${x.n}x${x.s}|${x.mat}|${x.cons}`,optH=x=>{const v=okey(x);return `<option value="${v}"${c.ref.S===v?' selected':''}>${x.n>1?x.n+'×':''}${fs(x.s)} ${x.mat}${x.cons==='multi'?' multi':''}</option>`;};
-    const sug=new Set(c.opts.map(okey)),rest=allCables(c).filter(x=>!sug.has(okey(x)));
-    const grp=[['Cu','mono','Cobre · monocondutores'],['Cu','multi','Cobre · multicondutor'],['Al','mono','Alumínio · monocondutores'],['Al','multi','Alumínio · multicondutor']]
-      .map(([m,k,l])=>{const xs=rest.filter(x=>x.mat===m&&x.cons===k);return xs.length?`<optgroup label="${l} (verificar)">${xs.map(optH).join('')}</optgroup>`:'';}).join('');
-    const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção" title="Auto: o motor escolhe. Podes escolher qualquer cabo tabelado para esta passagem; se não cumprir, o circuito fica a rever com o motivo."><option value="auto">Auto</option><optgroup label="Sugeridas">${c.opts.map(optH).join('')}</optgroup>${grp}</select>`;
+    /* lista de cabos: Automático (com o cabo que o motor escolhe) e todos os cabos tabelados para a passagem, separados em
+       "cumprem" e "não cumprem"; cada um com a constituição por extenso, o Iz e a ΔU (ou o motivo), para se perceber logo */
+    const okey=x=>`${x.n}x${x.s}|${x.mat}|${x.cons}`,cand=allCables(c);if(c.res&&!cand.some(x=>okey(x)===okey(c.res)))cand.push(c.res);
+    const ord={Cu:0,Al:1},rows=cand.map(x=>{const r=calc(c,x),ok=passes(r)&&r.du<=S.limT;
+      const name=`${x.n>1?x.n+' × ':''}${fs(x.s)} mm² ${x.mat==='Cu'?'cobre':'alumínio'}${x.cons==='multi'?' multicondutor':''}`;
+      const why=ok?`Iz ${fmt(r.Iz,0)} A · ΔU ${fmt(r.du,2)} %`:!r.term?`Iz ${fmt(r.Iz,0)} A < In ${r.In??'—'} A`:!r.sob?'I₂ > 1,45 Iz':r.du>S.limT?`ΔU ${fmt(r.du,2)} %`:'não cumpre';
+      return {x,ok,lab:`${name} — ${why}`};}).sort((a,b)=>ord[a.x.mat]-ord[b.x.mat]||(a.x.cons>b.x.cons?1:a.x.cons<b.x.cons?-1:0)||a.x.n-b.x.n||a.x.s-b.x.s)
+      /* lista curta: por material, constituição e nº por fase, as 4 menores secções que cumprem e as 3 maiores que não cumprem (e a escolhida) */
+      .filter((r,_,all)=>{const same=all.filter(y=>y.ok===r.ok&&y.x.mat===r.x.mat&&y.x.cons===r.x.cons&&y.x.n===r.x.n),k=same.indexOf(r);
+        return okey(r.x)===c.ref.S||(r.ok?k<4:k>=same.length-3);});
+    const optH=r=>{const v=okey(r.x);return `<option value="${v}"${c.ref.S===v?' selected':''}>${r.lab}</option>`;};
+    const autoLab=c.auto&&o?`Automático (${o.n>1?o.n+' × ':''}${fs(o.s)} mm² ${o.mat==='Cu'?'cobre':'alumínio'}${o.cons==='multi'?' multicondutor':''})`:'Automático';
+    const sel=`<select class="ovr" data-sel="${c.kind}:${c.ref.id}" aria-label="Secção" title="Automático: o motor escolhe a menor secção que cumpre. Podes escolher qualquer cabo tabelado para esta passagem para verificar; se não cumprir, o circuito fica a rever com o motivo."><option value="auto">${autoLab}</option>${[['Cumprem',true],['Não cumprem (só para verificar)',false]].map(([l,k])=>{const xs=rows.filter(r=>r.ok===k);return xs.length?`<optgroup label="${l}">${xs.map(optH).join('')}</optgroup>`:'';}).join('')}</select>`;
     const label=(c.code?`<b class="ccode">${c.code}</b> `:'')+(c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome));
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;
     return `<tr class="${c.kind==='perc'?'feeder ':''}${st==='bad'?'err':''}"><td>${label}<span class="sub">${sub}</span></td><td class="n r">${fmt(c.p,1)}</td><td class="n r">${fmt(c.Ib,1)}</td>

@@ -109,11 +109,12 @@ function options(c){
   /* menos cabos primeiro (1 por fase antes de 2 ou 3) e, para o mesmo nº de cabos, a menor secção */
   return out.sort((a,b)=>a.n-b.n||a.s-b.s);
 }
-/* todos os cabos tabelados para a passagem do circuito, para escolher à mão e verificar: cobre e alumínio (≥ 16 mm²),
-   monocondutor e multicondutor, 1 a 3 por fase. Só os que existem no quadro da RTIEBT do método (nunca extrapolar). */
+/* todos os cabos tabelados para a passagem do circuito, para escolher à mão e verificar: cobre mono e multicondutor,
+   alumínio só monocondutor (≥ 16 mm²; não há multicondutor de alumínio), 1 a 3 por fase. Só os que existem no quadro
+   da RTIEBT do método (nunca extrapolar). */
 function allCables(c){const out=[];
   for(const mat of ['Cu','Al'])for(const cons of ['mono','multi'])for(let n=1;n<=3;n++)for(const s of SECS){
-    if(mat==='Al'&&s<16)continue;if(izBase({...c.r,cons},mat,s,c.loaded))out.push({n,s,mat,cons});}
+    if(mat==='Al'&&(s<16||cons==='multi'))continue;if(izBase({...c.r,cons},mat,s,c.loaded))out.push({n,s,mat,cons});}
   return out;
 }
 /* reatância X (Ω/m) da tabela da folha Excel: X = 2π·50·l, l = 0,05 + 0,46·log(2·am/d) mH/km */
@@ -160,26 +161,32 @@ function noFitMsg(c){
 /* temperaturas só da tabela, pela região (decisão do utilizador, out. 2026): ar e solo de LOCS; região desconhecida → Porto */
 const locOf=loc=>LOCS.find(x=>x[0]===loc)||LOCS.find(x=>x[0]==='Porto');
 function syncTemps(){const l=locOf(S.loc);S.loc=l[0];S.tair=l[1];S.tsoil=l[2];}
-/* passagens dos cabos dos inversores: a geral (S.rInv) e as acrescentadas com "Adicionar passagem" (S.rts: {id, nome, ...passagem}).
-   Cada inversor está numa só (i.rtId; sem rtId = geral). Agrupamento: inversores da mesma passagem ligados ao mesmo quadro.
-   Projetos antigos: cada letra da coluna "Esteira" (S.rEst) e cada passagem própria (i.rt) passam a ser uma passagem. */
+/* passagens dos cabos dos inversores: só as acrescentadas com "Adicionar passagem" (S.rts: {id, nome, ...passagem}), sem
+   passagem geral predefinida (pedido do utilizador, out. 2026). Cada inversor está numa só (i.rtId); um inversor sem passagem
+   fica a rever (calculado provisoriamente com S.rInv, o modelo das passagens novas). Agrupamento: inversores da mesma
+   passagem ligados ao mesmo quadro. Projetos antigos: cada letra da coluna "Esteira" (S.rEst) e cada passagem própria (i.rt)
+   passam a ser uma passagem, e os inversores que estavam na passagem geral ficam numa passagem nova (uma vez, S.rtV=2). */
 function migrateRoutes(){
   if(!Array.isArray(S.rts))S.rts=[];let n=S.rts.reduce((a,r)=>Math.max(a,+r.id||0),0);const byE={};
   S.invs.forEach((i,k)=>{const e=String(i.est||'').trim().toUpperCase();
     if(i.rt){const r={...i.rt,id:++n,nome:`Inversor ${k+1}`};S.rts.push(r);i.rtId=r.id;}
-    else if(e&&i.rtId==null){let r=byE[e];if(!r){r={...((S.rEst||{})[e]||S.rInv),id:++n,nome:`Esteira ${e}`};S.rts.push(r);byE[e]=r;}i.rtId=r.id;}
+    else if(e&&!rtOf(i)){let r=byE[e];if(!r){r={...((S.rEst||{})[e]||S.rInv),id:++n,nome:`Esteira ${e}`};S.rts.push(r);byE[e]=r;}i.rtId=r.id;}
     delete i.rt;delete i.est;});
   delete S.rEst;
+  if(S.rtV!==2){const free=S.invs.filter(i=>!rtOf(i));
+    if(free.length){const r={...S.rInv,id:++n,nome:`Passagem ${S.rts.length+1}`};S.rts.push(r);free.forEach(i=>{i.rtId=r.id;});}
+    S.rtV=2;}
 }
-const rtOf=i=>(i&&i.rtId!=null&&(S.rts||[]).find(r=>r.id===i.rtId))||S.rInv;
-const rtKeyOf=i=>{const r=rtOf(i);return r===S.rInv?'inv':'rt:'+r.id;};
+const rtOf=i=>(i&&i.rtId!=null&&(S.rts||[]).find(r=>r.id===i.rtId))||null;
+const rtKeyOf=i=>{const r=rtOf(i);return r?'rt:'+r.id:'none';};
+const NORT='Sem passagem atribuída';
 function solve(zf){
   syncTemps();migrateRoutes();
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
-    const rt=rtOf(i),nq=S.invs.filter(x=>x.q===i.q&&rtOf(x)===rt).length;
+    const own=rtOf(i),rt=own||S.rInv,nq=own?S.invs.filter(x=>x.q===i.q&&rtOf(x)===own).length:1;
     const nAgr=nq;
     return {cos:+i.cos>0?+i.cos:null,ref:i,kind:'inv',nome:`Inversor ${k+1}`,modelo:info.nome,para:i.q,p:info.pnom,Ib:info.Ib,iac:info.iac||info.Ib,ibSrc:info.src,fases:info.fases,loaded:info.fases===1?2:3,
-      L:+i.L||0,r:{...rt,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:rt.cons},consForced:i.cons==='mono',ti:tempInfo(rt),nAgr,path:pathOf(i.q),rtKey:rtKeyOf(i)};});
+      L:+i.L||0,r:{...rt,cons:(i.cons==='mono'||i.cons==='multi')?i.cons:rt.cons},consForced:i.cons==='mono',ti:tempInfo(rt),nAgr,path:pathOf(i.q),rtKey:rtKeyOf(i),gwErr:own?'':NORT};});
   const pC=S.percs.flatMap(p=>{const fe=invC.filter(c=>c.path.includes(p));const gw=gwOf(p.orig),gwD=gwOf(p.dest);
     /* ordem inversor → QFV → gateway: do QFV sai um cabo por inversor até à respetiva entrada do gateway */
     if(gwD&&p.split!==false&&fe.length){p.subs=p.subs||{};const sp=gwSpec(gwD);
@@ -208,7 +215,8 @@ function solve(zf){
     /* secção escolhida à mão que não está nas opções: entra se existir no quadro do método; senão volta a automático com aviso */
     c.dropMsg=null;
     if(c.ref.S!=='auto'&&!c.opts.some(o=>okey(o)===c.ref.S)){const [ns,mat,cons]=c.ref.S.split('|');const [n,s]=ns.split('x').map(Number);
-      if(izBase({...c.r,cons},mat,s,c.loaded))c.opts=c.opts.concat([{n,s,mat,cons}]);
+      if(mat==='Al'&&cons==='multi'){c.dropMsg='Não há cabo multicondutor de alumínio: voltou a automático.';c.ref.S='auto';}
+      else if(izBase({...c.r,cons},mat,s,c.loaded))c.opts=c.opts.concat([{n,s,mat,cons}]);
       else{c.dropMsg=`A secção escolhida (${n>1?n+' × ':''}${fs(s)} mm² ${mat}${cons==='multi'?' multicondutor':''}) não existe no quadro da RTIEBT para esta passagem: voltou a automático.`;c.ref.S='auto';}}
     /* sem nenhuma secção que cumpra In ≤ Iz: mostra-se a de maior Iz (a que fica mais perto), não a menor */
     const big=()=>c.opts.reduce((bi,o,j)=>calc(c,o).Iz>calc(c,c.opts[bi]).Iz?j:bi,0);
