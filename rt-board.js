@@ -67,9 +67,12 @@ function boardFor(node,R){
   const out=R.pC.find(c=>c.ref.orig.trim()===node&&c.res);
   const devs=[],cables=[],notes=new Set();let mod=0;const plates=[];
   ins.forEach(c=>{const o=c.res,b=o.brk,P=c.loaded===2?2:4;const sp=devSpace(b,P);mod+=sp.mod;if(sp.plate)plates.push(sp.plate);
-    devs.push({nome:c.kind==='inv'?`${c.nome} (${c.modelo})`:c.nome,txt:`${o.In} A ${P}P${b?' · '+b.name:''}`,dif:b&&b.dif?b.dif.name.replace(' + bobina de abertura',''):''});});
+    devs.push({nome:c.kind==='inv'?`${c.nome} (${c.modelo})`:c.nome,txt:`${o.In} A ${P}P${b?' · '+b.name:''}`,dif:b&&b.dif?b.dif.name.replace(' + bobina de abertura',''):'',from:c.kind==='perc'?c.ref.orig.trim():null});});
   let InSum=ins.reduce((a,c)=>a+c.res.In,0);
   const Q=qfvParts(node,R);
+  /* disjuntor de interligação: no quadro de interligação, se existir; senão fica no quadro do cliente (existente, não é nosso) */
+  if(Q&&Q.role==='INT'&&Q.out&&!percFrom(Q.out.ref.dest)){const c=Q.out,o=c.res,b=o.brk,P=c.loaded===2?2:4,sp=devSpace(b,P);mod+=sp.mod;if(sp.plate)plates.push(sp.plate);InSum+=o.In;
+    devs.push({nome:'Disjuntor de interligação',txt:`${c.nome} · ${o.In} A ${P}P${b?' · '+b.name:''}`,dif:b&&b.dif?b.dif.name.replace(' + bobina de abertura',''):''});}
   if(Q&&Q.meter&&!Q.corte)devs.unshift({nome:Q.meterIn?'Contador':'Contagem',txt:Q.meter.type==='indireta'?`${Q.meter.name} com TI ${Q.meter.ti}/5 A${Q.meter.perCircuit?' em cada circuito':''}`:Q.meter.name,dif:Q.meterIn?'':'em quadro de contagem próprio'});
   if(Q&&Q.split){devs.push({nome:'Proteção contra sobretensões',txt:`${Q.feeders.length} × DST tipo 2 (um por circuito)`,dif:'cada inversor segue no seu cabo até ao gateway'});mod+=4*Q.feeders.length;
     const rl=relays(Q.feeders);if(rl.nCen){devs.push({nome:'Relés diferenciais',txt:`${rl.nCen} × unidade central diferencial 4 E/S (CBS-4)`,dif:`${rl.cen} toroide${rl.cen===1?'':'s'} WGC, um por caixa moldada`});mod+=6*rl.nCen;}if(rl.n){devs.push({nome:'Alimentação dos relés',txt:`${rl.n} × fusível 2 A`,dif:''});mod+=2*rl.n;}
@@ -129,16 +132,21 @@ function boardSVG(b){
 }
 const DIFL=['Fácil','Normal','Exigente','Difícil','Muito difícil','Muito difícil'];
 function renderBoards(R){
-  const bs=quadros().map(n=>boardFor(n,R)).filter(Boolean);
+  /* o quadro do cliente (existente) não é nosso: não tem cartão. O disjuntor de interligação que lá fica (sem quadro de interligação) vem à parte. */
+  const all=quadros().map(n=>boardFor(n,R)).filter(Boolean),bs=all.filter(b=>!b.isEnd);
+  const cli=all.filter(b=>b.isEnd).flatMap(b=>b.devs.filter(d=>d.from&&(qfvParts(d.from,R)||{}).role!=='INT'));
   $('#boards').innerHTML=bs.map(b=>{const e=b.best;
-    return `<div class="board"><div class="panel-head"><div><h3 class="bname">${esc(b.node)}${b.isEnd?' · ponto de injeção':''}</h3>
-      <span class="hint">${b.isEnd?'Quadro existente: confirma que tem este espaço livre para a chegada. ':''}${b.ins.length} entrada${b.ins.length===1?'':'s'} · ${fmt(b.Ib,0)} A${b.out?` · sai para ${esc(b.out.ref.dest)}`:''}</span></div>
+    return `<div class="board"><div class="panel-head"><div><h3 class="bname">${esc(b.node)}</h3>
+      <span class="hint">${b.ins.length} entrada${b.ins.length===1?'':'s'} · ${fmt(b.Ib,0)} A${b.out?` · sai para ${esc(b.out.ref.dest)}`:''}</span></div>
       <span class="pill ${b.dif>=3?'bad':b.dif>=1?'warn':'ok'}">Trabalho do cabo: ${DIFL[b.dif]}</span></div>
-      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">espaço útil, como uma Hager Orion plus ${e.ref}</span>`:'<b>Armário de chão</b><span class="sub">Não cabe num quadro de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
+      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">Hager Orion plus ${e.ref}${INDUS[e.ref]?` · PVP ${eur0(INDUS[e.ref][1])}`:''}</span>`:'<b>Armário de chão</b><span class="sub">Não cabe num quadro de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
       <div class="bcol"><h3>Aparelhagem</h3><table class="bom"><tbody>${b.devs.map(d=>`<tr><td>${esc(d.nome)}</td><td>${esc(d.txt)}${d.dif?`<span class="sub">${esc(d.dif)}</span>`:''}</td></tr>`).join('')}</tbody></table>
       <h3>Cabos a ligar</h3><table class="bom"><thead><tr><th>Circuito</th><th>Cabo</th><th class="r">Ø aprox.</th><th class="r">Raio mín.</th><th class="r">Condutores</th></tr></thead><tbody>${b.cables.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.cabo)}</td><td class="n r">${x.D} mm</td><td class="n r">${x.r} mm</td><td class="n r">${x.nCond}</td></tr>`).join('')}</tbody></table>
       <p class="hint">Zona livre por baixo da aparelhagem: <b>${b.zone} mm</b> (maior raio de curvatura + terminal). Bucins: ${Math.round(b.glandW)} mm de largura${e?` em ${e.gRows} fila${e.gRows===1?'':'s'}`:''}.${e?` ${b.mod} módulos com 30% de reserva.`:''}</p>
       ${b.notes.length?`<ul class="bnotes">${b.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div></div>
-      ${(P=>P?`<div class="bind"><h3>Componentes e montagem <span class="hint">como a Indusmelec orçamenta (2025–2026)</span></h3>${indusTable(P)}${P.notes.length?`<ul class="bnotes">${P.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`:'')(indusParts(b.node,R))}</div>`;}).join('')||'<p class="hint">Liga inversores a um quadro para ver a sugestão.</p>';
+      ${(P=>P?`<div class="bind"><h3>Componentes e montagem <span class="hint">como a Indusmelec orçamenta (2025–2026)</span></h3>${indusTable(P)}${P.notes.length?`<ul class="bnotes">${P.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`:'')(indusParts(b.node,R))}</div>`;}).join('')
+    +(cli.length?`<div class="board"><div class="panel-head"><div><h3 class="bname">Disjuntor de interligação · no quadro do cliente</h3><span class="hint">Sem quadro de interligação, o disjuntor de interligação instala-se no quadro do cliente (existente, fora do nosso fornecimento). Já está no custo das proteções.</span></div></div>
+      <div class="bcol"><table class="bom"><tbody>${cli.map(d=>`<tr><td>${esc(d.nome)}</td><td>${esc(d.txt)}${d.dif?`<span class="sub">${esc(d.dif)}</span>`:''}</td></tr>`).join('')}</tbody></table></div></div>`:'')
+    ||'<p class="hint">Liga inversores a um quadro para ver a sugestão.</p>';
 }
 HOOKS.push(R=>{if(TAB==='brd')renderBoards(R);});
