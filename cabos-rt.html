@@ -344,7 +344,7 @@ tr.cur td{background:var(--accent-soft)}
       <li><b>Disjuntor:</b> o menor calibre normalizado com <code>In ≥ Ib</code>. Tem de cumprir <code>In ≤ Iz'</code> e <code>I₂ ≤ 1,45 Iz'</code>, com k₂ = 1,45 em modulares EN 60898 (até 125 A) e 1,30 em caixa moldada EN 60947-2.</li>
       <li><b>Queda de tensão</b> (a mesma fórmula da folha Excel): <code>u = b · (ρ · L'/S · cos φ + X · L' · sin φ) · Ib/n</code> e <code>ΔU% = u / 230 × 100</code>. b = 1 em trifásico e 2 em monofásico; ρ = 0,0225 Ω·mm²/m (Cu) ou 0,036 (Al); L' é o comprimento com folga (+20% abaixo de 30 m, +10% a partir de 30 m); X é a reatância da tabela da folha (≈ 0,073–0,08 mΩ/m); n é o nº de cabos em paralelo. Verifica-se em cada troço.</li>
       <li><b>Escolha da secção:</b> primeiro o menor número de cabos por fase (máximo 3) e, dentro disso, a menor secção que cumpre Iac máx ≤ In ≤ Iz, I₂ ≤ 1,45·Iz, a queda de tensão do troço. Se a queda não cumprir, aumenta a secção desse troço. Depois, inversores iguais no mesmo quadro ficam com o mesmo cabo e cabos usados uma só vez passam para outro já usado na obra, no máximo 1 secção acima. Alumínio é sempre monocondutor.</li>
-      <li><b>Neutro e terra:</b> neutro igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al; acima, metade da fase (secção normalizada seguinte), com mínimo de 16 Cu / 25 Al (RTIEBT 524.2). Terra pelo quadro 54F: S ≤ 16 → S; até 35 → 16; acima de 35 → S/2.</li>
+      <li><b>Neutro e terra:</b> neutro e terra com a secção da fase ou metade da fase; se a metade não é tabelada, a secção tabelada seguinte acima da metade. Neutro igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al, com mínimo de 16 Cu / 25 Al (RTIEBT 524.2); terra igual à fase até 16 mm².</li>
       <li><b>Valores corrigidos de gralhas do Diário da República:</b> 52-C13 Cu 95 mm² B2 (impresso 291, usado 201) e 52-C30 Cu 16 mm² (impresso “6”). O valor 52-C30 Al 300 mm² XLPE 3 condutores (400 A) foi usado tal como impresso.</li>
     </ul>
   </details>
@@ -749,13 +749,14 @@ function solve(zf){
 }
 
 /* ---------- render ---------- */
-/* neutro: igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al; acima, metade da fase (secção normalizada seguinte), mínimo 16 Cu / 25 Al (RTIEBT 524.2).
-   PE: quadro 54F — S ≤ 16: S; 16 < S ≤ 35: 16; S > 35: S/2 (secção normalizada seguinte). */
+/* neutro e terra (decisão do utilizador, out. 2026): iguais à fase, ou metade da fase, ou, se a metade não é tabelada, a secção tabelada
+   seguinte acima da metade. Neutro: igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al (mínimos RTIEBT 524.2), acima metade da fase,
+   nunca abaixo de 16 Cu / 25 Al. PE: igual à fase até 16 mm², acima metade da fase (35 mm² → 25, em vez dos 16 do quadro 54F). */
 function condSizes(o,loaded){
   const up=x=>SECS.find(v=>v>=x)||x;
   const lim=o.mat==='Al'?25:16;
   const sn=(loaded===2||o.s<=lim)?o.s:Math.max(up(o.s/2),lim);
-  const spe=o.s<=16?o.s:o.s<=35?16:up(o.s/2);
+  const spe=o.s<=16?o.s:up(o.s/2);
   return {sn,spe};
 }
 function cableParts(o,loaded){
@@ -2445,7 +2446,7 @@ function critRows(){const n2=v=>fmt(v,2),e6=E6.find(x=>x[0]===+S.rsolo);
 const REPORT_NOTES=[`Corrente admissível: Iz = Iz tabelado × n × fT × fsolo × fagrup, com Iz tabelado nos quadros 52-C da RTIEBT para o método de referência da instalação, fT nos quadros 52-D1 (ar) / 52-D2 (solo), fsolo no 52-E6 e fagrup nos quadros 52-E1 a 52-E5; n = nº de cabos em paralelo por fase (máximo 3).`,
    `Proteção contra sobrecargas: Ib ≤ In ≤ Iz e I₂ ≤ 1,45·Iz, com I₂ = k₂·In (k₂ = 1,45 nos disjuntores modulares até 125 A e 1,30 nos de caixa moldada). Ib dos inversores = corrente AC máxima da ficha técnica.`,
    `Queda de tensão: u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n e ΔU % = u/230 × 100, com b = 1 em trifásico e 2 em monofásico, ρ = 0,0225 (Cu) e 0,036 (Al) Ω·mm²/m e X a reatância linear do cabo.`,
-   `Neutro segundo a RTIEBT 524.2 (igual à fase até 16 mm² Cu / 25 mm² Al e em monofásico; acima, metade da fase) e condutor de proteção segundo o quadro 54F.`];
+   `Neutro e terra com a secção da fase ou metade da fase (se a metade não é tabelada, a secção tabelada seguinte acima da metade); neutro igual à fase até 16 mm² Cu / 25 mm² Al e em monofásico (RTIEBT 524.2), terra igual à fase até 16 mm².`];
 /* linhas do cálculo de um circuito: as mesmas no relatório PDF e no Word */
 function circRows(c){
   const n0=v=>fmt(v,0),n1=v=>fmt(v,1),n2=v=>fmt(v,2),metLab=m=>({EF:'E/F',D61:'D'}[m]||m);

@@ -21,7 +21,7 @@ function critRows(){const n2=v=>fmt(v,2),e6=E6.find(x=>x[0]===+S.rsolo);
 const REPORT_NOTES=[`Corrente admissível: Iz = Iz tabelado × n × fT × fsolo × fagrup, com Iz tabelado nos quadros 52-C da RTIEBT para o método de referência da instalação, fT nos quadros 52-D1 (ar) / 52-D2 (solo), fsolo no 52-E6 e fagrup nos quadros 52-E1 a 52-E5; n = nº de cabos em paralelo por fase (máximo 3).`,
    `Proteção contra sobrecargas: Ib ≤ In ≤ Iz e I₂ ≤ 1,45·Iz, com I₂ = k₂·In (k₂ = 1,45 nos disjuntores modulares até 125 A e 1,30 nos de caixa moldada). Ib dos inversores = corrente AC máxima da ficha técnica.`,
    `Queda de tensão: u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n e ΔU % = u/230 × 100, com b = 1 em trifásico e 2 em monofásico, ρ = 0,0225 (Cu) e 0,036 (Al) Ω·mm²/m e X a reatância linear do cabo.`,
-   `Neutro segundo a RTIEBT 524.2 (igual à fase até 16 mm² Cu / 25 mm² Al e em monofásico; acima, metade da fase) e condutor de proteção segundo o quadro 54F.`];
+   `Neutro e terra com a secção da fase ou metade da fase (se a metade não é tabelada, a secção tabelada seguinte acima da metade); neutro igual à fase até 16 mm² Cu / 25 mm² Al e em monofásico (RTIEBT 524.2), terra igual à fase até 16 mm².`];
 /* linhas do cálculo de um circuito: as mesmas no relatório PDF e no Word */
 function circRows(c){
   const n0=v=>fmt(v,0),n1=v=>fmt(v,1),n2=v=>fmt(v,2),metLab=m=>({EF:'E/F',D61:'D'}[m]||m);

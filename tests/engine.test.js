@@ -40,12 +40,12 @@ test('folga desligada: comprimento de cálculo = comprimento real',()=>{
   const E=engine({folga:false});for(const c of rows(E.solve()))assert.equal(c.Lc,c.L);
 });
 
-test('secção do neutro (524.2) e da terra (54F)',()=>{
+test('secção do neutro e da terra: da fase, metade ou a tabelada seguinte acima da metade',()=>{
   const E=engine();const cs=(s,mat,loaded=3)=>{const r=E.ev(`condSizes({s:${s},mat:'${mat}'},${loaded})`);return [r.sn,r.spe];};
   assert.deepEqual(cs(10,'Cu'),[10,10]);assert.deepEqual(cs(16,'Cu'),[16,16]);
-  assert.deepEqual(cs(25,'Cu'),[16,16]);assert.deepEqual(cs(35,'Cu'),[25,16]);
+  assert.deepEqual(cs(25,'Cu'),[16,16]);assert.deepEqual(cs(35,'Cu'),[25,25]);assert.deepEqual(cs(95,'Cu'),[50,50],'metade 47,5 → 50');assert.deepEqual(cs(185,'Cu'),[95,95],'metade 92,5 → 95');
   assert.deepEqual(cs(50,'Cu'),[25,25]);assert.deepEqual(cs(120,'Cu'),[70,70]);assert.deepEqual(cs(240,'Cu'),[120,120]);
-  assert.deepEqual(cs(25,'Al'),[25,16]);assert.deepEqual(cs(95,'Al'),[50,50]);
+  assert.deepEqual(cs(25,'Al'),[25,16]);assert.deepEqual(cs(35,'Al'),[25,25]);assert.deepEqual(cs(95,'Al'),[50,50]);
   assert.deepEqual(cs(50,'Cu',2),[50,25],'monofásico: neutro igual à fase');
 });
 

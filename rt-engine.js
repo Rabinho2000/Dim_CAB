@@ -277,13 +277,14 @@ function solve(zf){
 }
 
 /* ---------- render ---------- */
-/* neutro: igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al; acima, metade da fase (secção normalizada seguinte), mínimo 16 Cu / 25 Al (RTIEBT 524.2).
-   PE: quadro 54F — S ≤ 16: S; 16 < S ≤ 35: 16; S > 35: S/2 (secção normalizada seguinte). */
+/* neutro e terra (decisão do utilizador, out. 2026): iguais à fase, ou metade da fase, ou, se a metade não é tabelada, a secção tabelada
+   seguinte acima da metade. Neutro: igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al (mínimos RTIEBT 524.2), acima metade da fase,
+   nunca abaixo de 16 Cu / 25 Al. PE: igual à fase até 16 mm², acima metade da fase (35 mm² → 25, em vez dos 16 do quadro 54F). */
 function condSizes(o,loaded){
   const up=x=>SECS.find(v=>v>=x)||x;
   const lim=o.mat==='Al'?25:16;
   const sn=(loaded===2||o.s<=lim)?o.s:Math.max(up(o.s/2),lim);
-  const spe=o.s<=16?o.s:o.s<=35?16:up(o.s/2);
+  const spe=o.s<=16?o.s:up(o.s/2);
   return {sn,spe};
 }
 function cableParts(o,loaded){
