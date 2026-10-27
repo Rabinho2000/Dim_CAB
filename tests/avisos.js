@@ -39,12 +39,8 @@ check(await p.evaluate(()=>last.invC.every(c=>c.rtKey==='rt:1'&&c.nAgr===4))&&/A
 const fg0=await p.evaluate(()=>last.pC[0].res.fg);
 await p.fill('#p-body tr:first-child input[data-k=extra]','4');
 check(await p.evaluate(fg0=>last.pC[0].nAgr===5&&last.pC[0].res.fg<fg0,fg0),'C5 com +4 circuitos na esteira: fator de agrupamento menor');
-/* proteção de interface */
-await p.fill('#pint','400');await p.click('[data-tab=brd]');
-check(await p.$eval('[data-pane=brd]',e=>/Proteção de interface\s*relé de proteção de interface/.test(e.innerText)),'Quadros: QInterligação com a proteção de interface (500 kW ≥ 400 kW)');
-await p.click('[data-tab=sld]');check(/Proteção de interface \(a especificar\)/.test(await p.$eval('#sld',e=>e.innerHTML)),'unifilar com a proteção de interface');
-await p.click('[data-tab=ac]');await p.fill('#pint','');await p.click('[data-tab=brd]');
-check(!(await p.$eval('[data-pane=brd]',e=>/Proteção de interface/.test(e.innerText))),'em branco: sem proteção de interface');
+/* critérios fixos: sem isolamento, cos φ, desconto ABB, proteção de interface nem poder de corte */
+check(await p.evaluate(()=>!['isol','cos','descABB','pint','icu-modo'].some(id=>document.getElementById(id))&&!document.querySelector('#inv-body input[data-k=cos]')),'Critérios sem os campos retirados');
 await p.click('[data-tab=ac]');await (await p.$('#res-body')).screenshot({path:__dirname+'/avisos.png'});
 /* escolha manual: Automático com o cabo escolhido, depois "Cumprem" e "Não cumprem", com Iz e ΔU ou o motivo; sem Al multicondutor */
 const selC2='#res-body select[data-sel^="inv:"] >> nth=1';

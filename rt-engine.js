@@ -160,6 +160,9 @@ function noFitMsg(c){
 }
 /* temperaturas só da tabela, pela região (decisão do utilizador, out. 2026): ar e solo de LOCS; região desconhecida → Porto */
 const locOf=loc=>LOCS.find(x=>x[0]===loc)||LOCS.find(x=>x[0]==='Porto');
+/* critérios fixos (decisão do utilizador, out. 2026): isolamento XLPE, cos φ 1, sem desconto ABB, sem proteção de interface,
+   sem verificação do poder de corte. Projetos antigos com outros valores passam a estes. */
+function fixCrit(){S.isol='XLPE';S.cos=1;S.descABB=0;S.pint=null;S.icu=Object.assign(example().icu,S.icu||{},{modo:''});(S.invs||[]).forEach(i=>{delete i.cos;});}
 function syncTemps(){const l=locOf(S.loc);S.loc=l[0];S.tair=l[1];S.tsoil=l[2];}
 /* passagens dos cabos dos inversores: só as acrescentadas com "Adicionar passagem" (S.rts: {id, nome, ...passagem}), sem
    passagem geral predefinida (pedido do utilizador, out. 2026). Cada inversor está numa só (i.rtId); um inversor sem passagem
@@ -181,7 +184,7 @@ const rtOf=i=>(i&&i.rtId!=null&&(S.rts||[]).find(r=>r.id===i.rtId))||null;
 const rtKeyOf=i=>{const r=rtOf(i);return r?'rt:'+r.id:'none';};
 const NORT='Sem passagem atribuída';
 function solve(zf){
-  syncTemps();migrateRoutes();
+  syncTemps();fixCrit();migrateRoutes();
   const invC=S.invs.map((i,k)=>{const info=invInfo(i);/* agrupamento: inversores do mesmo quadro na mesma esteira (campo "Esteira"; em branco = todos juntos, como antes) */
     const own=rtOf(i),rt=own||S.rInv,nq=own?S.invs.filter(x=>x.q===i.q&&rtOf(x)===own).length:1;
     const nAgr=nq;

@@ -153,35 +153,13 @@ test('secção escolhida à mão que não existe no quadro volta a automático (
   assert.equal(E.ev('S.invs[0].S'),'auto');
 });
 
-test('poder de corte: desligado por omissão, não muda nada',()=>{
-  const R=engine().solve();assert.equal(R.icuOn,false);
+test('critérios fixos: XLPE, cos φ 1, sem desconto ABB, sem proteção de interface nem poder de corte, mesmo em projetos antigos',()=>{
+  const E=engine();const base=E.solve(),st=E.S();
+  E.set({isol:'PVC',cos:0.8,descABB:25,pint:100,icu:{modo:'icc',icc:40},invs:st.invs.map(i=>({...i,cos:0.9})),percs:st.percs});const R=E.solve();
+  assert.deepEqual([E.ev('S.isol'),E.ev('S.cos'),E.ev('S.descABB'),E.ev('S.pint'),E.ev('S.icu.modo')],['XLPE',1,0,null,'']);
+  assert.equal(R.icuOn,false);assert.ok(Math.abs(R.brkTot-base.brkTot)<1e-9);
   for(const c of rows(R))assert.equal(c.res.ikmax,undefined,c.nome);
-});
-
-test('poder de corte: Icc conhecida no ponto de ligação, diminui pelos cabos até cada quadro',()=>{
-  const E=engine();E.set({icu:{modo:'icc',icc:10}});const R=E.solve();
-  assert.equal(R.icuOn,true);assert.ok(Math.abs(R.ikSrc-10)<1e-9);
-  const by=n=>rows(R).find(c=>c.nome===n);
-  assert.ok(Math.abs(by('QInterligação → Qentrada').res.ikmax-10)<1e-9,'no ponto de ligação = Icc indicada');
-  assert.ok(by('QFV → QInterligação').res.ikmax<10,'no quadro de interligação já é menor (7 m de cabo)');
-  assert.ok(by('Inversor 1').res.ikmax<by('QFV → QInterligação').res.ikmax,'no QFV, depois de 140 m, ainda menor');
-  for(const c of rows(R))assert.equal(c.res.icuOk,true,c.nome);
-});
-
-test('poder de corte insuficiente: circuito a rever, sem mudar o disjuntor, e indica o que chega',()=>{
-  const E=engine();const base=E.solve();
-  E.set({icu:{modo:'icc',icc:40}});const R=E.solve();
-  const inv=R.invC[0].res;   /* XT1B160 18 kA no QFV: não chega, indica a série que chega */
-  assert.equal(inv.icuOk,false);assert.ok(inv.icuAlt&&inv.icuAlt.icu>=inv.ikmax,'indica a série de poder de corte suficiente');
-  E.set({icu:{modo:'pt',sn:2500}});const P=E.solve();
-  const f=P.pC.find(c=>c.nome==='QInterligação → Qentrada').res;
-  assert.equal(f.icuOk,false,'E1.2 42 kA < Icc de um PT de 2500 kVA');assert.ok(f.ikmax>42);assert.equal(f.icuAlt&&f.icuAlt.s,'E1.2N 1000','indica o E1.2N (66 kA), o mais barato que chega');assert.equal(f.icuAlt.icu,66);
-  E.set({icu:{modo:'icc',icc:80}});const X=E.solve().pC.find(c=>c.nome==='QInterligação → Qentrada').res;
-  assert.equal(X.icuOk,false);assert.equal(X.icuAlt,null,'acima de 66 kA não há E1.2 na tabela da ferramenta');
-  assert.deepEqual([...P.invC.concat(P.pC).map(c=>c.res.brk.ref)],[...base.invC.concat(base.pC).map(c=>c.res.brk.ref)],'os disjuntores escolhidos não mudam');
-  /* calibre com série de maior poder de corte na tabela: indica-a */
-  E.set({icu:{modo:'icc',icc:45},invs:[{modelo:'SUN2000-100KTL-M2',pman:0,q:'QFV',L:1,S:'auto'}],percs:[{orig:'QFV',dest:'Qentrada',L:1,S:'auto',...route('13','mono')}],gws:[]});
-  const c=E.solve().invC[0].res;assert.equal(c.icuOk,false);assert.ok(c.icuAlt&&c.icuAlt.icu>=c.ikmax,`indica ${c.icuAlt&&c.icuAlt.name}`);
+  assert.deepEqual([...rows(R).map(c=>c.res.du)],[...rows(base).map(c=>c.res.du)],'cos φ dos inversores ignorado');
 });
 
 test('identificação dos cabos: C1…Cn pela ordem da tabela',()=>{
@@ -231,15 +209,6 @@ test('solveProject: calcula outro projeto sem mexer no aberto',()=>{
   assert.equal(R.invC.length,1);assert.equal(JSON.stringify(E.S()),before,'S ficou igual');
   assert.equal(E.solve().invC.length,4,'o projeto aberto continua com os 4 inversores');
   assert.throws(()=>E.ev(`solveProject({invs:null})`));assert.equal(JSON.stringify(E.S()),before,'mesmo com erro, S é reposto');
-});
-
-test('cos φ por inversor: entra na queda de tensão; nos percursos conta o menor a montante',()=>{
-  const E=engine();const base=E.solve(),st=E.S();
-  E.set({invs:st.invs.map((i,k)=>k===0?{...i,cos:0.9}:i),percs:st.percs});const R=E.solve();
-  const c=R.invC[0],o=c.res,X=E.ev(`reactance(${o.s},'${o.mat}')`),rho=o.mat==='Cu'?0.0225:0.036,sin=Math.sqrt(1-0.81);
-  assert.equal(c.cos,0.9);assert.ok(Math.abs(o.du-(rho*c.Lc/o.s*0.9+X*c.Lc*sin)*(c.Ib/o.n)/230*100)<1e-9,'fórmula com cos 0,9 e sin');
-  assert.equal(R.invC[1].cos,null,'os outros usam o geral');assert.ok(Math.abs(R.invC[1].res.du-base.invC[1].res.du)<1e-12);
-  assert.equal(R.pC[0].cos,0.9,'percurso: o menor dos inversores a montante');
 });
 
 test('Indusmelec: modular S804P-C125 + F204 até 125 A; caixas moldadas com toroide WGC e unidade central 4 E/S por 4 circuitos',()=>{

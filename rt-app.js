@@ -20,7 +20,7 @@ const eur=v=>v==null?'—':v.toLocaleString('pt-PT',{style:'currency',currency:'
 const breaker=(o,c)=>{if(!o)return '—';const b=o.brk;if(c.split)return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub">entrada do gateway (proteção do fabricante); a proteção do inversor fica no QFV</span>`;if(!b)return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub">a definir</span>`;
   const icu=o.ikmax==null?'':o.icuOk!==false?`<span class="sub">Icc no local ${fmt(o.ikmax,1)} kA ≤ Icu ${b.icu} kA</span>`
     :`<span class="sub limt">Poder de corte insuficiente: Icc no local ${fmt(o.ikmax,1)} kA > Icu ${b.icu} kA. ${o.icuAlt?`Usar ${esc(o.icuAlt.name)} (${o.icuAlt.icu} kA, ${esc(o.icuAlt.ref)}).`:'Nenhum disjuntor da tabela ABB da ferramenta chega para este calibre: escolher uma série de maior poder de corte com a ABB.'}</span>`;
-  return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub abb">ABB ${esc(b.name)} · ${b.icu} kA</span>${icu}<span class="sub trace">${esc(b.ref)}</span>${b.dif?`<span class="sub">Diferencial: ${esc(b.dif.name)}</span>`:''}<span class="sub">${eur(brkCost(b))}${+S.descABB?` (PVP −${S.descABB}%)`:' PVP'}</span>`;};
+  return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub abb">ABB ${esc(b.name)} · ${b.icu} kA</span>${icu}<span class="sub trace">${esc(b.ref)}</span>${b.dif?`<span class="sub">Diferencial: ${esc(b.dif.name)}</span>`:''}<span class="sub">${eur(brkCost(b))} PVP</span>`;};
 const scCell=o=>{if(!o||o.ikmax==null)return '<span class="sub">—</span>';
   const f=(ok,t)=>`<span class="${ok?'':'bad-t'}">${t}</span>`;
   return `<span class="n">${f(o.icuOk,`máx ${fmt(o.ikmax,1)} kA`)}</span><span class="sub n">${f(o.trip,`mín ${fmt(o.ikmin*1000,0)} A`)} · ${o.elec?`I₃ ≤ ${fmt(Math.min(o.Iset,15),1)} × In`:`Im ${fmt(o.Im,0)} A`}</span><span class="sub n">${f(o.therm,`I²t ${(o.i2t/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k ≤ k²S² ${(o.k2s2/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k`)}</span>`;};
@@ -48,7 +48,6 @@ function renderInvTable(){
     <td class="n r">${fmt(info.pnom,1)}</td><td class="n r">${fmt(info.Ib,1)}<span class="sub">${info.fases===1?'1F 230 V':'3F 400 V'}</span></td>
     <td><select data-k="cons" aria-label="Constituição do cabo"><option value="rota"${!i.cons||i.cons==='rota'?' selected':''}>Como a passagem${rtOf(i)?` (${rtOf(i).cons==='mono'?'mono':'multi'})`:''}</option><option value="mono"${i.cons==='mono'?' selected':''}>Monocondutores</option><option value="multi"${i.cons==='multi'?' selected':''}>Multicondutor</option></select></td>
     <td><select data-k="q" aria-label="Quadro">${qs.concat(qs.includes(i.q)?[]:[i.q]).map(n=>`<option${n===i.q?' selected':''}>${esc(n)}</option>`).join('')}</select></td>
-    <td><input data-k="cos" type="number" min="0.5" max="1" step="0.01" value="${+i.cos>0?i.cos:''}" placeholder="${fs(+S.cos||1)}" aria-label="cos φ" title="cos φ deste inversor (em branco: o dos Critérios). Nos percursos conta o menor dos inversores a montante." class="w-num"></td>
     <td><input data-k="L" type="number" min="0" step="1" value="${i.L}" aria-label="Distância m" class="w-num"></td>
     <td class="r"><button class="ghost" data-dup="${i.id}" title="Duplicar">Duplicar</button><button class="ghost del" data-del="${i.id}">Remover</button></td></tr>`;}).join('');
 }
@@ -86,7 +85,7 @@ function render(){
   const worst=Math.max(0,...all.filter(c=>c.res).map(c=>c.res.du));
   const ends=R.pC.filter(c=>!percFrom(c.ref.dest)&&c.res).sort((a,b)=>b.p-a.p);const main=ends[0];
   $('#kpis').innerHTML=[['Inversores',S.invs.length,''],['Potência total',fmt(R.Ptot,1),'kW'],['Corrente total',fmt(R.IbTot,0),'A'],
-    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],(R.icuOn?['Icc no ponto de ligação',fmt(R.ikSrc,1),'kA']:['Poder de corte','Não verificado','<button type="button" class="kpi-go" data-goto="icu-modo">Definir nos Critérios →</button>',false,'off']),['Cabos e terminais',eur0(R.costTot+R.termTot),R.costEst||R.invC.concat(R.pC).some(c=>c.term&&c.term.est)?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),+S.descABB?`PVP −${S.descABB}%`:'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
+    ['Disjuntor de ligação',main?main.res.In:'—','A'],['ΔU máxima no troço',fmt(worst,2),'%',worst>S.limT],['Cabos e terminais',eur0(R.costTot+R.termTot),R.costEst||R.invC.concat(R.pC).some(c=>c.term&&c.term.est)?'c/ estimativas':''],['Custo das proteções',eur0(R.brkTot),'PVP ABB'],['A rever',bad.length,'',bad.length>0]]
     .map(([l,v,u,b,x])=>`<div class="kpi${b?' bad':''}${x?' '+x:''}"><small>${l}</small><b>${v}</b><i>${u}</i></div>`).join('');
   $('#kpis').querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{const f=document.getElementById(el.dataset.goto);f.scrollIntoView({behavior:'smooth',block:'center'});f.focus({preventScroll:true});});
   const rowHTML=c=>{
@@ -187,16 +186,12 @@ function bind(){
   $('#rsolo').innerHTML=E6.map(([r,f,d])=>`<option value="${r}">${fs(r)} K·m/W · ${d} (${fs(f.toFixed(2))})</option>`).join('');
   $('#folga').addEventListener('change',e=>{S.folga=e.target.checked;render();});
   document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
-  ['proj','rsolo','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>{const el=document.getElementById(k);
+  ['proj','rsolo','mat','alThr','alPmin','limT','lim'].forEach(k=>{const el=document.getElementById(k);
     el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S[k]=(el.type==='number'||k==='rsolo')?parseFloat(el.value):el.value;if(k!=='proj')render();else save();});});
-  /* poder de corte: S.icu = {modo:''|'icc'|'pt', icc kA, sn kVA} */
-  const icuVis=()=>document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
-  [['icu-modo','modo'],['icu-icc','icc'],['icu-sn','sn']].forEach(([id,k])=>{const el=document.getElementById(id);
-    el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{S.icu=Object.assign(example().icu,S.icu||{});S.icu[k]=k==='modo'?el.value:parseFloat(el.value);icuVis();render();});});
   $('#loc').addEventListener('change',e=>{S.loc=e.target.value;syncTemps();$('#tair').value=S.tair;$('#tsoil').value=S.tsoil;render();});
   const ib=$('#inv-body');
   const invEv=e=>{const k=e.target.dataset.k;if(!k)return;const i=S.invs.find(x=>x.id===+e.target.closest('tr').dataset.id);
-    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='cos'){const v=parseFloat(e.target.value);i.cos=v>0?Math.min(Math.max(v,0.5),1):null;}else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
+    if(k==='modelo'){i.modelo=e.target.value;i.S='auto';renderInvTable();}else if(k==='q')i.q=e.target.value;else if(k==='cons'){i.cons=e.target.value;i.S='auto';}else i[k]=parseFloat(e.target.value)||0;
     if(k==='modelo'||k==='pman'){const tr=document.querySelector(`#inv-body tr[data-id="${i.id}"]`);const info=invInfo(i);if(tr&&k==='pman'){tr.children[2].textContent=fmt(info.pnom,1);tr.children[3].firstChild.textContent=fmt(info.Ib,1);}}
     render();};
   ib.addEventListener('input',e=>{if(e.target.tagName==='INPUT')invEv(e);});ib.addEventListener('change',e=>{if(e.target.tagName==='SELECT')invEv(e);});
@@ -251,11 +246,10 @@ function scVis(){const on=S.sc.on!==false;document.querySelectorAll('#sc-fields 
 let TAB='ac';const HOOKS=[];
 function showTab(t){TAB=t;document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
   document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t);if(last)HOOKS.forEach(f=>f(last));}
-function load(){syncTemps();renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','isol','mat','alThr','alPmin','limT','lim','cos','descABB','pint'].forEach(k=>document.getElementById(k).value=S[k]??'');
+function load(){syncTemps();renderGwTable();$('#folga').checked=S.folga!==false;['proj','tair','tsoil','mat','alThr','alPmin','limT','lim'].forEach(k=>document.getElementById(k).value=S[k]??'');
   S.sc=Object.assign(example().sc,S.sc||{});S.dc=Object.assign(example().dc,S.dc||{});
   S.sc.on=false; /* curto-circuito retirado da ferramenta */
-  S.icu=Object.assign(example().icu,S.icu||{});$('#icu-modo').value=S.icu.modo||'';$('#icu-icc').value=S.icu.icc??'';$('#icu-sn').value=S.icu.sn??'';
-  document.querySelectorAll('[data-icu]').forEach(l=>l.hidden=l.dataset.icu!==S.icu.modo);
+  fixCrit();
   $('#rsolo').value=String(S.rsolo);$('#loc').value=S.loc;renderPercTable();renderInvTable();render();}
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2400);}
 bind();bindGw();load();

@@ -1,5 +1,4 @@
-/* orçamento (PDF): abre o exemplo de origem, descarrega o PDF pelos botões dos separadores Cabos AC e Quadros e confere os totais com solveAll().
-   Repete com 25 % de desconto ABB. Gera tests/orcamento.pdf; tem de dar "ERR []". */
+/* orçamento (PDF): abre o exemplo de origem, descarrega o PDF pelos botões dos separadores Cabos AC e Quadros e confere os totais com solveAll(). Gera tests/orcamento.pdf; tem de dar "ERR []". */
 const { chromium } = require('playwright');
 const fs=require('fs'),path=require('path');
 const near=(a,b)=>Math.abs(a-b)<=0.01+1e-6*Math.abs(b);
@@ -8,9 +7,8 @@ const errs=[];p.on('pageerror',e=>errs.push(e.message));p.on('console',m=>{if(m.
 await p.goto(require('url').pathToFileURL(path.resolve('cabos-rt.html')).href);
 await p.evaluate(()=>{window.__bomPdfPlain=true;}); /* PDF sem compressão, para se ler o texto */
 const get=async(sel,file)=>{const [d]=await Promise.all([p.waitForEvent('download',{timeout:30000}),p.click(sel)]);await d.saveAs(file);return d.suggestedFilename();};
-for(const desc of [0,25]){
+for(const desc of [0]){
   await p.click('[data-tab=ac]');
-  await p.evaluate(d=>{S.descABB=d;document.getElementById('descABB').value=d;render();},desc);
   const ref=await p.evaluate(()=>{const R=solveAll(),B=bomData(R);
     return {tQd:B.tQd,nQd:B.qds.length,qdSum:B.qds.reduce((a,q)=>a+q.items.reduce((s,x)=>s+(x.prot?0:x.total||0),0),0),qdProt:B.qds.every(q=>q.items.filter(x=>x.prot).every(x=>x.total==null)),costTot:R.costTot,brkTot:R.brkTot,termTot:R.termTot,tCab:B.tCab,tProt:B.tProt,tTerm:B.tTerm,total:B.total,nCab:B.cabos.length,nProt:B.prot.length,nTerm:B.terms.length,nQuad:B.quad.length,
       metros:B.cabos.reduce((a,x)=>a+x.m,0),nTermUn:B.terms.reduce((a,x)=>a+x.q,0),pdfTot:[B.tCab,B.tTerm,B.tProt,B.total].map(v=>pdfTxt(eur2(v)))};});

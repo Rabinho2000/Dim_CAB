@@ -16,6 +16,5 @@ await p.selectOption('#route-inv select[data-k=disp]','afh');await grab('afastH'
 await p.click('#route-inv [data-pick]');await p.click('#pk-fav .pcard[data-ref="61"]');await grab('enterrado61');
 await p.click('#route-inv [data-pick]');await p.click('#pk-fav .pcard[data-ref="11"]');await p.selectOption('#route-inv select[data-k=cons]','multi');await grab('parede11multi');
 await p.selectOption('#inv-body tr:nth-child(1) select[data-k=modelo]','SigenStor EC 8.0 SP');await p.fill('#inv-body tr:nth-child(1) input[data-k=L]','25');await grab('mono1F');
-await p.selectOption('#isol','PVC');await grab('pvc');
 require('fs').writeFileSync('calc_dump.json',JSON.stringify(out));
 console.log('ERR',errs);await b.close();})();
