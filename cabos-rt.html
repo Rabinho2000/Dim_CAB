@@ -595,12 +595,13 @@ function calc(c,o){
   /* sem fator de temperatura ou de agrupamento nos quadros: Iz = 0 (nenhuma secção cumpre; ver noFitMsg) */
   const ti=c.ti;const f=ti.ft==null||fg==null?0:ti.ft*ti.fsolo*ti.ftubo*fg;
   const Iz=z.v*o.n*f;
-  const In=c.forceIn||INSTD.find(x=>x>=c.Ib);const I2=k2(In)*In;
+  /* disjuntor escolhido à mão: o calibre e o k₂ são os dele (o cabo é dimensionado para esse In); senão o motor escolhe */
+  const mb=manBrk(c);const In=mb?mb.In:c.forceIn||INSTD.find(x=>x>=c.Ib);const I2=(mb?mb.b.k2:k2(In))*In;
   const rho=o.mat==='Cu'?0.0225:0.036,b=c.loaded===2?2:1;
   /* fórmula da folha Excel (colunas BQ–BS): u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n ; ΔU% = u/230 */
   const cos=Math.min(Math.max(+(c.cos!=null?c.cos:S.cos)||1,0.5),1) /* cos φ do circuito (inversor ou o menor a montante) ou o geral */,sin=Math.sqrt(1-cos*cos);
   const du=b*(rho*c.Lc/o.s*cos+reactance(o.s,o.mat)*c.Lc*sin)*(c.Ib/o.n)/230*100;
-  const sc=In!=null?scCheck(c,o,In):{brk:null,scOk:true};
+  const sc=mb?{brk:mb.b,scOk:true}:In!=null?scCheck(c,o,In):{brk:null,scOk:true};
   return {...o,Iz,iz0:z.v,q:z.q,qcol:z.col,fg,fgSrc,f,nEff,perTray,trays,In,I2,du,term:In!=null&&c.Ib<=In&&In<=Iz,sob:I2<=1.45*Iz,...sc};
 }
 
@@ -858,8 +859,13 @@ function pickBreaker(In,poles,ikmax){
   const ok=ikmax?L.filter(b=>b.icu>=ikmax-1e-9):L;
   const mods=ok.filter(x=>x.mod),pool=mods.length?mods:ok;
   const b=pool.length?pool.reduce((a,x)=>x.p<a.p?x:a):L[L.length-1];
-  return {...b,icuOk:!ikmax||b.icu>=ikmax-1e-9,name:b.mod?`${b.s}-C${In}`:b.d.replace(/ Disj \d+| Di f/g,'').replace(/ F F.*| 4p.*| 4P.*/,'')+(b.reg?` (regular para ${b.reg} A)`:'')};
+  return {...b,icuOk:!ikmax||b.icu>=ikmax-1e-9,name:brkName(b,In)};
 }
+const brkName=(b,In)=>b.mod?`${b.s}-C${In}`:b.d.replace(/ Disj \d+| Di f/g,'').replace(/ F F.*| 4p.*| 4P.*/,'')+(b.reg?` (regular para ${b.reg} A)`:'');
+/* disjuntor escolhido à mão no circuito (ref.B = "calibre|referência ABB"); se já não existir na tabela (ex.: mudou o nº de polos), volta a automático */
+function manBrk(c){const v=c.ref&&c.ref.B;if(!v||v==='auto'||c.split)return null;const [In,ref]=String(v).split('|'),P=c.loaded===2?2:4;
+  const b=(BRK[P][In]||[]).find(x=>x.ref===ref);if(!b){c.ref.B='auto';return null;}
+  return {In:+In,b:{...b,icuOk:true,name:brkName(b,+In),manual:true}};}
 const RHO20={Cu:0.018,Al:0.029};          /* Ω·mm²/m a 20 °C: Icc máximo */
 const KSC={Cu:{XLPE:143,PVC:115},Al:{XLPE:94,PVC:76}}; /* RTIEBT 434.3.2 / IEC 60364-4-43 */
 const zadd=(a,b)=>({R:a.R+b.R,X:a.X+b.X}),zabs=z=>Math.hypot(z.R,z.X);
@@ -984,6 +990,14 @@ const breaker=(o,c)=>{if(!o)return '—';const b=o.brk;if(c.split)return `<b>${o
   const icu=o.ikmax==null?'':o.icuOk!==false?`<span class="sub">Icc no local ${fmt(o.ikmax,1)} kA ≤ Icu ${b.icu} kA</span>`
     :`<span class="sub limt">Poder de corte insuficiente: Icc no local ${fmt(o.ikmax,1)} kA > Icu ${b.icu} kA. ${o.icuAlt?`Usar ${esc(o.icuAlt.name)} (${o.icuAlt.icu} kA, ${esc(o.icuAlt.ref)}).`:'Nenhum disjuntor da tabela ABB da ferramenta chega para este calibre: escolher uma série de maior poder de corte com a ABB.'}</span>`;
   return `<b>${o.In} A ${c.loaded===2?'2P':'4P'}</b><span class="sub abb">ABB ${esc(b.name)} · ${b.icu} kA</span>${icu}<span class="sub trace">${esc(b.ref)}</span>${b.dif?`<span class="sub">Diferencial: ${esc(b.dif.name)}</span>`:''}<span class="sub">${eur(brkCost(b))} PVP</span>`;};
+/* lista de disjuntores do circuito: Automático (o que o motor sugere) e, por calibre, as séries ABB da tabela, do primeiro calibre ≥ Ib
+   até 4 acima do sugerido (abaixo de Ib nenhum cumpre); os que não cumprem com o cabo atual dizem porquê (o cabo automático acompanha o calibre escolhido) */
+function brkSelect(c){const o=c.res;if(!o||c.split)return '';const P=c.loaded===2?2:4,cal=INSTD.filter(x=>BRK[P][x]&&BRK[P][x].length);
+  const auto=c.ref.B&&c.ref.B!=='auto'?null:o.brk,iA=cal.findIndex(x=>x>=c.Ib),iS=cal.indexOf(o.In);
+  const list=cal.slice(Math.max(0,iA),Math.max(iA,iS)+5);
+  const why=(In,b)=>In<c.Ib?`In < Ib (${fmt(c.Ib,1)} A)`:c.ref.S!=='auto'&&In>o.Iz?`In > Iz do cabo escolhido (${fmt(o.Iz,0)} A)`:c.ref.S!=='auto'&&b.k2*In>1.45*o.Iz?'I₂ > 1,45 Iz':'';
+  const opt=(In,b)=>{const v=`${In}|${b.ref}`,w=why(In,b);return `<option value="${v}"${c.ref.B===v?' selected':''}>${In} A · ${esc(brkName(b,In))} · ${b.icu} kA · ${eur(brkCost(b))}${w?' — '+w:''}</option>`;};
+  return `<select class="ovr brksel" data-brk="${c.kind}:${c.ref.id}" aria-label="Disjuntor" title="Automático: o motor sugere o disjuntor (o modular mais barato que chega, até 125 A). Podes escolher outro calibre ou série; o cabo automático passa a ser dimensionado para esse calibre e, se não cumprir, o circuito fica a rever."><option value="auto">Automático${auto?` (${o.In} A ${esc(auto.name)})`:''}</option>${list.map(In=>`<optgroup label="${In} A">${BRK[P][In].map(b=>opt(In,b)).join('')}</optgroup>`).join('')}</select>`;}
 const scCell=o=>{if(!o||o.ikmax==null)return '<span class="sub">—</span>';
   const f=(ok,t)=>`<span class="${ok?'':'bad-t'}">${t}</span>`;
   return `<span class="n">${f(o.icuOk,`máx ${fmt(o.ikmax,1)} kA`)}</span><span class="sub n">${f(o.trip,`mín ${fmt(o.ikmin*1000,0)} A`)} · ${o.elec?`I₃ ≤ ${fmt(Math.min(o.Iset,15),1)} × In`:`Im ${fmt(o.Im,0)} A`}</span><span class="sub n">${f(o.therm,`I²t ${(o.i2t/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k ≤ k²S² ${(o.k2s2/1e3).toLocaleString('pt-PT',{maximumFractionDigits:0})}k`)}</span>`;};
@@ -1071,7 +1085,7 @@ function render(){
     const label=(c.code?`<b class="ccode">${c.code}</b> `:'')+(c.kind==='inv'?`${esc(c.nome)} → ${esc(c.para)}`:esc(c.nome));
     const sub=c.kind==='inv'?`${esc(c.modelo)} · ${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ref. ${c.r.ref}`:`${c.L} m${c.Lc!==c.L?` (cálculo ${fmt(c.Lc,1)} m)`:''} · ${c.nInv} inversor${c.nInv===1?'':'es'}${c.gw?` · gateway ${c.gw.In} A ${+c.gw.fases===1?'1F':'3F'}${c.gw.dimNom!==false&&c.Ib>c.IbInv?' (cabo pela corrente nominal)':''}`:(c.fases===1?' · 1F':'')} · ref. ${c.r.ref}`;
     return `<tr class="${c.kind==='perc'?'feeder ':''}${st==='bad'?'err':''}"><td>${label}<span class="sub">${sub}</span></td><td class="n r">${fmt(c.p,1)}</td><td class="n r">${fmt(c.Ib,1)}</td>
-      <td>${designation(c)}${c.alt?`<span class="sub altc">Mais barato e também cumpre: <b>${altName(c.alt.o,c.loaded)}</b> · poupa ${eur0(c.cost.v+(c.term?c.term.v:0)-c.alt.v)} em cabo e terminais${c.alt.est||c.cost.est?' (com preço estimado)':''} <button class="linkb" data-useal="${c.kind}:${c.ref.id}" data-o="${c.alt.o.n}x${c.alt.o.s}|${c.alt.o.mat}|${c.alt.o.cons}">Usar</button></span>`:''}${accWarn(c)?`<span class="sub limt">${esc(accWarn(c))}</span>`:''}${c.sel?`<span class="sub limt">Seletividade a confirmar: ${c.sel.In} A a montante &lt; ${fs(c.sel.k)} × ${c.sel.dn} A a jusante (${c.sel.code}). Confirma nas tabelas de seletividade ABB.</span>`:''}${c.dropMsg?`<span class="sub limt">${esc(c.dropMsg)}</span>`:''}${c.noFitMsg?`<span class="sub limt">${esc(c.noFitMsg)}</span>`:o&&c.opts.length&&c.i===c.opts.length-1&&o.n===3?`<span class="sub limt">Secção máxima: 3 cabos por fase. Se a queda de tensão apertar, considera cobre neste troço.</span>`:''}</td><td>${breaker(o,c)}</td><td class="n r">${o?fmt(o.Iz,0)+' A':'—'}</td><td class="n r">${o?`<b>${fmt(o.du*2.3,2)} V</b><span class="sub">${fmt(o.du,2)} %</span>`:'—'}</td>
+      <td>${designation(c)}${c.alt?`<span class="sub altc">Mais barato e também cumpre: <b>${altName(c.alt.o,c.loaded)}</b> · poupa ${eur0(c.cost.v+(c.term?c.term.v:0)-c.alt.v)} em cabo e terminais${c.alt.est||c.cost.est?' (com preço estimado)':''} <button class="linkb" data-useal="${c.kind}:${c.ref.id}" data-o="${c.alt.o.n}x${c.alt.o.s}|${c.alt.o.mat}|${c.alt.o.cons}">Usar</button></span>`:''}${accWarn(c)?`<span class="sub limt">${esc(accWarn(c))}</span>`:''}${c.sel?`<span class="sub limt">Seletividade a confirmar: ${c.sel.In} A a montante &lt; ${fs(c.sel.k)} × ${c.sel.dn} A a jusante (${c.sel.code}). Confirma nas tabelas de seletividade ABB.</span>`:''}${c.dropMsg?`<span class="sub limt">${esc(c.dropMsg)}</span>`:''}${c.noFitMsg?`<span class="sub limt">${esc(c.noFitMsg)}</span>`:o&&c.opts.length&&c.i===c.opts.length-1&&o.n===3?`<span class="sub limt">Secção máxima: 3 cabos por fase. Se a queda de tensão apertar, considera cobre neste troço.</span>`:''}</td><td>${breaker(o,c)}${o&&o.brk&&o.brk.manual?'<span class="sub limt">Escolhido à mão</span>':''}${brkSelect(c)}</td><td class="n r">${o?fmt(o.Iz,0)+' A':'—'}</td><td class="n r">${o?`<b>${fmt(o.du*2.3,2)} V</b><span class="sub">${fmt(o.du,2)} %</span>`:'—'}</td>
       <td class="n r">${c.cost?eur0(c.cost.v)+(c.cost.est?'<span class="est" title="Preço estimado: sem compra deste cabo em 2026">*</span>':''):'—'}</td><td>${sel}</td><td><span class="pill ${st}">${why}</span></td></tr>`;};
   $('#res-body').innerHTML=R.invC.map(rowHTML).join('')+R.pC.map(rowHTML).join('');
   $('#sumline').textContent=(bad.length?`${bad.length} circuito(s) a rever`:'Todos os circuitos verificados')+(ends.length?` · injeção em ${[...new Set(ends.map(e=>e.ref.dest))].join(', ')}`:'');
@@ -1198,6 +1212,7 @@ function bind(){
   $('#picker').addEventListener('click',e=>{if(e.target.id==='picker')closePicker();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closePicker();});
   $('#res-body').addEventListener('click',e=>{const b=e.target.closest('[data-useal]');if(!b)return;const [kind,id]=b.dataset.useal.split(':');const ref=refOf(kind,id);if(ref){ref.S=b.dataset.o;render();}});
+  $('#res-body').addEventListener('change',e=>{const k=e.target.dataset.brk;if(!k)return;const [kind,id]=k.split(':');const ref=refOf(kind,id);if(ref){ref.B=e.target.value;render();}});
   $('#res-body').addEventListener('change',e=>{const s=e.target.dataset.sel;if(!s)return;const [kind,id]=s.split(':');const ref=refOf(kind,id);if(ref){ref.S=e.target.value;render();}});
   $('#reset').addEventListener('click',()=>{S=example();if(typeof CUR!=='undefined')CUR=null;load();});
   $('#copy').addEventListener('click',async()=>{const R=last;const L=['Circuito\tEquipamento\tP (kW)\tIb (A)\tL (m)\tPassagem (52H)\tFases (por fase)\tNeutro\tTerra (PE)\tDisjuntor\tRef. ABB disjuntor\tDiferencial ABB\tIz corr. (A)\tΔU troço (V)\tΔU troço (%)\tIcc máx. (kA)\tIcc mín. fim (kA)'];
@@ -1361,20 +1376,24 @@ function sldSVG(R){
       if(m&&m.type==='indireta'){const ty=Y0+84;tiS(ex,ty,`${m.ti}/5 A`);const mx=x0-126;Lh(ex-9,ty,x0-30,ty,{w:1});out.push(`<path d="M${x0-30} ${ty}l-9 -5v10z" fill="#fff" stroke="${ink}"/>`);meterBox(mx,ty-34,m);}
       out.push(`<line x1="${x0+20}" y1="${yb}" x2="${x0+W-20}" y2="${yb}" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>`);T(ex-8,yb+16,'3F + N',{fs:9,c:blue,a:'end'});}
     else if(!spl){Lh(ex,Y0,ex,yb);out.push(`<line x1="${x0+20}" y1="${yb}" x2="${x0+W-20}" y2="${yb}" stroke="${ink}" stroke-width="4" stroke-linecap="round"/>`);}
-    if(spl&&m){/* sem barramento comum: TI em cada circuito para um quadro de contagem */const mx=x0-126,my=Y0+40;meterBox(mx,my,m);T(mx,my+96,'TI em cada circuito',{fs:9,c:blue});}
+    if(spl&&m){/* sem barramento comum: um trio de TI no QFV por onde passam todos os circuitos, para o quadro de contagem */const mx=x0-126,my=Y0+40;meterBox(mx,my,m);T(mx,my+96,'TI no QFV',{fs:9,c:blue});}
+    const tiX=[];
     ext(x0+W,Y0+BH);
     const peX=[];let sx=x0+ES;let cy=Y0+BH+90;
     fl.forEach(f=>{const cx=sx+SW/2;
-      if(spl&&f.c.kind==='inv'){/* entrada vinda do gateway pelo topo; DST tipo 2 em cada circuito */
-        Lh(cx,Y0,cx,yb);Lh(cx,Y0+44,cx+40,Y0+44);dot(cx,Y0+44);dstS(cx+40,Y0+52);Lh(cx+40,Y0+44,cx+40,Y0+52);Lh(cx+40,Y0+104,cx+40,Y0+112);
-        out.push(`<path d="M${cx+30} ${Y0+112}h20M${cx+33} ${Y0+116}h14M${cx+36} ${Y0+120}h8" stroke="${ink}" stroke-width="1.2"/>`);T(cx+56,Y0+70,'DST',{fs:9.5,b:1,c:blue});T(cx+56,Y0+82,'Tipo 2',{fs:9,c:blue});T(cx+56,Y0+94,'230/3+1',{fs:9,c:blue});
-        if(m){tiS(cx,Y0+130,`${m.ti}/5`,true);Lh(cx-9,Y0+130,x0-30,Y0+130,{w:1,d:'3 2'});}}
+      if(spl&&f.c.kind==='inv'){/* entrada vinda do gateway pelo topo; sem DST no QFV: o gateway já tem DST */
+        Lh(cx,Y0,cx,yb);
+        if(m)tiX.push(cx);}
       if(f.c.kind==='inv')xs.set(f.c,cx);
       const ye=feederDev(cx,yb,f);sx+=SW;
       if(f.c.kind==='inv'){const c=f.c,yi=Y0+BH+150;Lh(cx,ye,cx,yi);if(isNew)peX.push(cx);cableTxt(cx+8,Y0+BH+22,c);inverterAt(cx,yi,c);}
       else{const child=f.c.ref.orig.trim(),bx=x0+W+70+leftNeed(child),ry=cy-40;if(isNew)peX.push(cx);
         routeTo(cx,ye,bx+60,cy,ry,f.c);const r=drawBoard(child,bx,cy);cy=r.bot+110;}});
-    if(isNew&&!cont){if(!spl){const dx=sx+SW/2;Lh(dx,yb,dx,yb+16);let y=yb+16;
+    /* o mesmo trio de TI abraça todos os circuitos que vão para o gateway */
+    if(tiX.length){const ty=Y0+130,xa=Math.min(...tiX)-16,xb=Math.max(...tiX)+16;
+      out.push(`<rect x="${xa}" y="${ty-9}" width="${xb-xa}" height="18" rx="9" fill="none" stroke="${ink}" stroke-width="1.3"/><rect x="${xa+4}" y="${ty-5}" width="${xb-xa-8}" height="10" rx="5" fill="none" stroke="${ink}"/>`);
+      T(xa-12,ty-8,`${m.ti}/5 A`,{fs:9.5,c:blue,b:1,a:'end'});Lh(xa,ty,x0-30,ty,{w:1,d:'3 2'});}
+    if(isNew&&!cont){if(!spl&&q.dst){const dx=sx+SW/2;Lh(dx,yb,dx,yb+16);let y=yb+16;
       if(q.dst.brk){brkS(dx,y);T(dx+12,y+16,`${q.dst.brk}A`,{fs:9.5,c:blue,b:1});T(dx+12,y+28,'3P · S800P',{fs:9,c:blue});y+=34;Lh(dx,y,dx,y+6);y+=6;}else{Lh(dx,y,dx,y+40);y+=40;}
       dstS(dx,y);T(dx+18,y+16,'DST',{b:1,fs:10,c:blue});T(dx+18,y+28,'Tipo 2',{fs:9.5,c:blue});T(dx+18,y+40,'230/3+1',{fs:9.5,c:blue});Lh(dx,y+52,dx,ype);peX.push(dx);sx+=SW;}
       if(q.aux&&!spl){const ax=sx+40;Lh(ax,yb,ax,yb+12);brkS(ax,yb+12);out.push(`<ellipse cx="${ax}" cy="${yb+52}" rx="9" ry="5" fill="none" stroke="${ink}" stroke-width="1.2"/>`);T(ax+14,yb+30,'25A',{fs:10,c:blue,b:1});T(ax+14,yb+42,'300mA',{fs:9,c:blue});
@@ -1536,6 +1555,8 @@ const ORION=[['FL213B',500,400,200,1],['FL216B',650,400,200,1],['FL221B',650,500
   ['FL300B',550,600,300,0],['FL301B',850,600,300,0],['FL302B',1150,600,300,0],['FL342B',1450,600,300,0],['FL344B',1750,600,300,0],['FL348B',2050,600,300,0],
   ['FL305B',550,850,300,0],['FL306B',850,850,300,0],['FL307B',1150,850,300,0],['FL352B',1450,850,300,0],['FL354B',1750,850,300,0],['FL358B',2050,850,300,0],
   ['FL310B',550,1100,300,0],['FL311B',850,1100,300,0],['FL312B',1150,1100,300,0],['FL362B',1450,1100,300,0],['FL364B',1750,1100,300,0],['FL368B',2050,1100,300,0]];
+/* filas DIN dos kits modulares Hager de cada Orion plus só modular (orçamentos Indusmelec 2026: FL992A 3 × 16 M, FL366A/FL367A × 3) */
+const ORION_ROWS={FL213B:3,FL216B:3,FL221B:3,FL229B:4,FL126A:5,FL128A:5,FL130A:7};
 /* aparelho de proteção: módulos (DIN) ou platina [largura, altura de fila] */
 function devSpace(b,poles){
   if(!b)return {mod:0,plate:[300,450]};
@@ -1573,13 +1594,15 @@ function qfvParts(node,R){
   if(role==='CLI'||!out)return {node,gw:null,existing:true,feeders,out,corte:null,meter:null,dst:null,aux:false,role:'CLI'};
   const host=meterHost(R)===node;const kW=outs.reduce((a,c)=>a+c.p,0);
   const mk=()=>{if(!host)return null;const m=meterFor({p:kW,res:{In:Math.max(...outs.map(c=>c.res.In))}});
-    if(outs.length>1){const ti=TIS.find(x=>x>=Math.max(...outs.map(c=>c.res.In)))||100;return {type:'indireta',name:'Honeywell AS3500 (indireta)',ti,perCircuit:true};}return m;};
+    /* vários circuitos para o gateway: um só trio de TI no QFV, por onde passam todos (decisão do utilizador, out. 2026); TI pela soma dos In */
+    if(outs.length>1){const sum=outs.reduce((a,c)=>a+c.res.In,0),ti=TIS.find(x=>x>=sum)||TIS[TIS.length-1];return {type:'indireta',name:'Honeywell AS3500 (indireta)',ti,shared:outs.length};}return m;};
   const aux=feeders.some(f=>f.rele&&f.c.kind==='inv');
   if(role==='CONT')return {node,gw:null,existing:false,feeders,out,corte:null,meter:meterFor({p:kW,res:{In:out.res.In}}),meterIn:true,dst:null,aux:false,role};
   /* QFV antes de um gateway: cada inversor segue no seu cabo até à entrada do gateway; não há corte geral nem barramento comum */
-  if(outs.every(c=>c.split))return {node,gw:null,existing:false,feeders,out,outs,split:true,corte:null,meter:mk(),dst:{brk:null,per:true},aux:false,role};
+  /* sem DST no QFV que alimenta um gateway: o gateway já tem DST (decisão do utilizador, out. 2026) */
+  if(outs.every(c=>c.split))return {node,gw:null,existing:false,feeders,out,outs,split:true,corte:null,meter:mk(),dst:null,aux:false,role};
   const corteIn=SECCI.find(x=>x>=out.res.In)||out.res.In;
-  return {node,gw:null,existing:false,feeders,out,corte:{In:corteIn},meter:mk(),dst:{brk:corteIn>125?100:null},aux,role};
+  return {node,gw:null,existing:false,feeders,out,corte:{In:corteIn},meter:mk(),dst:outs.some(c=>gwOf(c.ref.dest))?null:{brk:corteIn>125?100:null},aux,role};
 }
 /* proteção de interface (desacoplamento): só se o utilizador indicar a potência a partir da qual se aplica (S.pint, kW).
    Fica no quadro de interligação; sem interligação, no primeiro QFV. A regra e o aparelho são da responsabilidade do projetista. */
@@ -1598,10 +1621,10 @@ function boardFor(node,R){
   const devs=[],cables=[],notes=new Set();let mod=0;const plates=[];
   /* aparelhos para o desenho da frente: módulos DIN (mitems) e aparelhos de platina (plates, com etiqueta) */
   const mitems=[],cnt={},tg=p=>p+(cnt[p]=(cnt[p]||0)+1);
-  const addMod=(n,kind,tag,txt,poles)=>{if(!n)return;mod+=n;mitems.push({n,kind,tag,txt,poles});};
+  const addMod=(n,kind,tag,txt,poles,dif)=>{if(!n)return;mod+=n;mitems.push({n,kind,tag,txt,poles,dif});};
   const addPlate=(pl,kind,tag,txt)=>{const a=pl.slice();a.tag=tag;a.kind=kind;a.txt=txt;plates.push(a);};
   /* saída/disjuntor: modular (bloco DIN) ou caixa moldada (platina + relé diferencial de 4 módulos) */
-  const addBrk=(b,P,sp,label)=>{const tag=tg('Q');if(sp.plate){addPlate(sp.plate,'mccb',tag,b?b.name:label);addMod(sp.mod,'rele',tg('K'),'relé diferencial');}else addMod(sp.mod,'brk',tag,b?b.name:label,P);};
+  const addBrk=(b,P,sp,label)=>{const tag=tg('Q');if(sp.plate){addPlate(sp.plate,'mccb',tag,b?b.name:label);addMod(sp.mod,'rele',tg('K'),'relé diferencial');}else addMod(sp.mod,'brk',tag,b?b.name:label,P,!!(b&&b.dif));};
   ins.forEach(c=>{const o=c.res,b=o.brk,P=c.loaded===2?2:4;const sp=devSpace(b,P);addBrk(b,P,sp,c.nome);
     devs.push({nome:c.kind==='inv'?`${c.nome} (${c.modelo})`:c.nome,txt:`${o.In} A ${P}P${b?' · '+b.name:''}`,dif:b&&b.dif?b.dif.name.replace(' + bobina de abertura',''):'',from:c.kind==='perc'?c.ref.orig.trim():null});});
   let InSum=ins.reduce((a,c)=>a+c.res.In,0);
@@ -1609,21 +1632,22 @@ function boardFor(node,R){
   /* disjuntor de interligação: no quadro de interligação, se existir; senão fica no quadro do cliente (existente, não é nosso) */
   if(Q&&Q.role==='INT'&&Q.out&&!percFrom(Q.out.ref.dest)){const c=Q.out,o=c.res,b=o.brk,P=c.loaded===2?2:4,sp=devSpace(b,P);addBrk(b,P,sp,'interligação');InSum+=o.In;
     devs.push({nome:'Disjuntor de interligação',txt:`${c.nome} · ${o.In} A ${P}P${b?' · '+b.name:''}`,dif:b&&b.dif?b.dif.name.replace(' + bobina de abertura',''):''});}
-  if(Q&&Q.meter&&!Q.corte)devs.unshift({nome:Q.meterIn?'Contador':'Contagem',txt:Q.meter.type==='indireta'?`${Q.meter.name} com TI ${Q.meter.ti}/5 A${Q.meter.perCircuit?' em cada circuito':''}`:Q.meter.name,dif:Q.meterIn?'':'em quadro de contagem próprio'});
-  if(Q&&Q.split){devs.push({nome:'Proteção contra sobretensões',txt:`${Q.feeders.length} × DST tipo 2 (um por circuito)`,dif:'cada inversor segue no seu cabo até ao gateway'});addMod(4*Q.feeders.length,'dst',tg('L'),'DST tipo 2');
+  if(Q&&Q.meter&&!Q.corte)devs.unshift({nome:Q.meterIn?'Contador':'Contagem',txt:Q.meter.type==='indireta'?`${Q.meter.name} com TI ${Q.meter.ti}/5 A${Q.meter.shared?` no QFV (os ${Q.meter.shared} circuitos passam no mesmo trio)`:''}`:Q.meter.name,dif:Q.meterIn?'':'contador em quadro de contagem próprio'});
+  if(Q&&Q.split){devs.push({nome:'Proteção contra sobretensões',txt:'sem DST no QFV',dif:'o gateway já tem DST; cada inversor segue no seu cabo até ao gateway'});
     const rl=relays(Q.feeders);if(rl.nCen){devs.push({nome:'Relés diferenciais',txt:`${rl.nCen} × unidade central diferencial 4 E/S (CBS-4)`,dif:`${rl.cen} toroide${rl.cen===1?'':'s'} WGC, um por caixa moldada`});addMod(6*rl.nCen,'rele',tg('K'),'unidade central diferencial 4 E/S');}if(rl.n){devs.push({nome:'Alimentação dos relés',txt:`${rl.n} × fusível 2 A`,dif:''});addMod(2*rl.n,'fus',tg('F'),'fusível 2 A');}
     if(Q.aux){devs.push({nome:'Serviços auxiliares',txt:'diferencial 25 A 300 mA + disjuntores 16 A e 10 A',dif:''});addMod(6,'aux',tg('Q'),'serviços auxiliares');}}
   if(Q&&Q.corte){const s=SECCB.find(x=>x[0]>=Q.corte.In);devs.unshift({nome:'Corte geral',txt:`interruptor de corte ${Q.corte.In} A 4P`,dif:''});
     if(s){addMod(s[1],'corte','S1','interruptor de corte '+Q.corte.In+' A',4);if(s[2])addPlate(s[2],'corte','S1','interruptor de corte '+Q.corte.In+' A');}else addPlate([300,450],'corte','S1','interruptor de corte '+Q.corte.In+' A');
     if(Q.meter)devs.splice(1,0,{nome:'Contagem',txt:Q.meter.type==='indireta'?`${Q.meter.name} com TI ${Q.meter.ti}/5 A`:Q.meter.name,dif:'em quadro de contagem próprio'});
-    devs.push({nome:'Proteção contra sobretensões',txt:'DST tipo 2, 230/400 V, 3F+N',dif:Q.dst.brk?`protegido por disjuntor S800P 3P ${Q.dst.brk} A`:'protegido pelo corte geral'});addMod(4,'dst',tg('L'),'DST tipo 2');
-    if(Q.dst.brk)addMod(4.5,'brk',tg('Q'),'S800P 3P '+Q.dst.brk+' A',3);
+    if(Q.dst){devs.push({nome:'Proteção contra sobretensões',txt:'DST tipo 2, 230/400 V, 3F+N',dif:Q.dst.brk?`protegido por disjuntor S800P 3P ${Q.dst.brk} A`:'protegido pelo corte geral'});addMod(4,'dst',tg('L'),'DST tipo 2');
+      if(Q.dst.brk)addMod(4.5,'brk',tg('Q'),'S800P 3P '+Q.dst.brk+' A',3);}
+    else devs.push({nome:'Proteção contra sobretensões',txt:'sem DST no QFV',dif:'o gateway já tem DST'});
     const rl=relays(Q.feeders);if(rl.nCen){devs.push({nome:'Relés diferenciais',txt:`${rl.nCen} × unidade central diferencial 4 E/S (CBS-4)`,dif:`${rl.cen} toroide${rl.cen===1?'':'s'} WGC, um por caixa moldada`});addMod(6*rl.nCen,'rele',tg('K'),'unidade central diferencial 4 E/S');}if(rl.n){devs.push({nome:'Alimentação dos relés',txt:`${rl.n} × fusível 2 A`,dif:''});addMod(2*rl.n,'fus',tg('F'),'fusível 2 A');}
     if(Q.aux){devs.push({nome:'Serviços auxiliares',txt:'diferencial 25 A 300 mA + disjuntores 16 A e 10 A',dif:''});addMod(6,'aux',tg('Q'),'serviços auxiliares');}
     if(pintNode(R)===node){devs.push({nome:'Proteção de interface',txt:'relé de proteção de interface (desacoplamento), atuando no corte geral por bobina ou contactor',dif:'a especificar conforme as condições de ligação do operador de rede'});addMod(8,'int',tg('K'),'proteção de interface');
       notes.add(`Proteção de interface: instalação com ${fmt(R.Ptot,1)} kW ≥ ${fs(S.pint)} kW (limite indicado nos Critérios).`);}
     if(false)notes.add(`Sem quadro de interligação: a contagem (${meterFor(Q.out).name}${meterFor(Q.out).ti?` com TI ${meterFor(Q.out).ti}/5 A`:''}) e a proteção de interligação ficam no quadro do cliente.`);
-    if(Q.meter&&!Q.meterIn)notes.add(`Contagem num quadro de contagem próprio, junto à entrada: ${Q.meter.name}${Q.meter.ti?` com TI ${Q.meter.ti}/5 A${Q.meter.perCircuit?' em cada circuito':''}`:''}.`);
+    if(Q.meter&&!Q.meterIn)notes.add(`Contagem num quadro de contagem próprio, junto à entrada: ${Q.meter.name}${Q.meter.ti?` com TI ${Q.meter.ti}/5 A${Q.meter.shared?` no QFV (os ${Q.meter.shared} circuitos passam no mesmo trio)`:''}`:''}.`);
     if(Q.meter&&Q.meter.type==='indireta')notes.add(`Transformadores de intensidade ${Q.meter.ti}/5 A no barramento de entrada: prever espaço junto ao corte geral.`);}
   /* cabos que entram no quadro: os que chegam e o que sai */
   const OUTS=R.pC.filter(c=>c.ref.orig.trim()===node&&c.res);ins.concat(OUTS).forEach(c=>{const isOut=OUTS.includes(c);const o=c.res,P=cableParts(o,c.loaded);
@@ -1637,86 +1661,140 @@ function boardFor(node,R){
     if(o.s>=185&&!multi)notes.add(`Cabo de ${fs(o.s)} mm² é rígido e pesado: entrar por baixo, alinhado com os bornes, e amarrar à calha antes de ligar.`);});
   if(ins.some(c=>c.res.brk&&/^E1/.test(c.res.brk.s)))notes.add('Disjuntor aberto (E1.2): normalmente vai num armário de chão; a envolvente abaixo é só indicativa.');
   const Dmax=Math.max(...cables.map(x=>x.D)),rMax=Math.max(...cables.map(x=>x.r));
-  const zone=Math.max(200,rMax+100); /* espaço livre por baixo da aparelhagem: raio de curvatura + terminal */
+  const zone=Math.max(150,rMax); /* espaço livre por baixo da aparelhagem: o raio de curvatura do maior cabo, pelo menos 150 mm (tampa univers a.150) */
+  /* transformadores de intensidade da contagem indireta no quadro que a tem: 3 por circuito contado, nos cabos de saída, na zona de cabos
+     (como os T1/T2 por baixo da aparelhagem nos desenhos Indusmelec; não ocupam altura própria); TI de barra (> 250 A) mais largos */
+  const tiN=Q&&Q.meter&&Q.meter.type==='indireta'?3:0,tiW=Q&&Q.meter&&Q.meter.ti>250?100:60;
   const glandW=cables.reduce((a,x)=>a+x.nCond*(x.D+15),0);
   let best=null;
   for(const [ref,H,W,Pf,onlyMod] of ORION){
     if(onlyMod&&plates.length)continue;const use=W-100;if(plates.some(p=>p[0]>use))continue;
     const rows=[];plates.slice().sort((a,b)=>b[1]-a[1]).forEach(p=>{const r=rows.find(r=>r.w+p[0]+20<=use);if(r){r.items.push(p);r.w+=p[0]+20;r.h=Math.max(r.h,p[1]);}else rows.push({w:p[0],h:p[1],items:[p]});});
     const mpr=Math.floor(use/18),mrows=Math.ceil(mod*1.3/mpr);
-    const hDev=rows.reduce((a,r)=>a+r.h,0)+mrows*150;
+    /* só modular: filas de 100 mm como nos kits Hager dos orçamentos Indusmelec 2026 (FL213B 500 × 400 com o kit 3 × 16 M; FL216B 650 × 400
+       com 3 tampas de 16 M), até ORION_ROWS filas; com platinas (caixas moldadas): filas de 150 mm e 80 mm de margem */
+    const hDev=rows.reduce((a,r)=>a+r.h,0)+mrows*(onlyMod?100:150);
     const gRows=Math.ceil(glandW/use),gMax=Pf>=300?(Dmax<=35?3:2):(Dmax<=20?2:1);
     if(gRows>gMax)continue;
-    if(H<hDev+zone+80)continue;
-    const area=H*W;if(!best||area<best.area)best={ref,H,W,Pf,area,rows,mrows,mpr,hDev,gRows};}
+    if(onlyMod&&mrows>(ORION_ROWS[ref]||Math.floor(H/150)))continue;
+    /* margens: 20 mm em cima e em baixo nas só modulares, 40 mm com platinas (calibrado: 2 × S804P + XT1 cabe em 850 × 600 como no
+       orçamento Escola Secundária do Cadaval; 3 filas na FL213B 500 × 400) */
+    if(H<hDev+zone+(onlyMod?40:80))continue;
+    /* a mais pequena; acima de 1150 mm de altura conta 30 % a mais (a Indusmelec prefere alargar: 1150 × 850 com 3–6 caixas moldadas) */
+    const area=H*W*(H>1150?1.3:1);if(!best||area<best.area)best={ref,H,W,Pf,area,rows,mrows,mpr,hDev,gRows};}
   const dif=(rMax>=300?2:0)+(cables.some(x=>x.mat==='Al'&&x.s>=150)?1:0)+(cables.some(x=>!x.multi&&x.n>=2)?1:0)+(cables.some(x=>x.s>x.cap)?1:0);
-  return {node,ins,out,devs,cables,notes:[...notes],mod,plates,mitems,bus:plates.some(p=>p.kind==='mccb')?'cu':(ins.length>1||InSum>63?'td':null),zone,rMax,glandW,best,dif,Ib:ins.reduce((a,c)=>a+(c.kind==='inv'&&c.fases===1?c.Ib/3:c.Ib),0),isEnd:!out};
+  return {node,ins,out,devs,cables,notes:[...notes],mod,plates,mitems,bus:plates.some(p=>p.kind==='mccb')?'cu':(ins.length>1||InSum>63?'td':null),zone,rMax,glandW,best,dif,InSum,ti:tiN?{n:tiN,w:tiW,A:Q.meter.ti}:null,Ib:ins.reduce((a,c)=>a+(c.kind==='inv'&&c.fases===1?c.Ib/3:c.Ib),0),isEnd:!out};
 }
-/* desenho da frente do quadro, no estilo dos desenhos do configurador Hager: envolvente com montantes, calhas DIN com os aparelhos
-   (etiquetas Q/S/L/K/F), aparelhos de platina, barramento 3F+N em cobre (quadros com caixas moldadas) ou repartidor TD 125 A,
-   zona de cabos e cotas. Escala aproximada: a envolvente e os aparelhos seguem as dimensões usadas no dimensionamento. */
+/* desenho da frente do quadro no estilo das vistas frontais do configurador Hager que a Indusmelec envia com os orçamentos (2026):
+   Orion plus só modular = montantes amarelos com calhas DIN igualmente espaçadas (kit FL992A ou tampas FL366A/FL367A), aparelhos
+   com a etiqueta na vertical; com platinas = Orion plus com univers por dentro, em colunas de unidades funcionais (UD12B4A modular,
+   UK22LH1 caixas moldadas, UK21S1 corte, UE21D3 barramento vertical, UZ02B3 calha dos TI, tampas UD11F1/UD12F1 e UD01F1/UD02F1 nos
+   topos), cada uma com a referência. Escala aproximada: as dimensões são as do dimensionamento, não o desenho do fabricante. */
 const BSK_ORDER=['corte','dst','brk','rele','fus','aux','int'];
 function boardSVG(b){
   const e=b.best;if(!e)return '';
   const sc=Math.min(330/e.W,470/e.H),W=e.W*sc,H=e.H*sc,x0=14,y0=40,S=v=>v*sc,o=[];
-  const fsz=Math.max(7,Math.min(10,sc*26)),f1=v=>v.toFixed(1);
-  const T=(x,y,s,sz=fsz,a='middle',fill='#1A2028',extra='')=>o.push(`<text x="${f1(x)}" y="${f1(y)}" font-size="${sz}" text-anchor="${a}" fill="${fill}"${extra}>${esc(s)}</text>`);
-  const R=(x,y,w,h,fill,stroke='#222',sw=0.8,extra='')=>o.push(`<rect x="${f1(x)}" y="${f1(y)}" width="${f1(Math.max(0.5,w))}" height="${f1(Math.max(0.5,h))}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${extra}/>`);
+  const fsz=Math.max(6.5,Math.min(9,sc*24)),f1=v=>v.toFixed(1),INK='#2A2F35';
+  const T=(x,y,s,sz=fsz,a='middle',fill=INK,extra='')=>o.push(`<text x="${f1(x)}" y="${f1(y)}" font-size="${f1(sz)}" text-anchor="${a}" fill="${fill}"${extra}>${esc(s)}</text>`);
+  const TV=(x,y,s,sz=fsz)=>T(x,y,s,sz,'start',INK,` transform="rotate(-90 ${f1(x)} ${f1(y)})"`); /* etiqueta na vertical, como nos desenhos Hager */
+  const R=(x,y,w,h,fill,stroke='#333',sw=0.6,extra='')=>o.push(`<rect x="${f1(x)}" y="${f1(y)}" width="${f1(Math.max(0.5,w))}" height="${f1(Math.max(0.5,h))}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${extra}/>`);
+  const L=(x1,y1,x2,y2,c='#333',sw=0.5)=>o.push(`<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" stroke="${c}" stroke-width="${sw}"/>`);
   const tip=s=>o.push(`<title>${esc(s)}</title>`);
-  T(x0+W/2,y0-16,e.ref,15,'middle','#1A2028',' font-weight="600"');
-  /* envolvente, placa de montagem e montantes */
-  R(x0,y0,W,H,'#E3E7EA','#59636D',1.4,' rx="2"');R(x0+S(12),y0+S(12),W-S(24),H-S(24),'#D2D8DC','#333',0.7);
-  [x0+S(14),x0+W-S(50)].forEach(x=>{R(x,y0+S(14),S(36),H-S(28),'#F5B800','#A87800',0.7);
-    for(let y=y0+S(40);y<y0+H-S(30);y+=S(45))o.push(`<circle cx="${f1(x+S(18))}" cy="${f1(y)}" r="${f1(Math.max(0.8,S(5)))}" fill="#fff" stroke="#8A6200" stroke-width="0.4"/>`);});
-  const cx0=x0+S(50),cx1=x0+W-S(50);
-  /* aparelhos de platina (caixas moldadas e interruptores grandes), por fila, com o barramento de cobre por trás */
-  let y=y0+S(40);
-  e.rows.forEach(r=>{
-    if(r.items.some(p=>p.kind==='mccb')){const by=y+S(14);R(cx0,by,cx1-cx0,S(36),'#C98A4B','#7A4A1C',0.6);
-      for(let k=1;k<4;k++)o.push(`<line x1="${f1(cx0)}" x2="${f1(cx1)}" y1="${f1(by+S(36)*k/4)}" y2="${f1(by+S(36)*k/4)}" stroke="#7A4A1C" stroke-width="0.4"/>`);}
-    let x=cx0;
-    r.items.forEach(p=>{const w=S(p[0]),h=S(p[1]-20);
-      if(p.kind==='corte'){R(x,y,w,h,'#F1F2F3','#222',0.9);R(x,y+h*0.62,w,h*0.38,'#4A4F55','#222',0.6);R(x+w*0.1,y+h*0.2,w*0.66,Math.max(2,h*0.1),'#111','#000',0.6);
-        o.push(`<circle cx="${f1(x+w*0.3)}" cy="${f1(y+h*0.25)}" r="${f1(Math.max(2,w*0.14))}" fill="#C0392B" stroke="#111" stroke-width="0.6"/>`);}
-      else{R(x,y,w,h,'#F4F5F6','#222',0.9);R(x,y,w,h*0.13,'#4A4F55','#222',0.5);R(x,y+h*0.87,w,h*0.13,'#4A4F55','#222',0.5);
-        R(x+w*0.34,y+h*0.34,w*0.32,h*0.15,'#111','#000',0.5);R(x+w*0.12,y+h*0.58,w*0.76,h*0.1,'#D5D9DD','#666',0.4);}
-      T(x+w/2,y-3,p.tag||'',fsz);tip((p.tag||'')+' · '+(p.txt||''));x+=w+S(20);});
-    y+=S(r.h);});
-  /* aparelhos modulares nas calhas DIN, por fila (30 % de reserva no dimensionamento) */
+  T(x0+W/2,y0-14,e.ref,13,'middle',INK,' letter-spacing="1"');
+  /* envolvente: caixa cinzenta com aro duplo e placa de fundo */
+  R(x0,y0,W,H,'#E7EAEC','#6B737A',1);R(x0+S(10),y0+S(10),W-S(20),H-S(20),'#E7EAEC','#6B737A',0.6);R(x0+S(18),y0+S(18),W-S(36),H-S(36),'#D9DEE1','#555',0.6);
+  /* aparelho modular (n módulos de 18 mm) com o centro vertical em yc */
+  const dev=(x,yc,it)=>{const w=S(it.n*18),h=S(88),y=yc-h/2,p=Math.max(1,Math.round(it.poles||(it.kind==='dst'?4:it.kind==='fus'?1:Math.min(4,it.n))));
+    const body=(bx,bw,np,toggle)=>{R(bx,y,bw,h,'#F8F8F8','#333',0.6);R(bx,y,bw,h*0.1,'#E0E3E5','#333',0.4);R(bx,y+h*0.9,bw,h*0.1,'#E0E3E5','#333',0.4);
+      for(let j=0;j<np;j++){const px=bx+bw*j/np;if(j)L(px,y+h*0.1,px,y+h*0.9,'#999',0.3);if(toggle)R(px+bw/np*0.28,y+h*0.36,bw/np*0.44,h*0.14,'#1A1A1A','#000',0.3);}
+      L(bx,y+h*0.55,bx+bw,y+h*0.55,'#777',0.4);};
+    if(it.kind==='brk'&&it.dif){const bw=w/2;body(x,bw,p,true);R(x+bw,y,bw,h,'#F1F2F3','#333',0.6);R(x+bw,y+h*0.1,bw,h*0.12,'#BFC5CA','#555',0.4);
+      R(x+bw+bw*0.15,y+h*0.62,bw*0.18,h*0.07,'#2C6FB7','#1B4A7A',0.3);L(x+bw,y+h*0.55,x+w,y+h*0.55,'#777',0.4);}
+    else if(it.kind==='dst'){R(x,y,w,h,'#F8F8F8','#333',0.6);for(let j=0;j<4;j++){const px=x+w*j/4;if(j)L(px,y,px,y+h,'#777',0.4);R(px+w/4*0.2,y+h*0.12,w/4*0.6,h*0.5,'#ECEDEE','#666',0.3);R(px+w/4*0.25,y+h*0.72,w/4*0.5,h*0.07,'#2DB327','#1E7A19',0.3);}}
+    else if(it.kind==='rele'){R(x,y,w,h,'#F8F8F8','#333',0.6);R(x+w*0.12,y+h*0.22,w*0.76,h*0.22,'#BCE0E8','#4A6B73',0.4);for(let j=0;j<3;j++)R(x+w*(0.18+j*0.24),y+h*0.56,w*0.14,h*0.08,'#555','#222',0.3);}
+    else if(it.kind==='fus'){const np=Math.max(1,Math.round(it.n));for(let j=0;j<np;j++){const px=x+w*j/np;R(px,y,w/np,h,'#F8F8F8','#333',0.6);R(px+w/np*0.2,y+h*0.18,w/np*0.6,h*0.3,'#3B4249','#111',0.3);}}
+    else if(it.kind==='int'){R(x,y,w,h,'#F3EEDD','#333',0.6);R(x+w*0.1,y+h*0.2,w*0.8,h*0.25,'#BCE0E8','#4A6B73',0.4);}
+    else body(x,w,p,true);
+    TV(x+Math.min(w*0.5,S(10))+3,y-3,it.tag||'');tip((it.tag||'')+' · '+(it.txt||''));return w;};
+  const rail=(xa,xb,yc)=>{R(xa,yc-S(17),xb-xa,S(34),'#D8CCA8','#8A8266',0.5);L(xa,yc-S(9),xb,yc-S(9),'#A99E7C',0.4);L(xa,yc+S(9),xb,yc+S(9),'#A99E7C',0.4);};
   const its=b.mitems.slice().sort((a,c)=>BSK_ORDER.indexOf(a.kind)-BSK_ORDER.indexOf(c.kind));
-  const mpr=e.mpr,rowsM=[];let cur=null;
-  its.forEach(it=>{if(!cur||cur.n+it.n>mpr+1e-9){cur={n:0,items:[]};rowsM.push(cur);}cur.items.push(it);cur.n+=it.n;});
-  rowsM.forEach((row,ri)=>{const ry=y+ri*S(150);
-    R(cx0,ry+S(55),cx1-cx0,S(26),'#DAD0B0','#8A8266',0.5);
-    let x=cx0;
-    row.items.forEach(it=>{const w=S(it.n*18),h=S(90),yy=ry+S(22);
-      R(x,yy,w,h,it.kind==='int'?'#EADFC4':'#F4F5F6','#222',0.8);R(x,yy,w,h*0.14,'#4A4F55','#222',0.4);
-      if(it.kind==='corte')R(x+w*0.1,yy+h*0.3,w*0.8,h*0.14,'#111','#000',0.4);
-      else if(it.kind==='brk'){const k=Math.max(1,Math.min(it.poles||4,Math.floor(it.n)));for(let j=0;j<k;j++)R(x+w*(j+0.25)/k,yy+h*0.3,w*0.5/k,h*0.22,'#111','#000',0.3);}
-      else if(it.kind==='dst'){for(let j=0;j<4;j++)R(x+w*(j+0.2)/4,yy+h*0.32,w*0.6/4,h*0.2,'#2DB327','#1E7A19',0.3);}
-      else if(it.kind==='rele')R(x+w*0.15,yy+h*0.25,w*0.7,h*0.3,'#BCE0E8','#4A6B73',0.4);
-      else if(it.kind==='fus')R(x+w*0.2,yy+h*0.3,w*0.6,h*0.4,'#E8E0C8','#6B6350',0.4);
-      T(x+w/2,yy-3,it.tag||'',Math.max(6.5,fsz-1));tip((it.tag||'')+' · '+(it.txt||''));x+=w;});
-    /* repartidor TD 125 A no que sobrar da última fila (quadros modulares com várias saídas) */
-    if(ri===rowsM.length-1&&b.bus==='td'&&mpr-row.n>=6.5){const w=S(6*18),tx=x+S(18);R(tx,ry+S(22),w,S(90),'#3B4249','#111',0.8);
-      for(let j=0;j<4;j++)R(tx+w*(j+0.2)/4,ry+S(82),w*0.14,S(14),'#C98A4B','#7A4A1C',0.3);T(tx+w/2,ry+S(19),'TD 125 A',Math.max(6.5,fsz-1));tip('repartidor tetrapolar TD 125 A');}});
-  /* zona de cabos por baixo da aparelhagem e raio de curvatura do maior cabo */
-  const zt=y0+H-S(b.zone+40);
-  o.push(`<rect x="${f1(x0+S(14))}" y="${f1(zt)}" width="${f1(W-S(28))}" height="${f1(S(b.zone))}" fill="rgba(169,99,0,.06)" stroke="#A96300" stroke-dasharray="4 3" stroke-width="0.8"/>`);
-  const rad=Math.min(b.rMax*sc,W/2-12,S(b.zone)-10),ax=x0+S(60);
-  o.push(`<path d="M${f1(ax)} ${f1(y0+H-S(14))} L${f1(ax)} ${f1(zt+rad+4)} A${f1(rad)} ${f1(rad)} 0 0 1 ${f1(ax+rad)} ${f1(zt+4)}" fill="none" stroke="#1E8A19" stroke-width="2.4"/>`);
-  T(x0+W/2,zt+S(b.zone)-4,`zona de cabos ${b.zone} mm`,8,'middle','#A96300');
-  /* cotas */
-  const dy=y0+H+16,dx=x0+W+16,xr=x0+W,yb=y0+H;
-  o.push(`<g stroke="#1A2028" stroke-width="0.8" fill="#1A2028"><line x1="${x0}" y1="${f1(yb)}" x2="${x0}" y2="${dy+6}"/><line x1="${f1(xr)}" y1="${f1(yb)}" x2="${f1(xr)}" y2="${dy+6}"/>
-    <line x1="${x0}" y1="${dy}" x2="${f1(xr)}" y2="${dy}"/><path d="M${x0} ${dy}l7 -3v6z M${f1(xr)} ${dy}l-7 -3v6z"/>
+  /* filas de aparelhos modulares: a primeira com o corte à esquerda e o DST à direita, como nos desenhos; depois as saídas */
+  const packRows=cap=>{const first=its.filter(i=>i.kind==='corte'),dst=its.filter(i=>i.kind==='dst'),rest=its.filter(i=>i.kind!=='corte'&&i.kind!=='dst');const rows=[];
+    let r={left:first.slice(),right:[],n:first.reduce((a,i)=>a+i.n,0)};
+    dst.forEach(d=>{if(r.n+d.n<=cap+1e-9){r.right.push(d);r.n+=d.n;}else rest.unshift(d);});rows.push(r);r=null;
+    rest.forEach(it=>{if(!r||r.n+it.n>cap+1e-9){r={left:[],right:[],n:0};rows.push(r);}r.left.push(it);r.n+=it.n;});
+    if(!rows[0].left.length&&!rows[0].right.length)rows.shift();return rows;};
+  const drawRow=(row,xa,xb,yc)=>{let x=xa+S(8);row.left.forEach(it=>{x+=dev(x,yc,it);});let xr=xb-S(8);row.right.slice().reverse().forEach(it=>{const w=S(it.n*18);dev(xr-w,yc,it);xr-=w;});return x;};
+  const td=()=>b.InSum<=80?80:b.InSum<=125?125:160;
+  if(!e.rows.length){
+    /* Orion plus só modular: montantes amarelos e calhas DIN igualmente espaçadas */
+    const xa=x0+S(32),xb=x0+W-S(32);
+    [xa,xb-S(30)].forEach(x=>{R(x,y0+S(22),S(30),H-S(44),'#F5B800','#A87800',0.5);for(let yy=y0+S(40);yy<y0+H-S(30);yy+=S(25))o.push(`<circle cx="${f1(x+S(15))}" cy="${f1(yy)}" r="${f1(Math.max(0.6,S(2.2)))}" fill="#7A5A00"/>`);});
+    const nR=Math.max(ORION_ROWS[e.ref]||Math.floor((e.H-80)/150),e.mrows||1),pit=(H-S(80))/nR,cap=e.mpr||Math.floor((e.W-100)/18);
+    const rows=packRows(cap),acc=(ORION_ACC[e.ref]||[]).map(x=>x[0]).find(r=>/^FL9|^FL36/.test(r));
+    for(let i=0;i<nR;i++){const yc=y0+S(40)+pit*(i+0.55);rail(xa+S(4),xb-S(4),yc);
+      if(rows[i]){const x=drawRow(rows[i],xa+S(30),xb-S(30),yc);
+        if(i===rows.length-1&&b.bus==='td'&&cap-rows[i].n>=6.5){const w=S(6*18),tx=x+S(14),h=S(88);R(tx,yc-h/2,w,h,'#3B4249','#111',0.6);for(let j=0;j<4;j++)R(tx+w*(j+0.2)/4,yc+h*0.22,w*0.14,S(12),'#C98A4B','#7A4A1C',0.3);TV(tx+S(10)+3,yc-h/2-3,'TD '+td());tip('repartidor tetrapolar TD '+td()+' A');}}
+      if(acc&&(/^FL36/.test(acc)||i===nR-1))T(x0+W/2,yc+pit*0.42,acc,fsz+1,'middle',INK,' letter-spacing="0.6"');}
+  }else{
+    /* Orion plus com univers: colunas de unidades funcionais (l.250 / l.500) entre montantes univers */
+    const use=e.W-100,cols=use>=1000?[500,500]:use>=750?[250,500]:[500];
+    const top=75,avail=e.H-100-2*top,units=cols.map(()=>[]),used=cols.map(()=>0);
+    const put=(u,pref)=>{let c=pref<cols.length?pref:cols.length-1;if(cols[c]<u.w)c=cols.findIndex(w=>w>=u.w);if(used[c]+u.h>avail+1e-9){const k=cols.findIndex((w,j)=>j!==c&&w>=u.w&&used[j]+u.h<=avail+1e-9);if(k>=0)c=k;}units[c].push(u);used[c]+=u.h;};
+    const narrow=cols.indexOf(250),wide=cols.length-1,side=narrow>=0?narrow:0;
+    /* corte e barramento vertical na coluna estreita (como no desenho Summerberry), aparelhagem modular, caixas moldadas e TI na larga */
+    const cor=b.plates.filter(p=>p.kind==='corte'),mc=b.plates.filter(p=>p.kind==='mccb');
+    cor.forEach(p=>put({w:narrow>=0?250:500,h:p[1]>350?450:300,ref:Q_CORTE(p),kind:'corte',items:[p]},side));
+    if(mc.length)put({w:narrow>=0?250:500,h:300,ref:b.InSum>250?'UE21D3':'UE21D2',kind:'bus'},side);
+    const m24=its.length?packRows(cols[wide]===500?24:12):[];m24.forEach(r=>put({w:cols[wide],h:225,ref:cols[wide]===500?'UD12B4A':'UD11B4A',kind:'mod',row:r},wide));
+    const big=mc.filter(p=>p[0]>150),small=mc.filter(p=>p[0]<=150);
+    for(let i=0;i<small.length;i+=2)put({w:500,h:300,ref:'UK22LH1',kind:'mccb',items:small.slice(i,i+2)},wide);
+    for(let i=0;i<big.length;i+=2)put({w:500,h:450,ref:'UK32LH34',kind:'mccb',items:big.slice(i,i+2)},wide);
+    if(b.ti)put({w:cols[wide],h:150,ref:'UZ02B3',kind:'ti'},wide);
+    let cx=x0+S(50);
+    cols.forEach((cw,ci)=>{const X=cx,Wc=S(cw);
+      /* topos (tampas de extremidade) e tampas cegas a preencher a coluna */
+      const blank=cw===500?'UD12F1':'UD11F1',end=cw===500?'UD02F1':'UD01F1';let free=avail-used[ci];while(free>=150-1e-9){units[ci].push({w:cw,h:150,ref:blank,kind:'blank'});free-=150;}
+      /* se a coluna não couber na altura (a envolvente é dimensionada com outras regras), as unidades encolhem para caber no desenho */
+      const kf=free<0?avail/used[ci]:1,extra=Math.max(0,free);let y=y0+S(50);
+      const box=(h,ref,fill='#E9ECEE')=>{R(X,y,Wc,S(h),fill,'#555',0.6);T(X+Wc/2,y+S(h)-S(10),ref,fsz,'middle',INK,' letter-spacing="0.5"');};
+      box(top+extra/2,end);y+=S(top+extra/2);
+      units[ci].forEach(u=>{u.h*=kf;const h=S(u.h);
+        if(u.kind==='blank')box(u.h,u.ref);
+        else if(u.kind==='mod'){box(u.h,u.ref);const yc=y+h*0.45;rail(X+S(6),X+Wc-S(6),yc);drawRow(u.row,X+S(6),X+Wc-S(6),yc);}
+        else if(u.kind==='bus'){box(u.h,u.ref,'#E9E2C8');for(let j=0;j<4;j++){const bx=X+Wc*(0.2+j*0.17);R(bx,y+S(14),Wc*0.07,h-S(40),'#C98A4B','#7A4A1C',0.5);}
+          for(let k=0;k<3;k++)R(X+Wc*0.12,y+S(30)+k*(h-S(80))/2,Wc*0.76,S(12),'#F5D33A','#A87800',0.4);tip('barramento vertical '+(u.ref==='UE21D3'?'400 A':'250 A'));}
+        else if(u.kind==='ti'){box(u.h,u.ref);const yc=y+h*0.4;rail(X+S(6),X+Wc-S(6),yc);let tx=X+S(20);const w=S(b.ti.w),hh=S(50);
+          for(let k=0;k<b.ti.n&&tx+w<X+Wc;k++){R(tx,yc-hh/2,w,hh,'#3B4249','#111',0.6,' rx="2"');if(b.ti.w>60)R(tx+w*0.15,yc-hh*0.12,w*0.7,hh*0.24,'#C98A4B','#7A4A1C',0.4);else o.push(`<circle cx="${f1(tx+w/2)}" cy="${f1(yc)}" r="${f1(Math.min(w,hh)*0.28)}" fill="#D9DEE1" stroke="#111" stroke-width="0.5"/>`);
+            TV(tx+w/2+3,yc-hh/2-3,'T'+(k+1));tip(`T${k+1} · TI ${b.ti.A}/5 A da contagem`);tx+=w+S(12);}}
+        else{box(u.h,u.ref,'#E2E6E9');const n=u.items.length,slot=Wc/Math.max(2,n);
+          u.items.forEach((p,k)=>{const w=Math.min(S(p[0]),slot*0.85),hh=Math.min(S(p[1]-40),h-S(70)),px=X+slot*k+(slot-w)/2,py=y+S(30);
+            R(px-S(10),py-S(8),w+S(20),hh+S(16),'#C9CED2','#777',0.4); /* platina */
+            if(u.kind==='corte'){R(px,py,w,hh,'#F4F5F6','#222',0.7);R(px,py+hh*0.72,w,hh*0.28,'#D5D9DD','#444',0.4);R(px+w*0.12,py+hh*0.38,w*0.76,hh*0.1,'#111','#000',0.5);
+              o.push(`<circle cx="${f1(px+w/2)}" cy="${f1(py+hh*0.43)}" r="${f1(Math.max(2.5,Math.min(w,hh)*0.16))}" fill="#1A1A1A" stroke="#000" stroke-width="0.5"/>`);}
+            else{R(px,py,w,hh,'#F4F5F6','#222',0.7);R(px,py,w,hh*0.14,'#4A4F55','#222',0.4);R(px,py+hh*0.86,w,hh*0.14,'#4A4F55','#222',0.4);
+              R(px+w*0.36,py+hh*0.32,w*0.28,hh*0.2,'#1A1A1A','#000',0.4);R(px+w*0.14,py+hh*0.58,w*0.72,hh*0.1,'#D5D9DD','#666',0.3);}
+            T(px+w/2,py-S(12),p.tag||'',fsz);tip((p.tag||'')+' · '+(p.txt||''));});}
+        y+=h;});
+      box(top+extra-extra/2,end);
+      cx+=Wc;});
+    /* montantes univers nos lados e entre colunas */
+    const post=x=>{R(x-S(9),y0+S(30),S(18),H-S(60),'#EFE8D2','#8A8266',0.5);for(let yy=y0+S(60);yy<y0+H-S(40);yy+=S(75))R(x-S(7),yy,S(14),S(18),'#D8CCA8','#8A8266',0.4);};
+    let px=x0+S(50);post(px-S(4));cols.forEach(cw=>{px+=S(cw);post(px+(px>x0+W-S(60)?S(4):0));});
+  }
+  /* cotas, como nos desenhos Hager: linhas de chamada longas e setas cheias */
+  const dy=y0+H+30,dx=x0+W+20,xr=x0+W,yb=y0+H;
+  o.push(`<g stroke="${INK}" stroke-width="0.6" fill="${INK}"><line x1="${x0}" y1="${f1(yb)}" x2="${x0}" y2="${dy+6}"/><line x1="${f1(xr)}" y1="${f1(yb)}" x2="${f1(xr)}" y2="${dy+6}"/>
+    <line x1="${x0}" y1="${dy}" x2="${f1(xr)}" y2="${dy}"/><path d="M${x0} ${dy}l9 -3v6z M${f1(xr)} ${dy}l-9 -3v6z"/>
     <line x1="${f1(xr)}" y1="${y0}" x2="${dx+6}" y2="${y0}"/><line x1="${f1(xr)}" y1="${f1(yb)}" x2="${dx+6}" y2="${f1(yb)}"/>
-    <line x1="${dx}" y1="${y0}" x2="${dx}" y2="${f1(yb)}"/><path d="M${dx} ${y0}l-3 7h6z M${dx} ${f1(yb)}l-3 -7h6z"/></g>`);
-  o.push(`<rect x="${f1(x0+W/2-26)}" y="${dy-8}" width="52" height="16" fill="#fff"/>`);T(x0+W/2,dy+4,`${e.W} mm`,11);
-  o.push(`<rect x="${dx-8}" y="${f1(y0+H/2-26)}" width="16" height="52" fill="#fff"/>`);T(dx,y0+H/2+4,`${e.H} mm`,11,'middle','#1A2028',` transform="rotate(-90 ${dx} ${f1(y0+H/2)})"`);
+    <line x1="${dx}" y1="${y0}" x2="${dx}" y2="${f1(yb)}"/><path d="M${dx} ${y0}l-3 9h6z M${dx} ${f1(yb)}l-3 -9h6z"/></g>`);
+  o.push(`<rect x="${f1(x0+W/2-26)}" y="${dy-8}" width="52" height="16" fill="#fff"/>`);T(x0+W/2,dy+4,`${e.W} mm`,11,'middle',INK,' letter-spacing="0.6"');
+  o.push(`<rect x="${dx-8}" y="${f1(y0+H/2-26)}" width="16" height="52" fill="#fff"/>`);T(dx,y0+H/2+4,`${e.H} mm`,11,'middle',INK,` letter-spacing="0.6" transform="rotate(-90 ${dx} ${f1(y0+H/2)})"`);
   const tw=Math.ceil(x0+W+34),th=Math.ceil(dy+14);
-  return `<svg viewBox="0 0 ${tw} ${th}" width="${tw}" height="${th}" font-family="Arial, sans-serif" role="img" aria-label="Frente do quadro ${esc(e.ref)}">${o.join('')}</svg>`;
+  return `<svg viewBox="0 0 ${tw} ${th}" width="${tw}" height="${th}" font-family="'Arial Narrow', Arial, sans-serif" role="img" aria-label="Frente do quadro ${esc(e.ref)}">${o.join('')}</svg>`;
 }
+/* unidade univers do corte geral: UK21A3 (x160) até 160 A, UK21S1 (HA 250 A) até 250 A; acima, unidade a.450 (referência a escolher) */
+const Q_CORTE=p=>{const In=+(String(p.txt||'').match(/(\d+) A/)||[0,0])[1];return In<=160?'UK21A3':In<=250?'UK21S1':'UK31 (corte '+In+' A)';};
 const DIFL=['Fácil','Normal','Exigente','Difícil','Muito difícil','Muito difícil'];
 function renderBoards(R){
   /* o quadro do cliente (existente) não é nosso: não tem cartão. O disjuntor de interligação que lá fica (sem quadro de interligação) vem à parte. */
@@ -1726,23 +1804,24 @@ function renderBoards(R){
     return `<div class="board"><div class="panel-head"><div><h3 class="bname">${esc(b.node)}</h3>
       <span class="hint">${b.ins.length} entrada${b.ins.length===1?'':'s'} · ${fmt(b.Ib,0)} A${b.out?` · sai para ${esc(b.out.ref.dest)}`:''}</span></div>
       <span class="pill ${b.dif>=3?'bad':b.dif>=1?'warn':'ok'}">Trabalho do cabo: ${DIFL[b.dif]}</span></div>
-      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">Hager Orion plus ${e.ref}${INDUS[e.ref]?` · PVP ${eur0(INDUS[e.ref][1])}`:''}</span>`:'<b>Armário de chão</b><span class="sub">Não cabe num quadro de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
+      <div class="bgrid"><div class="bsk">${e?boardSVG(b):''}<p class="bdim">${e?`<b>${e.H} × ${e.W} × ${e.Pf} mm</b> (a × l × p)<span class="sub">Hager Orion plus ${e.ref}${INDUS[e.ref]?` · ${eur0(INDUS[e.ref][1])} líq.`:''}</span>`:'<b>Armário de chão</b><span class="sub">Não cabe num quadro de parede: aparelhagem ou cabos grandes demais.</span>'}</p></div>
       <div class="bcol"><h3>Aparelhagem</h3><table class="bom"><tbody>${b.devs.map(d=>`<tr><td>${esc(d.nome)}</td><td>${esc(d.txt)}${d.dif?`<span class="sub">${esc(d.dif)}</span>`:''}</td></tr>`).join('')}</tbody></table>
       <h3>Cabos a ligar</h3><table class="bom"><thead><tr><th>Circuito</th><th>Cabo</th><th class="r">Ø aprox.</th><th class="r">Raio mín.</th><th class="r">Condutores</th></tr></thead><tbody>${b.cables.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.cabo)}</td><td class="n r">${x.D} mm</td><td class="n r">${x.r} mm</td><td class="n r">${x.nCond}</td></tr>`).join('')}</tbody></table>
       <p class="hint">Zona livre por baixo da aparelhagem: <b>${b.zone} mm</b> (maior raio de curvatura + terminal). Bucins: ${Math.round(b.glandW)} mm de largura${e?` em ${e.gRows} fila${e.gRows===1?'':'s'}`:''}.${e?` ${b.mod} módulos com 30% de reserva.`:''}</p>
       ${b.notes.length?`<ul class="bnotes">${b.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div></div>
-      ${(P=>P?`<div class="bind"><h3>Componentes e montagem <span class="hint">como a Indusmelec orçamenta (2025–2026)</span></h3>${indusTable(P)}${P.notes.length?`<ul class="bnotes">${P.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`:'')(indusParts(b.node,R))}</div>`;}).join('')
+      ${(P=>P?`<div class="bind"><h3>Componentes e montagem <span class="hint">como a Indusmelec orçamenta (orçamentos 2026)</span></h3>${indusTable(P)}${P.notes.length?`<ul class="bnotes">${P.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`:'')(indusParts(b.node,R))}</div>`;}).join('')
     +(cli.length?`<div class="board"><div class="panel-head"><div><h3 class="bname">Disjuntor de interligação · no quadro do cliente</h3><span class="hint">Sem quadro de interligação, o disjuntor de interligação instala-se no quadro do cliente (existente, fora do nosso fornecimento). Já está no custo das proteções.</span></div></div>
       <div class="bcol"><table class="bom"><tbody>${cli.map(d=>`<tr><td>${esc(d.nome)}</td><td>${esc(d.txt)}${d.dif?`<span class="sub">${esc(d.dif)}</span>`:''}</td></tr>`).join('')}</tbody></table></div></div>`:'')
     ||'<p class="hint">Liga inversores a um quadro para ver a sugestão.</p>';
 }
 HOOKS.push(R=>{if(TAB==='brd')renderBoards(R);});
 
-/* ---------- componentes de cada quadro como a Indusmelec os orçamenta (orçamentos 2025–2026 das pastas de projeto) ----------
+/* ---------- componentes de cada quadro como a Indusmelec os orçamenta (orçamentos Indusmelec de abr.–out. 2026, indus.json) ----------
    Os aparelhos são os de qfvParts/boardFor (regras Solcor do unifilar); daqui vêm as referências, a envolvente, os acessórios e a
-   montagem. Preço = líquido do último orçamento Indusmelec 2025–2026 com essa referência (indicativo). Os disjuntores e diferenciais
+   montagem. Preço = líquido do orçamento Indusmelec mais recente com essa referência (indus.json, gerado por mkindus.py a partir dos PDF);
+   as referências que não aparecem nesses orçamentos ficam com o preço dos orçamentos 2025–2026 das pastas de projeto. Os disjuntores e diferenciais
    dos circuitos já estão em "Disjuntores e diferenciais ABB" (brkTot): aqui aparecem com prot:true e não entram no subtotal. */
-/* envolventes Hager Orion plus (preferidas; PVP da tabela 2026, hager.json gerado por mkhager.py): {ref: [descrição, PVP]} */
+/* envolventes Hager Orion plus (PVP da tabela 2026, hager.json gerado por mkhager.py): {ref: [descrição, PVP]} */
 const HAGER={
 "FL126A": [
 "orion plus IP65 PO a.950 l.600 p.300",
@@ -1845,7 +1924,1331 @@ const HAGER={
 1857.7
 ]
 };
-const INDUS={ /* ref: [descrição, € líquido, data do orçamento] */
+/* orçamentos Indusmelec 2026: {refs: {ref: [descrição, € líquido, aaaa-mm, nº do orçamento]}, mont: [[data, nº, obra, quadro, €]]} */
+const INDUSQ={
+"refs": {
+"0383560000": [
+"0383560000 -- ANG. FIJ. EW 35 TS 35",
+0.42,
+"2026-05",
+"7389"
+],
+"1010200000": [
+"BORNE WPE 6 (1 unid.)",
+1.98,
+"2026-06",
+"8271"
+],
+"1010400000": [
+"BORNE WPE 16 (1 unid.)",
+3.1,
+"2026-09",
+"13561"
+],
+"1020000000": [
+"BORNE WDU 2.5 (1 unid.)",
+0.4,
+"2026-09",
+"13561"
+],
+"1020100000": [
+"BORNE WDU 4 (1 unid.)",
+0.42,
+"2026-05",
+"6878"
+],
+"1020200000": [
+"BORNE WDU 6 (1 unid.)",
+0.51,
+"2026-08",
+"11337"
+],
+"1020280000": [
+"BORNE WDU 6 AZUL (1 unid.)",
+0.51,
+"2026-06",
+"8271"
+],
+"1020400000": [
+"BORNE WDU 16 (1 unid.)",
+0.9,
+"2026-09",
+"13561"
+],
+"1020480000": [
+"BORNE WDU 16 AZUL (1 unid.)",
+0.9,
+"2026-09",
+"13561"
+],
+"1050000000": [
+"TAPA WAP 2.5-10 (1 unid.)",
+0.26,
+"2026-05",
+"7389"
+],
+"1061200000": [
+"TOPE WEW 35/2 (1 unid.)",
+1.78,
+"2026-05",
+"6878"
+],
+"13437": [
+"QDR 4FILAS 72MOD KAEDRA",
+129.06,
+"2026-04",
+"6212"
+],
+"18RT": [
+"Regua terminais contagem indireta EDP 10E-4T-6I EPI",
+47.0,
+"2026-06",
+"8330"
+],
+"1SCA120521R1001": [
+"Interruptor seccionador OT160EV04P",
+73.0,
+"2026-09",
+"13539"
+],
+"1SDA066821R1": [
+"Disjuntor XT1B160 TMD R160 Im1600 4p F F N100",
+215.12,
+"2026-09",
+"13539"
+],
+"1SDA066888R1": [
+"XT1B160 Disj 160 TMD R125 Im1250 4p N100",
+174.04,
+"2026-09",
+"13509"
+],
+"1SDA067410R1": [
+"Disjuntor XT1C160 TMD R160 Im1600 4p F F N100%",
+248.74,
+"2026-06",
+"8203"
+],
+"1SDA068065R1": [
+"Disjuntor XT3N250 TMD R200 Im2000 4p F F N50%",
+6.17,
+"2026-10",
+"15176"
+],
+"1SDA068147R1": [
+"Disjuntor XT4N250 Ekip LS/I R250 4p F F",
+6.17,
+"2026-06",
+"8301"
+],
+"1SDA100396R1": [
+"Disjuntor XT5N 400 Ekip Dip LS/I In = 400 4p F F T4-T5-T6 630A",
+36.89,
+"2026-10",
+"15176"
+],
+"2502660000": [
+"WPD 131 1X95/1X95 BL",
+13.06,
+"2026-08",
+"11663"
+],
+"2CCG001235R0001": [
+"S804P-C80Disjuntor 80 A. curva C. 50 kA. 4p. S800P",
+160.97,
+"2026-06",
+"8206"
+],
+"2CCG001236R0001": [
+"S804P-C100 DISJ ALTA PERF 50KA",
+160.97,
+"2026-09",
+"13512"
+],
+"2CCG001237R0001": [
+"DISJ S804P-C125 50KA",
+209.26,
+"2026-09",
+"13509"
+],
+"2CCS800900R0211": [
+"Bobina de abertura 110 ... 250 V ca / cc. S800",
+38.93,
+"2026-09",
+"12197"
+],
+"2CDD284101R0025": [
+"Interruptor seccionador 4p. 25 A",
+25.82,
+"2026-04",
+"6444"
+],
+"2CDD284101R0032": [
+"Interruptor seccionador 4P 32A",
+25.81,
+"2026-05",
+"6878"
+],
+"2CDD284101R0040": [
+"SD204/40 Interruptor seccionador 4p 40 A",
+25.81,
+"2026-08",
+"11347"
+],
+"2CDD284101R0063": [
+"Interruptor seccionador 4p. 63 A",
+28.68,
+"2026-08",
+"11332"
+],
+"2CDE284001R0100": [
+"E204/100RD Interruptor secciona 100 A 4p",
+54.79,
+"2026-10",
+"15164"
+],
+"2CDE284001R0125": [
+"E204/125RD Interruptor secciona 125 A 4p",
+58.65,
+"2026-09",
+"13510"
+],
+"2CDS251001R0164": [
+"S201-C16 Disj 16A curva C 6kA/10kA 1p",
+6.14,
+"2026-09",
+"12197"
+],
+"2CDS252001R0164": [
+"Disjuntor 16 A. curva C. 6 kA/10 kA. 2p",
+14.16,
+"2026-05",
+"7458"
+],
+"2CDS254001R0104": [
+"S204-C10 Disj 10A curva C 6kA/10kA 4p",
+27.05,
+"2026-04",
+"6139"
+],
+"2CDS254001R0204": [
+"Disjuntor 20 A. curva C. 6 kA/10 kA. 4p",
+33.28,
+"2026-08",
+"11332"
+],
+"2CDS254001R0254": [
+"Disjuntor. 25 A. 4p. curva C. 6 kA/10kA",
+34.76,
+"2026-09",
+"13561"
+],
+"2CDS254001R0324": [
+"Disjuntor 32 A. curva C. 6 kA/10 kA. 4p",
+36.15,
+"2026-08",
+"11347"
+],
+"2CDS254001R0404": [
+"Disjuntor 40 A. curva C. 6 kA/10 kA. 4p",
+37.61,
+"2026-09",
+"13561"
+],
+"2CDS254001R0504": [
+"Disjuntor 50 A. curva C. 6 kA/10 kA. 4p",
+43.32,
+"2026-08",
+"11332"
+],
+"2CDS254001R0634": [
+"Disjuntor 63 A. curva C. 6 kA/10 kA. 4p",
+49.24,
+"2026-10",
+"15164"
+],
+"2CSB202001R1250": [
+"Bloco diferencial 1p+N/2p. 25 A. tipo AC. 30 mA. S200",
+51.07,
+"2026-05",
+"7458"
+],
+"2CSB204101R2250": [
+"Bloco diferencial 3p+N/4p. 25 A tipo A. 100 mA. S200",
+82.28,
+"2026-08",
+"11332"
+],
+"2CSB204101R3250": [
+"Bloco diferencial 3p+N/4p. 25 A tipo A. 300 mA. S200",
+74.82,
+"2026-09",
+"13561"
+],
+"2CSB204101R3400": [
+"Bloco diferencial 3p+N/4p. 40 A tipo A. 300 mA. S200",
+78.07,
+"2026-09",
+"13561"
+],
+"2CSB204101R3630": [
+"Bloco diferencial 3p+N/4p. 63 A tipo A. 300 mA. S200",
+97.6,
+"2026-10",
+"15164"
+],
+"2CSB804101R4000": [
+"Bloco diferencial 4p. tipo A. 100A 500mA.0",
+129.3,
+"2026-09",
+"13512"
+],
+"2CSF202002R1250": [
+"Interruptor diferencial 2p. tipo AC. 25A 30mA. não",
+23.26,
+"2026-09",
+"12197"
+],
+"2CSF204101R4950": [
+"F204A-125/05 Int dif 4p A 125A 500mA",
+338.79,
+"2026-09",
+"13509"
+],
+"2CSG110100R1211": [
+"Transformador toroidal Ø 110 mm fechado",
+113.8,
+"2026-10",
+"15176"
+],
+"2CSG317001R0202": [
+"Trafo toroidal 55mm WGC 55",
+57.07,
+"2026-09",
+"12197"
+],
+"2CSG319001R0202": [
+"Trafo toroidal 110mm WGC 110",
+123.42,
+"2026-07",
+"9377"
+],
+"2CSJ331001R0202": [
+"Relé diferencial 230 V ca. com ecrã: ?t= 0.02... 10 s: INS:",
+115.59,
+"2026-10",
+"15176"
+],
+"2CSJ341001R0202": [
+"Unidade central diferencial 4 E/S. com ecrã: ?t= 0.02... 10",
+301.97,
+"2026-09",
+"12197"
+],
+"2CSM204733R1801": [
+"Porta fusíveis seccionável modular. 32 A 3p+N -",
+12.55,
+"2026-09",
+"13509"
+],
+"2CSM277502R1801": [
+"Porta fusíveis seccionável modular. 125 A 3p - 22x58",
+37.66,
+"2026-10",
+"15176"
+],
+"2CSS255101R0164": [
+"Disjuntor 16 A, curva C, 6 kA/10 kA, 1p+N (1 mód.) acessoriá",
+9.97,
+"2026-06",
+"8362"
+],
+"563200": [
+"REPARTIDOR TETRAPOLAR TD 160A",
+52.5,
+"2026-09",
+"13539"
+],
+"563820": [
+"REPARTIDO TETRAPOLAR TD 125A",
+15.0,
+"2026-09",
+"13510"
+],
+"563920": [
+"SUP. BARRAMENTO TD 80A",
+15.0,
+"2026-08",
+"11347"
+],
+"563930": [
+"Repartidor Tetrapolar TD 80/100AL",
+17.5,
+"2026-10",
+"15164"
+],
+"7F0200001000": [
+"GRIGLIA",
+4.56,
+"2026-10",
+"15176"
+],
+"7F2082301020": [
+"VENTILATORE CON FILTRO",
+27.6,
+"2026-09",
+"12197"
+],
+"7F2082302055": [
+"VENTILADOR COM FILTRO",
+44.37,
+"2026-10",
+"15176"
+],
+"7P2482750020": [
+"DESCARREGADOR DE SOBRETENSÃO",
+90.0,
+"2026-10",
+"15192"
+],
+"7T8100002303": [
+"TERMOSTATO DE PAINEL",
+9.5,
+"2026-10",
+"15176"
+],
+"BTH480E": [
+"Bloco dif. 4P 125A regulável tipo HI 6 M",
+268.61,
+"2026-07",
+"10665"
+],
+"FL209B": [
+"Orion plus pol. PO a.500 l.300",
+113.94,
+"2026-09",
+"13512"
+],
+"FL213B": [
+"orion plus pol. PO a.500 l.400",
+135.41,
+"2026-08",
+"11347"
+],
+"FL216B": [
+"orion plus pol. PO a.650 l.400",
+153.41,
+"2026-09",
+"13510"
+],
+"FL221B": [
+"orion plus pol. PO a.650 l.500",
+210.09,
+"2026-09",
+"12616"
+],
+"FL301B": [
+"orion plus pol. PO a.850 l.600 p.300",
+283.01,
+"2026-08",
+"11663"
+],
+"FL302B": [
+"orion plus pol. PO a.1150 l.600 p.300",
+309.02,
+"2026-09",
+"13539"
+],
+"FL307B": [
+"orion plus pol. PO a.1150 l.850 p.300",
+377.72,
+"2026-10",
+"15192"
+],
+"FL362A": [
+"Tampa p/mod. 1x16 M a.150 l.400",
+10.82,
+"2026-08",
+"11663"
+],
+"FL366A": [
+"Tampa p/mod. 1x16 M a.200 l.400",
+10.82,
+"2026-09",
+"13510"
+],
+"FL367A": [
+"Tampa p/mod. 1x22 M a.200 l.500",
+10.82,
+"2026-09",
+"12616"
+],
+"FL371A": [
+"Kit vert. disj. x160 a.300 l.400",
+22.07,
+"2026-08",
+"11663"
+],
+"FL424A": [
+"Platina isolante a.500 l.300",
+15.79,
+"2026-09",
+"13512"
+],
+"FL463A": [
+"Mont. func. orion plus a.650",
+64.41,
+"2026-09",
+"13510"
+],
+"FL500A": [
+"Calha DIN p/bornes l.400",
+12.68,
+"2026-08",
+"11663"
+],
+"FL52S": [
+"Univ. IP65 a.850 l.600 p.300",
+413.11,
+"2026-07",
+"10011"
+],
+"FL712E": [
+"Tampa cega a.150 l.400",
+6.29,
+"2026-08",
+"11663"
+],
+"FL72S": [
+"Univ. IP65 a.1150 l.600 p.300",
+492.74,
+"2026-09",
+"13512"
+],
+"FL992A": [
+"Kit modular 3x16 M a.500 l.400",
+53.9,
+"2026-08",
+"11347"
+],
+"FR63S": [
+"Univ. IP54 PO a.950 l.800 p.275",
+410.29,
+"2026-06",
+"8352"
+],
+"FV10AZLHPRY": [
+"CABO LIVRE HALOG.FV 10 AZUL",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10CALHPRY": [
+"CABO LIVRE HALOG.FV 10 CASTANHO",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10CZLHPRY": [
+"CABO LIVRE HALOG.FV 10 CINZA",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10PTLHPRYS": [
+"CABO LIVRE HALOG.FV 10 PRETO",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10VALHPRYS": [
+"CABO LIVRE HALOGENEO FV 10 VD/AM",
+1.41,
+"2026-08",
+"11332"
+],
+"GG5009": [
+"GG5009 - Armário ABS 800x600x260",
+195.0,
+"2026-10",
+"15176"
+],
+"GW40104BS": [
+"40 CDK 24M(12X2) IP65 BS2x14P",
+45.6,
+"2026-10",
+"15164"
+],
+"GW40108BD": [
+"40 CDK 54M(18X3) IP65",
+82.0,
+"2026-09",
+"13561"
+],
+"HA457": [
+"Inter. corte aparente 4P 40",
+186.69,
+"2026-10",
+"15176"
+],
+"HA458": [
+"Inter. corte aparente 4P 630A",
+284.38,
+"2026-08",
+"12049"
+],
+"HAE416": [
+"Inter. corte visível 4P 160A 7.5M",
+81.04,
+"2026-07",
+"10060"
+],
+"HCA161H": [
+"Interruptor geral x160 4P 160A 6 M",
+228.58,
+"2026-08",
+"11663"
+],
+"HHA162H": [
+"Disj. geral x160 4P3D+N/2 160A 25kA 6 M",
+283.89,
+"2026-08",
+"11663"
+],
+"HHT202DR": [
+"Disjuntor P250 TM 4P-3D+N/2 200A 25kA",
+534.45,
+"2026-10",
+"15192"
+],
+"HI456": [
+"Invers. cmdo rot. manual 4P 400A",
+622.84,
+"2026-10",
+"15192"
+],
+"HMF490": [
+"Disjuntor 4P 100A C 10kA 6 M",
+218.94,
+"2026-09",
+"13514"
+],
+"HMF499": [
+"Disjuntor 4P 125A C 10kA 6 M",
+256.19,
+"2026-08",
+"11343"
+],
+"HR510": [
+"Relé dif. 0.03-10A temp. 3 M",
+171.82,
+"2026-10",
+"15192"
+],
+"HR702": [
+"Toro circular diâmetro 70mm",
+105.84,
+"2026-08",
+"11663"
+],
+"HR703": [
+"Toro circular diâmetro 105mm",
+141.37,
+"2026-10",
+"15192"
+],
+"HXA004H": [
+"Bob. p/emissão 230V AC p/x160-x250",
+42.51,
+"2026-10",
+"15192"
+],
+"HXA021H": [
+"Cont. auxiliar 1NA/NF p/x160-x250",
+24.21,
+"2026-10",
+"15192"
+],
+"HYA006H": [
+"Jogo 4 ligad. Al/Cu 1x70mm2 p/x160",
+25.15,
+"2026-08",
+"11663"
+],
+"K50AL": [
+"Borne de junção Al/Cu fase 50mm2",
+6.93,
+"2026-10",
+"15164"
+],
+"KH35E": [
+"Distribuidor 100A terra 2x(35+25) 1.5M",
+4.66,
+"2026-08",
+"11332"
+],
+"KJ125B": [
+"Repartidor escada 4P 125A 7.5M",
+32.6,
+"2026-07",
+"10665"
+],
+"KJ160A": [
+"Repartidor escada 4P 160A 9.5 M",
+62.51,
+"2026-08",
+"11663"
+],
+"L50600": [
+"L50600 C/C SECC. 32A 1P+N 1M",
+7.71,
+"2026-10",
+"15192"
+],
+"LC1D80004P7": [
+"CONTACTOR 125AT 4P BOB 230VCA",
+255.04,
+"2026-07",
+"10060"
+],
+"LF302G": [
+"Fusível 10x38 gG 2A 500V",
+0.4,
+"2026-09",
+"13539"
+],
+"LF599G": [
+"Fusível 22x58 gG 125A 400V",
+4.92,
+"2026-10",
+"15192"
+],
+"LR703": [
+"Corta-circuitos secc. 125A 3P 6 M",
+44.53,
+"2026-10",
+"15192"
+],
+"LSN503": [
+"Corta-circuitos 3P 32A 400V L38 3M",
+10.36,
+"2026-08",
+"11663"
+],
+"LSN504": [
+"Corta-circuitos 3P+N 32A 400V L38 4M",
+14.47,
+"2026-09",
+"12197"
+],
+"MCS20066PER5": [
+"ARMARIO MCS 2000X600X600 PE",
+538.0,
+"2026-05",
+"7267"
+],
+"NFN432": [
+"Disjuntor 4P 32A C 6/10kA 4 M",
+48.12,
+"2026-06",
+"8108"
+],
+"NFN440": [
+"Disjuntor 4P 40A C 6/10kA 4 M",
+48.78,
+"2026-06",
+"8183"
+],
+"NFN463": [
+"Disjuntor 4P 63A C 6/10kA 4 M",
+55.25,
+"2026-06",
+"8107"
+],
+"NSYPLA1054G": [
+"Arm pol PLA 1000x500x420 Cerrado 7035",
+319.47,
+"2026-10",
+"14643"
+],
+"NSYPMM105": [
+"PLAT MET PLA A1000XL500",
+47.31,
+"2026-10",
+"14643"
+],
+"PF1060": [
+"PEDESTAL 100X600",
+45.3,
+"2026-05",
+"7267"
+],
+"PS1060": [
+"LATERAL PEDESTAL 100X600",
+24.89,
+"2026-05",
+"7267"
+],
+"SBN499": [
+"Interruptor Modular 4P 125A",
+63.55,
+"2026-07",
+"10665"
+],
+"SPM2006R5": [
+"PAINEL LATERAL 2000X600",
+166.39,
+"2026-05",
+"7267"
+],
+"TM3150A5": [
+"TRASFORMADOR 150/5",
+11.0,
+"2026-09",
+"13561"
+],
+"TM3200A5": [
+"TM3-200A5 TRANSFORMADOR 200/5A",
+11.0,
+"2026-09",
+"13539"
+],
+"UD01F1": [
+"Tampas extrem. a.2x75 l.250",
+18.28,
+"2026-10",
+"15192"
+],
+"UD02F1": [
+"Tampas extrem. a.2x75 l.500",
+22.85,
+"2026-10",
+"15176"
+],
+"UD11B1": [
+"Unid. p/mod. 1x12M a.150 l.250",
+33.94,
+"2026-10",
+"15192"
+],
+"UD11B3": [
+"Unid. p/mod. 1x10 M a.150 l.250",
+37.24,
+"2026-09",
+"13512"
+],
+"UD11B4A": [
+"Unid. p/mod. 1x12 M a.225 l.250",
+36.82,
+"2026-10",
+"15192"
+],
+"UD11F1": [
+"Unid. c/tampa opaca a.150 l.250",
+18.19,
+"2026-10",
+"15192"
+],
+"UD11F4": [
+"Unid. c/tampa opaca a.225 l.250",
+22.66,
+"2026-09",
+"13539"
+],
+"UD12A1": [
+"Unid. p/bornes horiz. 1x26M a.150 l.500",
+41.81,
+"2026-08",
+"11663"
+],
+"UD12B2": [
+"Unid. p/mod. 1x26M a.150 l.500",
+40.53,
+"2026-08",
+"11663"
+],
+"UD12B3": [
+"Unid. p/mod. 1x24 M a.150 l.500",
+43.41,
+"2026-09",
+"13539"
+],
+"UD12B4A": [
+"Unid. p/mod. 1x24 M a.225 l.500",
+42.36,
+"2026-10",
+"15176"
+],
+"UD12F1": [
+"Unid. c/tampa opaca a.150 l.500",
+22.75,
+"2026-10",
+"15192"
+],
+"UD21B3": [
+"Unid. p/mod. 2x10 M s/calha a.300 l.250",
+45.38,
+"2026-07",
+"9377"
+],
+"UD21C1": [
+"Unid. c/platina lisa a.300 l.250",
+42.64,
+"2026-07",
+"9377"
+],
+"UD22C1": [
+"Unid. c/platina lisa a.300 l.500",
+67.24,
+"2026-09",
+"13539"
+],
+"UD31C1": [
+"Unid. c/platina lisa a.450 l.250",
+61.12,
+"2026-09",
+"13512"
+],
+"UE21D2": [
+"Unid. barram. vert. 250A a.300 l.250",
+129.95,
+"2026-09",
+"13512"
+],
+"UE21D3": [
+"Unid. barram. vert. 400A a.300 l.250",
+147.1,
+"2026-10",
+"15176"
+],
+"UE22D2": [
+"Unid. barram. horiz. 250A a.300 l.500",
+212.05,
+"2026-06",
+"8263"
+],
+"UK21A3": [
+"Unid. p/disj. x160 1x12 M a.300 l.250",
+43.72,
+"2026-09",
+"13512"
+],
+"UK21LH1": [
+"Unid. P250 a.300 l.250",
+52.37,
+"2026-10",
+"15192"
+],
+"UK21S1": [
+"Unid. p/inter. HA 250A a.300 l.250",
+44.12,
+"2026-10",
+"15176"
+],
+"UK22A2": [
+"Unid. p/disj. x160 1x24 M a.300 l.500",
+52.14,
+"2026-08",
+"11663"
+],
+"UK22LH1": [
+"Unid. P250 (x2) a.300 l.500",
+58.48,
+"2026-10",
+"15176"
+],
+"UK22U1": [
+"Unid. p/inv. HI 125-400A a.300 l.500",
+71.53,
+"2026-10",
+"15192"
+],
+"UK31LH34": [
+"Unid. P630 a.450 l.250",
+72.8,
+"2026-09",
+"12197"
+],
+"UK32LH34": [
+"Unid. P630 a.450 l.500",
+85.2,
+"2026-10",
+"15192"
+],
+"UN05A": [
+"Jogo 2 montantes univ. a.750",
+21.19,
+"2026-07",
+"10060"
+],
+"UN06A": [
+"Jogo 2 montantes univ. a.900",
+24.0,
+"2026-06",
+"8352"
+],
+"UN07A": [
+"Jogo 2 montantes univ. a.1050",
+29.49,
+"2026-10",
+"15192"
+],
+"UT52S": [
+"Conj. adaptação OP/Univ. a.850 I.600",
+61.85,
+"2026-08",
+"11663"
+],
+"UT72S": [
+"Conj. adaptação OP/Univ. a.1150 l.600",
+63.48,
+"2026-10",
+"15192"
+],
+"UT73S": [
+"Conj. adaptação OP/univ. a.1150 l.850",
+77.96,
+"2026-09",
+"12197"
+],
+"UT92S": [
+"Travessa equip. lig. ráp. terra l.500",
+22.24,
+"2026-08",
+"11663"
+],
+"UZ02B3": [
+"Calha DIN regulável l.500",
+23.32,
+"2026-10",
+"15176"
+],
+"VE112F": [
+"vector estanque IP55 1 fila 12 M",
+33.4,
+"2026-09",
+"13539"
+],
+"VE212F": [
+"vector estanque IP55 2 filas 24 M",
+53.14,
+"2026-09",
+"13514"
+],
+"VE312SN": [
+"vector estanque IP65 3 filas 36 M",
+66.26,
+"2026-10",
+"15164"
+]
+},
+"mont": [
+[
+"2026-04-23",
+"6139",
+"Casa Susanne",
+"Quadro Casa Susanne",
+80.0
+],
+[
+"2026-04-28",
+"6417",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-04-29",
+"6444",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-04-29",
+"6466",
+"Hotel Topazio (2)",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-11",
+"6939",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-11",
+"6940",
+"Ardavi",
+"QUADRO N Vending",
+240.0
+],
+[
+"2026-05-12",
+"6994",
+"Casa Dirk",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-15",
+"6878",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-15",
+"6878",
+"Hotel Topazio",
+"Quadro 2",
+80.0
+],
+[
+"2026-05-18",
+"7311",
+"Casa Dirk",
+"Quadro Fotovoltaico Casa Dirk",
+80.0
+],
+[
+"2026-05-19",
+"7389",
+"Casa Dirk",
+"Quadro Fotovoltaico Casa Dirk",
+80.0
+],
+[
+"2026-05-20",
+"7458",
+"Ardavi",
+"QUADRO Ardavi",
+240.0
+],
+[
+"2026-06-03",
+"8203",
+"Escola Secundaria do Cadaval",
+"Quadro Escola Secundaria Cadaval(2x40 kW)",
+400.0
+],
+[
+"2026-06-03",
+"8206",
+"Lavandaria DLaundry",
+"quadro Lavandaria DLaudry (1x40KW)",
+240.0
+],
+[
+"2026-06-05",
+"8263",
+"Topeca FV",
+"Quadro preparado para 160 kW - TOPECA",
+280.0
+],
+[
+"2026-06-05",
+"8269",
+"Metalgarve",
+"Quadro Metalgarve",
+400.0
+],
+[
+"2026-06-05",
+"8271",
+"Qualcroqui",
+"Orçamento Solcor | Quadro Qualcroqui",
+200.0
+],
+[
+"2026-06-08",
+"8277",
+"Qualcroqui",
+"Orçamento Solcor | Quadro Qualcroqui",
+200.0
+],
+[
+"2026-06-09",
+"8352",
+"Frestia 1",
+"^disjuntores devem de vir com barras de cobre",
+950.0
+],
+[
+"2026-06-09",
+"8362",
+"Frestia UPAC 2 e 3",
+"quadro Frestia UPAC 2 e 3 (1x50KW)",
+240.0
+],
+[
+"2026-07-01",
+"9377",
+"Topeca FV",
+"Quadro preparado para 160 kW - TOPECA",
+280.0
+],
+[
+"2026-07-13",
+"10011",
+"Metalgarve",
+"Quadro Metalgarve",
+350.0
+],
+[
+"2026-07-14",
+"10060",
+"Metalgarve (2)",
+"Quadro Metalgarve",
+350.0
+],
+[
+"2026-07-23",
+"10665",
+"Vidraria Central do Porto",
+"QUADRO BV AMADORA",
+240.0
+],
+[
+"2026-08-05",
+"11337",
+"Vangflor",
+"Quadro Fotovoltaico VANGFLOR",
+80.0
+],
+[
+"2026-08-05",
+"11341",
+"Buijnik",
+"quadro BUIJNIK (1x50KW)",
+240.0
+],
+[
+"2026-08-05",
+"11343",
+"Metalgarve",
+"quadro METALGARVE (1x50KW)",
+240.0
+],
+[
+"2026-08-05",
+"11347",
+"Vangflor (2)",
+"Quadro Fotovoltaico VANGFLOR",
+80.0
+],
+[
+"2026-08-05",
+"11378",
+"Summerberry",
+"^disjuntores devem de vir com barras de cobre",
+950.0
+],
+[
+"2026-08-12",
+"11663",
+"Sirius Park",
+"Quadro Sirius Park",
+285.0
+],
+[
+"2026-08-21",
+"11887",
+"Summerberry",
+"^disjuntores devem de vir com barras de cobre",
+870.0
+],
+[
+"2026-08-27",
+"12049",
+"Summerberry",
+"ou",
+870.0
+],
+[
+"2026-09-01",
+"12197",
+"Summerberry",
+"^disjuntores devem de vir com barras de cobre",
+870.0
+],
+[
+"2026-09-08",
+"12616",
+"Digimodelo",
+"Orçamento Solcor | Quadro Digimodelo",
+200.0
+],
+[
+"2026-09-24",
+"13509",
+"Fundacao Joaquim A Franco",
+"Quadro Fotovoltaico Fundação Joaquim A Franco",
+240.0
+],
+[
+"2026-09-24",
+"13510",
+"Alberstone",
+"Quadro Alberstone",
+240.0
+],
+[
+"2026-09-24",
+"13512",
+"Alberstone (2)",
+"^proteção DST",
+360.0
+],
+[
+"2026-09-25",
+"13539",
+"Marcelo e Nogueira",
+"Quadro Fotovoltaico Marcelo & Nogueira (1x80KW)",
+350.0
+],
+[
+"2026-09-25",
+"13561",
+"Passion Cafe",
+"Orçamento Solcor | Quadro Passion Cafe",
+200.0
+],
+[
+"2026-10-26",
+"15164",
+"Cavalinhos Florestais",
+"Cavalinhos Florestais. - (1x30KW)",
+125.0
+],
+[
+"2026-10-26",
+"15176",
+"Oasis",
+"^disjuntores devem de vir com barras de cobre",
+950.0
+],
+[
+"2026-10-26",
+"15186",
+"Bypass Topeca",
+"Quadro topeca",
+850.0
+],
+[
+"2026-10-26",
+"15192",
+"Bypass Topeca (rev)",
+"Quadro topeca",
+850.0
+]
+]
+};
+/* desconto da Indusmelec no material Hager nos orçamentos 2026 (35 % + 2 %): para as Orion plus que não aparecem nos orçamentos */
+const HAGER_NET=0.65*0.98;
+const INDUS={ /* ref: [descrição, € líquido, data do orçamento]; primeiro os de 2025–2026 que não aparecem nos orçamentos de 2026 */
   'MCS20086PER5':['Eldon MCS 2000 × 800 × 600 PE',534.22,'2026-02'],'MCS20046R5':['Eldon MF 2000 × 400 × 600',482.31,'2026-02'],'CCI06':['Eldon: suporte de união interna',30.63,'2026-02'],'CCM04':['Eldon: kit de união interna de esquina',22.11,'2026-02'],
   'PF1080':['Eldon: esquadro frontal 100 × 800',41.87,'2026-02'],'PF1040':['Eldon: rodapé lateral',38.24,'2026-02'],
   'NSYCRN108250':['Schneider Spacial CRN 1000 × 800 × 250',209.92,'2025-12'],'NSYMM108':['Schneider: platina 1000 × 800',70.00,'2025-12'],'NSYCRN128300':['Schneider Spacial CRN 1200 × 800 × 300',336.68,'2026-02'],'NSYMM128':['Schneider: platina 1200 × 800',121.89,'2026-02'],
@@ -1857,9 +3260,25 @@ const INDUS={ /* ref: [descrição, € líquido, data do orçamento] */
   'XB7EV03MP':['Sinalizador LED verde 230 V',3.50,'2026-02'],'XB7EV04MP':['Sinalizador LED vermelho 230 V',3.50,'2026-02'],'XB7EV05MP':['Sinalizador LED amarelo 230 V',3.50,'2026-02'],
   '7T.81':['Finder termóstato de painel',9.50,'2026-02'],'7F.20':['Finder ventilador com filtro',44.37,'2026-02'],'7F.02':['Finder grelha com filtro 150 × 150 IP54',6.50,'2026-02'],
   'CTD1X1255AXXX':['TI CTD 125/5 A',12.50,'2026-01'],'TM3200A5':['TI TM3 200/5 A',11.00,'2025-11'],'TS00850800X05':['TI TS85 800/5 A (barra)',28.70,'2025-12'],'CTD8S12505AXXX':['TI CTD8S 1250/5 A, abrir',148.86,'2026-02']};
-Object.keys(HAGER).forEach(r=>{INDUS[r]=[`Hager ${HAGER[r][0]} (PVP 2026)`,HAGER[r][1],'2026'];});
+Object.keys(HAGER).forEach(r=>{INDUS[r]=[`Hager ${HAGER[r][0]} (PVP 2026 −35 % −2 %)`,Math.round(HAGER[r][1]*HAGER_NET*100)/100,'2026'];});
+/* nomes legíveis das referências que a ferramenta usa (a descrição dos orçamentos vem abreviada) */
+const INDUS_NOME={'7P2482750020':'Finder 7P.24 descarregador de sobretensões tipo 2, 3F+N','2CSM277502R1801':'ABB porta-fusíveis seccionável 3P 125 A 22×58','LF599G':'Fusível 22×58 gG 125 A',
+  '563920':'Repartidor tetrapolar TD 80 A','563820':'Repartidor tetrapolar TD 125 A','563200':'Repartidor tetrapolar TD 160 A','K50AL':'Hager borne de junção Al/Cu 50 mm²',
+  '7T8100002303':'Finder termóstato de painel','7F2082302055':'Finder ventilador com filtro','7F0200001000':'Finder grelha com filtro','LF302G':'Fusível 10×38 gG 2 A',
+  '2CDD284101R0025':'ABB SD204/25 interruptor-seccionador 4P 25 A','2CDD284101R0032':'ABB SD204/32 interruptor-seccionador 4P 32 A','2CDD284101R0040':'ABB SD204/40 interruptor-seccionador 4P 40 A',
+  '2CDE284001R0100':'ABB E204/100 interruptor-seccionador 4P 100 A','2CDE284001R0125':'ABB E204/125 interruptor-seccionador 4P 125 A','1SCA120521R1001':'ABB OT160EV04P interruptor-seccionador 4P 160 A',
+  'FL992A':'Hager Orion plus: kit modular 3 × 16 M (500 × 400)','FL463A':'Hager Orion plus: montante funcional a.650','FL366A':'Hager Orion plus: tampa p/ modular 1 × 16 M l.400','FL367A':'Hager Orion plus: tampa p/ modular 1 × 22 M l.500',
+  'UT52S':'Hager: adaptação Orion plus/univers 850 × 600','UT72S':'Hager: adaptação Orion plus/univers 1150 × 600','UT73S':'Hager: adaptação Orion plus/univers 1150 × 850','UN05A':'Hager univers: jogo de 2 montantes a.750','UN07A':'Hager univers: jogo de 2 montantes a.1050',
+  'TM3200A5':'TI TM3 200/5 A','2CDS251001R0164':'ABB S201 disjuntor 1P C16'};
+Object.entries(INDUSQ.refs).forEach(([r,[d,p,m,no]])=>{INDUS[r]=[INDUS_NOME[r]||(HAGER[r]?`Hager ${HAGER[r][0]}`:d),p,`${m} · orç. ${no}`];});
 /* corte geral: referência pelo calibre (as que aparecem nos orçamentos; as outras ficam a escolher) */
-const INDUS_CORTE={125:'2CDE284001R0125',800:'1SCA022753R5250',1000:'1SCA022871R5870',1250:'1SCA022871R5870'};
+const INDUS_CORTE={25:'2CDD284101R0025',32:'2CDD284101R0032',40:'2CDD284101R0040',100:'2CDE284001R0100',125:'2CDE284001R0125',160:'1SCA120521R1001',800:'1SCA022753R5250',1000:'1SCA022871R5870',1250:'1SCA022871R5870'};
+/* acessórios da Orion plus como nos orçamentos 2026: só modular com kit ou montante funcional; com platinas, adaptação + montantes univers */
+const ORION_ACC={FL213B:[['FL992A',1]],FL216B:[['FL463A',1],['FL366A',3]],FL221B:[['FL463A',1],['FL367A',3]],
+  FL301B:[['UT52S',1],['UN05A',2]],FL302B:[['UT72S',1],['UN07A',2]],FL307B:[['UT73S',1],['UN07A',2]]};
+/* unidades funcionais univers (platinas, unidades p/ modular, tampas, barramento vertical): média dos orçamentos 2026 por m² de frente
+   (850 × 600: ~200 €, 1150 × 600: ~380 €, 1150 × 850: ~490 €) */
+const UNIV_M2=485;
 const INDUS_TI={125:'CTD1X1255AXXX',150:'TM3200A5',200:'TM3200A5',800:'TS00850800X05',1000:'CTD8S12505AXXX',1250:'CTD8S12505AXXX'};
 function indusParts(node,R){
   const Q=qfvParts(node,R);if(!Q||Q.gw||Q.existing||Q.role==='CONT')return null;
@@ -1869,16 +3288,21 @@ function indusParts(node,R){
   const kW=(Q.outs||[Q.out]).reduce((a,c)=>a+(c?c.p:0),0);
   const sumIn=fs_.reduce((a,f)=>a+f.In,0),maxIn=Math.max(...fs_.map(f=>f.In));
   /* envolvente: Hager Orion plus, a mais pequena onde cabe a aparelhagem e o trabalho do cabo (boardFor); só se não couber, armário de chão
-     (Eldon, ou Schneider no quadro de interligação). Montagem pelas regras dos orçamentos Indusmelec 2025–2026. */
-  const B=boardFor(node,R),orion=B&&B.best?B.best.ref:null;
+     (Eldon, ou Schneider no quadro de interligação). Montagem pelos orçamentos Indusmelec de 2026 (mão de obra, sem material):
+     só modular, uma saída: até 40 A 80 € (residenciais), até 63 A 125 €, acima 240 €; várias saídas: 200 € até 63 A, senão 240 €;
+     com platinas (caixas moldadas ou corte acima de 125 A, Orion plus com univers): 350 € até 250 A à saída, 900 € acima (850–950 €). */
+  const B=boardFor(node,R),orion=B&&B.best?B.best.ref:null,univ=!!(B&&B.plates.length),outIn=Q.out?Q.out.res.In:maxIn;
   let encl,mont=0,small=false;
   if(Q.role==='INT'&&!mccb.length&&Q.out.res.In<=125){small=true;mont=0;}
   else if(Q.role==='INT'){mont=Q.out.res.In>800?300:250;}
-  else if(mccb.length){mont=Math.round(1950+1.75*kW);notes.push('Com caixas moldadas: na Indusmelec o barramento, a estrutura de espelhos, a cablagem e o transporte estão incluídos na montagem.');
-    if(fs_.length>4)notes.push(`${fs_.length} saídas com caixa moldada: os orçamentos de referência têm 4; confirmar o número de colunas.`);}
-  else if(fs_.length===1){small=maxIn<=63;mont=maxIn<=63?80:maxIn<=100?90:125;}
-  else{mont=105+135*fs_.length;if(sumIn>125)notes.push(`Soma das saídas modulares de ${sumIn} A: o repartidor TD 125 A pode não chegar; confirmar o barramento.`);}
-  if(orion){encl=orion;add('Envolvente',orion,1);notes.push('Envolvente Hager Orion plus: preço da caixa (PVP tabela 2026); placas de montagem, calhas DIN e acessórios a confirmar no catálogo Hager.');}
+  else if(univ){mont=outIn>250?900:350;notes.push(`Montagem: ${outIn>250?'850–950 € nos orçamentos com caixas moldadas de 250 a 630 A (barramento e estrutura incluídos)':'280–400 € nos orçamentos com platinas até 250 A'}.`);
+    if(mccb.length>6)notes.push(`${mccb.length} caixas moldadas: os orçamentos de referência têm até 6; confirmar a montagem.`);}
+  else if(fs_.length===1){small=maxIn<=63;mont=maxIn<=40?80:maxIn<=63?125:240;}
+  else{mont=maxIn<=63?200:240;if(fs_.length>2)notes.push(`${fs_.length} saídas modulares: os orçamentos de referência têm até 2; confirmar a montagem.`);
+    if(sumIn>160)notes.push(`Soma das saídas modulares de ${sumIn} A: o repartidor TD 160 A pode não chegar; confirmar o barramento.`);}
+  if(orion){encl=orion;add('Envolvente',orion,1);(ORION_ACC[orion]||[]).forEach(([r,q])=>add('Envolvente',r,q));
+    if(univ){const H=B.best.H,W=B.best.W;items.push({papel:'Envolvente',ref:'',des:`Hager univers: unidades funcionais (platinas, unidades p/ modular, tampas, barramento vertical), estimativa ${fs(Math.round(H*W/1e4)/100)} m² × ${UNIV_M2} €/m²`,q:1,pu:Math.round(UNIV_M2*H*W/1e6/5)*5,data:'estimado',prot:false});}
+    if(!ORION_ACC[orion])notes.push(`Orion plus ${orion}: sem orçamento de referência com esta caixa; ${univ?'adaptação e montantes univers':'kit modular'} a escolher no catálogo Hager.`);}
   else if(Q.role==='INT'){const big=Q.out.res.In>800;encl=big?'NSYCRN128300':'NSYCRN108250';add('Envolvente',encl,1);add('Envolvente',big?'NSYMM128':'NSYMM108',1);notes.push('Não cabe numa Orion plus: armário de chão Schneider Spacial CRN.');}
   else{encl='MCS20086PER5';add('Envolvente','MCS20086PER5',1);
     if(fs_.length>2){add('Envolvente','MCS20046R5',1);add('Envolvente','CCI06',1);add('Envolvente','CCM04',1);}
@@ -1895,21 +3319,21 @@ function indusParts(node,R){
   const rl=relays(fx);if(rl.nCen)add('Relés diferenciais','2CSJ341001R0202',rl.nCen,{prot:true,des:'ABB unidade central diferencial 4 E/S (CBS-4)'});
   if(rl.n){add('Alimentação dos relés','2CSM200893R1801',rl.n);add('Alimentação dos relés','LF302G',2*rl.n);}
   /* DST */
-  if(Q.dst){const dref=mccb.length||Q.role==='INT'&&!small?'2CTB815710R4000':'7P.24.8.275.0020';add('Sobretensões',dref,Q.dst.per?fs_.length:1);
+  if(Q.dst){add('Sobretensões','7P2482750020',Q.dst.per?fs_.length:1); /* Finder 7P.24 em todos os orçamentos 2026, também nos de 630 A */
     if(Q.dst.brk)add('Sobretensões','2CCG001233R0001',1);}
   /* repartição */
   if(!Q.split){if(mccb.length)items.push({papel:'Barramento',ref:'',des:'Barramento 3F+N (incluído na montagem)',q:1,pu:null,prot:false});
-    else if(!small||fs_.length>1)add('Barramento','015.563820',1);}
-  /* bornes de passagem para o cabo de saída (WPD 130 até 50 mm²) */
-  if(!small&&!mccb.length){(Q.outs||[Q.out]).forEach(c=>{if(c&&c.res.cons!=='multi'&&c.res.s<=50)add('Bornes',`WPD 130`,5*c.res.n);});}
+    else if(!small||fs_.length>1)add('Barramento',sumIn<=80?'563920':sumIn<=125?'563820':'563200',1);}
+  /* bornes de junção Al/Cu para o cabo de saída em alumínio até 50 mm² (5 por cabo nos orçamentos 2026) */
+  if(!mccb.length){(Q.outs||[Q.out]).forEach(c=>{if(c&&c.res.mat==='Al'&&c.res.cons!=='multi'&&c.res.s<=50)add('Bornes','K50AL',5*c.res.n);});}
   /* serviços auxiliares e sinalização (quadros com relés) */
-  if(Q.aux){add('Serviços auxiliares','2CSR275080R1254',1);add('Serviços auxiliares','',1,{semRef:true,des:'ABB S201 disjuntor 1P C16'});add('Serviços auxiliares','2CDS251001R0104',1);add('Serviços auxiliares','7U.00.8.230.0010',1);
+  if(Q.aux){add('Serviços auxiliares','2CSR275080R1254',1);add('Serviços auxiliares','2CDS251001R0164',1);add('Serviços auxiliares','2CDS251001R0104',1);add('Serviços auxiliares','7U.00.8.230.0010',1);
     add('Sinalização','2CSM200923R1801',3);add('Sinalização','LF302G',3);['XB7EV03MP','XB7EV04MP','XB7EV05MP'].forEach(r=>add('Sinalização',r,1));
-    add('Ventilação','7T.81',1);add('Ventilação','7F.20',1);add('Ventilação','7F.02',1);}
+    add('Ventilação','7T8100002303',1);add('Ventilação','7F2082302055',1);add('Ventilação','7F0200001000',1);}
   /* contagem: TI no quadro que tem a contagem */
-  if(Q.meter&&Q.meter.type==='indireta'){const n=3*(Q.meter.perCircuit?(Q.outs||[Q.out]).length:1),r=INDUS_TI[Q.meter.ti];
+  if(Q.meter&&Q.meter.type==='indireta'){const n=3,r=INDUS_TI[Q.meter.ti];
     if(r)add('Contagem',r,n);else add('Contagem','',n,{semRef:true,des:`TI ${Q.meter.ti}/5 A`});}
-  if(mont)items.push({papel:'Montagem',ref:'',des:'Montagem do quadro (mão de obra Indusmelec)',q:1,pu:mont,data:'',prot:false});
+  if(mont)items.push({papel:'Montagem',ref:'',des:'Montagem do quadro (mão de obra Indusmelec, orçamentos 2026)',q:1,pu:mont,data:'',prot:false});
   items.forEach(x=>{x.total=x.pu==null?null:x.pu*x.q;});
   const sub=items.reduce((a,x)=>a+(x.total||0),0);
   return {node,role:Q.role,encl,encDes:INDUS[encl]?INDUS[encl][0]:'',items,mont,sub,notes,semPreco:items.some(x=>!x.prot&&x.pu==null&&!/incluído/.test(x.des))};
@@ -2049,7 +3473,7 @@ async function bomPdf(B){
   pdf.text('Total geral',M+1,y);pdf.text(pdfTxt(eur2(B.total)),W-M-1,y,{align:'right'});y+=8;
   pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);
   const notes=[...(B.est?['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']:[]),
-    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Quadros: referências e preços líquidos dos orçamentos Indusmelec de 2025–2026 (indicativos); as proteções de saída contam em Disjuntores e diferenciais ABB; gateways sem preço. Sem quadro de interligação, o disjuntor de interligação instala-se no quadro do cliente (existente, fora do fornecimento).'];
+    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Quadros: referências e preços líquidos dos orçamentos Indusmelec de 2026 (indicativos; unidades univers estimadas); as proteções de saída contam em Disjuntores e diferenciais ABB; gateways sem preço. Sem quadro de interligação, o disjuntor de interligação instala-se no quadro do cliente (existente, fora do fornecimento).'];
   notes.forEach(n=>{const l=pdf.splitTextToSize(pdfTxt(n),W-2*M);need(l.length*3.4);pdf.text(l,M,y);y+=l.length*3.4;});
   const rest=B.quad.filter(Q=>!B.qds.some(x=>x.node===Q.node));if(rest.length)title('Gateways e quadros existentes');
   rest.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node}${Q.role?" · "+Q.role:""}`),M,y);y+=4;

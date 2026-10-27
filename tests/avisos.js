@@ -9,7 +9,7 @@ const rowTxt=async re=>(await p.$$eval('#res-body tr',t=>t.map(r=>r.innerText.re
 const kpis=()=>p.$eval('#kpis',e=>e.innerText.replace(/\s+/g,' '));
 /* componentes Indusmelec no separador Quadros */
 await p.click('[data-tab=brd]');
-check(await p.$eval('[data-pane=brd]',e=>/Hager Orion plus FL344B/.test(e.innerText)&&/1SCA022753R5250/.test(e.innerText)&&/em Proteções/.test(e.innerText)&&/Montagem do quadro/.test(e.innerText)),'Quadros: QFV em Orion plus, OT800, proteções e montagem');
+check(await p.$eval('[data-pane=brd]',e=>/Hager Orion plus FL342B/.test(e.innerText)&&/1SCA022753R5250/.test(e.innerText)&&/em Proteções/.test(e.innerText)&&/Montagem do quadro/.test(e.innerText)),'Quadros: QFV em Orion plus, OT800, proteções e montagem');
 await p.click('[data-tab=ac]');
 /* seletividade (o exemplo tem 1000 A + 1000 A em série) */
 check(/Seletividade a confirmar: 800 A a montante < 1,6 × 800 A a jusante \(C5\)/.test(await rowTxt(/^C6 /)),'C6: aviso de seletividade com C5');

@@ -10,8 +10,13 @@ function pickBreaker(In,poles,ikmax){
   const ok=ikmax?L.filter(b=>b.icu>=ikmax-1e-9):L;
   const mods=ok.filter(x=>x.mod),pool=mods.length?mods:ok;
   const b=pool.length?pool.reduce((a,x)=>x.p<a.p?x:a):L[L.length-1];
-  return {...b,icuOk:!ikmax||b.icu>=ikmax-1e-9,name:b.mod?`${b.s}-C${In}`:b.d.replace(/ Disj \d+| Di f/g,'').replace(/ F F.*| 4p.*| 4P.*/,'')+(b.reg?` (regular para ${b.reg} A)`:'')};
+  return {...b,icuOk:!ikmax||b.icu>=ikmax-1e-9,name:brkName(b,In)};
 }
+const brkName=(b,In)=>b.mod?`${b.s}-C${In}`:b.d.replace(/ Disj \d+| Di f/g,'').replace(/ F F.*| 4p.*| 4P.*/,'')+(b.reg?` (regular para ${b.reg} A)`:'');
+/* disjuntor escolhido à mão no circuito (ref.B = "calibre|referência ABB"); se já não existir na tabela (ex.: mudou o nº de polos), volta a automático */
+function manBrk(c){const v=c.ref&&c.ref.B;if(!v||v==='auto'||c.split)return null;const [In,ref]=String(v).split('|'),P=c.loaded===2?2:4;
+  const b=(BRK[P][In]||[]).find(x=>x.ref===ref);if(!b){c.ref.B='auto';return null;}
+  return {In:+In,b:{...b,icuOk:true,name:brkName(b,+In),manual:true}};}
 const RHO20={Cu:0.018,Al:0.029};          /* Ω·mm²/m a 20 °C: Icc máximo */
 const KSC={Cu:{XLPE:143,PVC:115},Al:{XLPE:94,PVC:76}}; /* RTIEBT 434.3.2 / IEC 60364-4-43 */
 const zadd=(a,b)=>({R:a.R+b.R,X:a.X+b.X}),zabs=z=>Math.hypot(z.R,z.X);

@@ -248,3 +248,12 @@ test('secção forçada pelo utilizador é respeitada',()=>{
   const E=engine();const st=scen({modelo:'SUN2000-50KTL-M3',L:10});st.invs[0].S='1x95|Cu|mono';E.set(st);
   const c=E.solve().invC[0];assert.equal(c.auto,false);assert.equal(`${c.res.n}x${c.res.s} ${c.res.mat}`,'1x95 Cu');
 });
+
+test('disjuntor escolhido à mão: fica o calibre e a série; o cabo automático acompanha; abaixo de Ib fica a rever; referência inexistente volta a automático',()=>{
+  const E=engine();const base=E.solve(),st=E.S();const ref=base.invC[0].res.brk.ref;
+  const pick=B=>{E.set({invs:st.invs.map((i,k)=>k===0?{...i,B}:i),percs:st.percs});return E.solve().invC[0];};
+  let c=pick('250|58.1SDA068066R1');assert.equal(c.res.In,250);assert.equal(c.res.brk.ref,'58.1SDA068066R1');assert.ok(c.res.brk.manual);
+  assert.ok(c.res.term&&c.res.Iz>=250,'o cabo automático passa a cumprir In 250 A');assert.ok(c.res.Iz>base.invC[0].res.Iz);
+  c=pick('125|'+E.ev('BRK[4][125][0].ref'));assert.equal(c.res.term,false,'125 A < Ib 158,8 A: a rever');
+  c=pick('160|nao-existe');assert.equal(c.res.brk.ref,ref);assert.equal(E.ev('S.invs[0].B'),'auto');
+});

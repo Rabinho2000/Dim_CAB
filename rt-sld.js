@@ -108,20 +108,24 @@ function sldSVG(R){
       if(m&&m.type==='indireta'){const ty=Y0+84;tiS(ex,ty,`${m.ti}/5 A`);const mx=x0-126;Lh(ex-9,ty,x0-30,ty,{w:1});out.push(`<path d="M${x0-30} ${ty}l-9 -5v10z" fill="#fff" stroke="${ink}"/>`);meterBox(mx,ty-34,m);}
       out.push(`<line x1="${x0+20}" y1="${yb}" x2="${x0+W-20}" y2="${yb}" stroke="${ink}" stroke-width="5" stroke-linecap="round"/>`);T(ex-8,yb+16,'3F + N',{fs:9,c:blue,a:'end'});}
     else if(!spl){Lh(ex,Y0,ex,yb);out.push(`<line x1="${x0+20}" y1="${yb}" x2="${x0+W-20}" y2="${yb}" stroke="${ink}" stroke-width="4" stroke-linecap="round"/>`);}
-    if(spl&&m){/* sem barramento comum: TI em cada circuito para um quadro de contagem */const mx=x0-126,my=Y0+40;meterBox(mx,my,m);T(mx,my+96,'TI em cada circuito',{fs:9,c:blue});}
+    if(spl&&m){/* sem barramento comum: um trio de TI no QFV por onde passam todos os circuitos, para o quadro de contagem */const mx=x0-126,my=Y0+40;meterBox(mx,my,m);T(mx,my+96,'TI no QFV',{fs:9,c:blue});}
+    const tiX=[];
     ext(x0+W,Y0+BH);
     const peX=[];let sx=x0+ES;let cy=Y0+BH+90;
     fl.forEach(f=>{const cx=sx+SW/2;
-      if(spl&&f.c.kind==='inv'){/* entrada vinda do gateway pelo topo; DST tipo 2 em cada circuito */
-        Lh(cx,Y0,cx,yb);Lh(cx,Y0+44,cx+40,Y0+44);dot(cx,Y0+44);dstS(cx+40,Y0+52);Lh(cx+40,Y0+44,cx+40,Y0+52);Lh(cx+40,Y0+104,cx+40,Y0+112);
-        out.push(`<path d="M${cx+30} ${Y0+112}h20M${cx+33} ${Y0+116}h14M${cx+36} ${Y0+120}h8" stroke="${ink}" stroke-width="1.2"/>`);T(cx+56,Y0+70,'DST',{fs:9.5,b:1,c:blue});T(cx+56,Y0+82,'Tipo 2',{fs:9,c:blue});T(cx+56,Y0+94,'230/3+1',{fs:9,c:blue});
-        if(m){tiS(cx,Y0+130,`${m.ti}/5`,true);Lh(cx-9,Y0+130,x0-30,Y0+130,{w:1,d:'3 2'});}}
+      if(spl&&f.c.kind==='inv'){/* entrada vinda do gateway pelo topo; sem DST no QFV: o gateway já tem DST */
+        Lh(cx,Y0,cx,yb);
+        if(m)tiX.push(cx);}
       if(f.c.kind==='inv')xs.set(f.c,cx);
       const ye=feederDev(cx,yb,f);sx+=SW;
       if(f.c.kind==='inv'){const c=f.c,yi=Y0+BH+150;Lh(cx,ye,cx,yi);if(isNew)peX.push(cx);cableTxt(cx+8,Y0+BH+22,c);inverterAt(cx,yi,c);}
       else{const child=f.c.ref.orig.trim(),bx=x0+W+70+leftNeed(child),ry=cy-40;if(isNew)peX.push(cx);
         routeTo(cx,ye,bx+60,cy,ry,f.c);const r=drawBoard(child,bx,cy);cy=r.bot+110;}});
-    if(isNew&&!cont){if(!spl){const dx=sx+SW/2;Lh(dx,yb,dx,yb+16);let y=yb+16;
+    /* o mesmo trio de TI abraça todos os circuitos que vão para o gateway */
+    if(tiX.length){const ty=Y0+130,xa=Math.min(...tiX)-16,xb=Math.max(...tiX)+16;
+      out.push(`<rect x="${xa}" y="${ty-9}" width="${xb-xa}" height="18" rx="9" fill="none" stroke="${ink}" stroke-width="1.3"/><rect x="${xa+4}" y="${ty-5}" width="${xb-xa-8}" height="10" rx="5" fill="none" stroke="${ink}"/>`);
+      T(xa-12,ty-8,`${m.ti}/5 A`,{fs:9.5,c:blue,b:1,a:'end'});Lh(xa,ty,x0-30,ty,{w:1,d:'3 2'});}
+    if(isNew&&!cont){if(!spl&&q.dst){const dx=sx+SW/2;Lh(dx,yb,dx,yb+16);let y=yb+16;
       if(q.dst.brk){brkS(dx,y);T(dx+12,y+16,`${q.dst.brk}A`,{fs:9.5,c:blue,b:1});T(dx+12,y+28,'3P · S800P',{fs:9,c:blue});y+=34;Lh(dx,y,dx,y+6);y+=6;}else{Lh(dx,y,dx,y+40);y+=40;}
       dstS(dx,y);T(dx+18,y+16,'DST',{b:1,fs:10,c:blue});T(dx+18,y+28,'Tipo 2',{fs:9.5,c:blue});T(dx+18,y+40,'230/3+1',{fs:9.5,c:blue});Lh(dx,y+52,dx,ype);peX.push(dx);sx+=SW;}
       if(q.aux&&!spl){const ax=sx+40;Lh(ax,yb,ax,yb+12);brkS(ax,yb+12);out.push(`<ellipse cx="${ax}" cy="${yb+52}" rx="9" ry="5" fill="none" stroke="${ink}" stroke-width="1.2"/>`);T(ax+14,yb+30,'25A',{fs:10,c:blue,b:1});T(ax+14,yb+42,'300mA',{fs:9,c:blue});

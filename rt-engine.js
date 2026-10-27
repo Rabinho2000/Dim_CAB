@@ -130,12 +130,13 @@ function calc(c,o){
   /* sem fator de temperatura ou de agrupamento nos quadros: Iz = 0 (nenhuma secção cumpre; ver noFitMsg) */
   const ti=c.ti;const f=ti.ft==null||fg==null?0:ti.ft*ti.fsolo*ti.ftubo*fg;
   const Iz=z.v*o.n*f;
-  const In=c.forceIn||INSTD.find(x=>x>=c.Ib);const I2=k2(In)*In;
+  /* disjuntor escolhido à mão: o calibre e o k₂ são os dele (o cabo é dimensionado para esse In); senão o motor escolhe */
+  const mb=manBrk(c);const In=mb?mb.In:c.forceIn||INSTD.find(x=>x>=c.Ib);const I2=(mb?mb.b.k2:k2(In))*In;
   const rho=o.mat==='Cu'?0.0225:0.036,b=c.loaded===2?2:1;
   /* fórmula da folha Excel (colunas BQ–BS): u = b·(ρ·L'/S·cos φ + X·L'·sin φ)·Ib/n ; ΔU% = u/230 */
   const cos=Math.min(Math.max(+(c.cos!=null?c.cos:S.cos)||1,0.5),1) /* cos φ do circuito (inversor ou o menor a montante) ou o geral */,sin=Math.sqrt(1-cos*cos);
   const du=b*(rho*c.Lc/o.s*cos+reactance(o.s,o.mat)*c.Lc*sin)*(c.Ib/o.n)/230*100;
-  const sc=In!=null?scCheck(c,o,In):{brk:null,scOk:true};
+  const sc=mb?{brk:mb.b,scOk:true}:In!=null?scCheck(c,o,In):{brk:null,scOk:true};
   return {...o,Iz,iz0:z.v,q:z.q,qcol:z.col,fg,fgSrc,f,nEff,perTray,trays,In,I2,du,term:In!=null&&c.Ib<=In&&In<=Iz,sob:I2<=1.45*Iz,...sc};
 }
 

@@ -1,0 +1,1321 @@
+{
+"refs": {
+"0383560000": [
+"0383560000 -- ANG. FIJ. EW 35 TS 35",
+0.42,
+"2026-05",
+"7389"
+],
+"1010200000": [
+"BORNE WPE 6 (1 unid.)",
+1.98,
+"2026-06",
+"8271"
+],
+"1010400000": [
+"BORNE WPE 16 (1 unid.)",
+3.1,
+"2026-09",
+"13561"
+],
+"1020000000": [
+"BORNE WDU 2.5 (1 unid.)",
+0.4,
+"2026-09",
+"13561"
+],
+"1020100000": [
+"BORNE WDU 4 (1 unid.)",
+0.42,
+"2026-05",
+"6878"
+],
+"1020200000": [
+"BORNE WDU 6 (1 unid.)",
+0.51,
+"2026-08",
+"11337"
+],
+"1020280000": [
+"BORNE WDU 6 AZUL (1 unid.)",
+0.51,
+"2026-06",
+"8271"
+],
+"1020400000": [
+"BORNE WDU 16 (1 unid.)",
+0.9,
+"2026-09",
+"13561"
+],
+"1020480000": [
+"BORNE WDU 16 AZUL (1 unid.)",
+0.9,
+"2026-09",
+"13561"
+],
+"1050000000": [
+"TAPA WAP 2.5-10 (1 unid.)",
+0.26,
+"2026-05",
+"7389"
+],
+"1061200000": [
+"TOPE WEW 35/2 (1 unid.)",
+1.78,
+"2026-05",
+"6878"
+],
+"13437": [
+"QDR 4FILAS 72MOD KAEDRA",
+129.06,
+"2026-04",
+"6212"
+],
+"18RT": [
+"Regua terminais contagem indireta EDP 10E-4T-6I EPI",
+47.0,
+"2026-06",
+"8330"
+],
+"1SCA120521R1001": [
+"Interruptor seccionador OT160EV04P",
+73.0,
+"2026-09",
+"13539"
+],
+"1SDA066821R1": [
+"Disjuntor XT1B160 TMD R160 Im1600 4p F F N100",
+215.12,
+"2026-09",
+"13539"
+],
+"1SDA066888R1": [
+"XT1B160 Disj 160 TMD R125 Im1250 4p N100",
+174.04,
+"2026-09",
+"13509"
+],
+"1SDA067410R1": [
+"Disjuntor XT1C160 TMD R160 Im1600 4p F F N100%",
+248.74,
+"2026-06",
+"8203"
+],
+"1SDA068065R1": [
+"Disjuntor XT3N250 TMD R200 Im2000 4p F F N50%",
+6.17,
+"2026-10",
+"15176"
+],
+"1SDA068147R1": [
+"Disjuntor XT4N250 Ekip LS/I R250 4p F F",
+6.17,
+"2026-06",
+"8301"
+],
+"1SDA100396R1": [
+"Disjuntor XT5N 400 Ekip Dip LS/I In = 400 4p F F T4-T5-T6 630A",
+36.89,
+"2026-10",
+"15176"
+],
+"2502660000": [
+"WPD 131 1X95/1X95 BL",
+13.06,
+"2026-08",
+"11663"
+],
+"2CCG001235R0001": [
+"S804P-C80Disjuntor 80 A. curva C. 50 kA. 4p. S800P",
+160.97,
+"2026-06",
+"8206"
+],
+"2CCG001236R0001": [
+"S804P-C100 DISJ ALTA PERF 50KA",
+160.97,
+"2026-09",
+"13512"
+],
+"2CCG001237R0001": [
+"DISJ S804P-C125 50KA",
+209.26,
+"2026-09",
+"13509"
+],
+"2CCS800900R0211": [
+"Bobina de abertura 110 ... 250 V ca / cc. S800",
+38.93,
+"2026-09",
+"12197"
+],
+"2CDD284101R0025": [
+"Interruptor seccionador 4p. 25 A",
+25.82,
+"2026-04",
+"6444"
+],
+"2CDD284101R0032": [
+"Interruptor seccionador 4P 32A",
+25.81,
+"2026-05",
+"6878"
+],
+"2CDD284101R0040": [
+"SD204/40 Interruptor seccionador 4p 40 A",
+25.81,
+"2026-08",
+"11347"
+],
+"2CDD284101R0063": [
+"Interruptor seccionador 4p. 63 A",
+28.68,
+"2026-08",
+"11332"
+],
+"2CDE284001R0100": [
+"E204/100RD Interruptor secciona 100 A 4p",
+54.79,
+"2026-10",
+"15164"
+],
+"2CDE284001R0125": [
+"E204/125RD Interruptor secciona 125 A 4p",
+58.65,
+"2026-09",
+"13510"
+],
+"2CDS251001R0164": [
+"S201-C16 Disj 16A curva C 6kA/10kA 1p",
+6.14,
+"2026-09",
+"12197"
+],
+"2CDS252001R0164": [
+"Disjuntor 16 A. curva C. 6 kA/10 kA. 2p",
+14.16,
+"2026-05",
+"7458"
+],
+"2CDS254001R0104": [
+"S204-C10 Disj 10A curva C 6kA/10kA 4p",
+27.05,
+"2026-04",
+"6139"
+],
+"2CDS254001R0204": [
+"Disjuntor 20 A. curva C. 6 kA/10 kA. 4p",
+33.28,
+"2026-08",
+"11332"
+],
+"2CDS254001R0254": [
+"Disjuntor. 25 A. 4p. curva C. 6 kA/10kA",
+34.76,
+"2026-09",
+"13561"
+],
+"2CDS254001R0324": [
+"Disjuntor 32 A. curva C. 6 kA/10 kA. 4p",
+36.15,
+"2026-08",
+"11347"
+],
+"2CDS254001R0404": [
+"Disjuntor 40 A. curva C. 6 kA/10 kA. 4p",
+37.61,
+"2026-09",
+"13561"
+],
+"2CDS254001R0504": [
+"Disjuntor 50 A. curva C. 6 kA/10 kA. 4p",
+43.32,
+"2026-08",
+"11332"
+],
+"2CDS254001R0634": [
+"Disjuntor 63 A. curva C. 6 kA/10 kA. 4p",
+49.24,
+"2026-10",
+"15164"
+],
+"2CSB202001R1250": [
+"Bloco diferencial 1p+N/2p. 25 A. tipo AC. 30 mA. S200",
+51.07,
+"2026-05",
+"7458"
+],
+"2CSB204101R2250": [
+"Bloco diferencial 3p+N/4p. 25 A tipo A. 100 mA. S200",
+82.28,
+"2026-08",
+"11332"
+],
+"2CSB204101R3250": [
+"Bloco diferencial 3p+N/4p. 25 A tipo A. 300 mA. S200",
+74.82,
+"2026-09",
+"13561"
+],
+"2CSB204101R3400": [
+"Bloco diferencial 3p+N/4p. 40 A tipo A. 300 mA. S200",
+78.07,
+"2026-09",
+"13561"
+],
+"2CSB204101R3630": [
+"Bloco diferencial 3p+N/4p. 63 A tipo A. 300 mA. S200",
+97.6,
+"2026-10",
+"15164"
+],
+"2CSB804101R4000": [
+"Bloco diferencial 4p. tipo A. 100A 500mA.0",
+129.3,
+"2026-09",
+"13512"
+],
+"2CSF202002R1250": [
+"Interruptor diferencial 2p. tipo AC. 25A 30mA. não",
+23.26,
+"2026-09",
+"12197"
+],
+"2CSF204101R4950": [
+"F204A-125/05 Int dif 4p A 125A 500mA",
+338.79,
+"2026-09",
+"13509"
+],
+"2CSG110100R1211": [
+"Transformador toroidal Ø 110 mm fechado",
+113.8,
+"2026-10",
+"15176"
+],
+"2CSG317001R0202": [
+"Trafo toroidal 55mm WGC 55",
+57.07,
+"2026-09",
+"12197"
+],
+"2CSG319001R0202": [
+"Trafo toroidal 110mm WGC 110",
+123.42,
+"2026-07",
+"9377"
+],
+"2CSJ331001R0202": [
+"Relé diferencial 230 V ca. com ecrã: ?t= 0.02... 10 s: INS:",
+115.59,
+"2026-10",
+"15176"
+],
+"2CSJ341001R0202": [
+"Unidade central diferencial 4 E/S. com ecrã: ?t= 0.02... 10",
+301.97,
+"2026-09",
+"12197"
+],
+"2CSM204733R1801": [
+"Porta fusíveis seccionável modular. 32 A 3p+N -",
+12.55,
+"2026-09",
+"13509"
+],
+"2CSM277502R1801": [
+"Porta fusíveis seccionável modular. 125 A 3p - 22x58",
+37.66,
+"2026-10",
+"15176"
+],
+"2CSS255101R0164": [
+"Disjuntor 16 A, curva C, 6 kA/10 kA, 1p+N (1 mód.) acessoriá",
+9.97,
+"2026-06",
+"8362"
+],
+"563200": [
+"REPARTIDOR TETRAPOLAR TD 160A",
+52.5,
+"2026-09",
+"13539"
+],
+"563820": [
+"REPARTIDO TETRAPOLAR TD 125A",
+15.0,
+"2026-09",
+"13510"
+],
+"563920": [
+"SUP. BARRAMENTO TD 80A",
+15.0,
+"2026-08",
+"11347"
+],
+"563930": [
+"Repartidor Tetrapolar TD 80/100AL",
+17.5,
+"2026-10",
+"15164"
+],
+"7F0200001000": [
+"GRIGLIA",
+4.56,
+"2026-10",
+"15176"
+],
+"7F2082301020": [
+"VENTILATORE CON FILTRO",
+27.6,
+"2026-09",
+"12197"
+],
+"7F2082302055": [
+"VENTILADOR COM FILTRO",
+44.37,
+"2026-10",
+"15176"
+],
+"7P2482750020": [
+"DESCARREGADOR DE SOBRETENSÃO",
+90.0,
+"2026-10",
+"15192"
+],
+"7T8100002303": [
+"TERMOSTATO DE PAINEL",
+9.5,
+"2026-10",
+"15176"
+],
+"BTH480E": [
+"Bloco dif. 4P 125A regulável tipo HI 6 M",
+268.61,
+"2026-07",
+"10665"
+],
+"FL209B": [
+"Orion plus pol. PO a.500 l.300",
+113.94,
+"2026-09",
+"13512"
+],
+"FL213B": [
+"orion plus pol. PO a.500 l.400",
+135.41,
+"2026-08",
+"11347"
+],
+"FL216B": [
+"orion plus pol. PO a.650 l.400",
+153.41,
+"2026-09",
+"13510"
+],
+"FL221B": [
+"orion plus pol. PO a.650 l.500",
+210.09,
+"2026-09",
+"12616"
+],
+"FL301B": [
+"orion plus pol. PO a.850 l.600 p.300",
+283.01,
+"2026-08",
+"11663"
+],
+"FL302B": [
+"orion plus pol. PO a.1150 l.600 p.300",
+309.02,
+"2026-09",
+"13539"
+],
+"FL307B": [
+"orion plus pol. PO a.1150 l.850 p.300",
+377.72,
+"2026-10",
+"15192"
+],
+"FL362A": [
+"Tampa p/mod. 1x16 M a.150 l.400",
+10.82,
+"2026-08",
+"11663"
+],
+"FL366A": [
+"Tampa p/mod. 1x16 M a.200 l.400",
+10.82,
+"2026-09",
+"13510"
+],
+"FL367A": [
+"Tampa p/mod. 1x22 M a.200 l.500",
+10.82,
+"2026-09",
+"12616"
+],
+"FL371A": [
+"Kit vert. disj. x160 a.300 l.400",
+22.07,
+"2026-08",
+"11663"
+],
+"FL424A": [
+"Platina isolante a.500 l.300",
+15.79,
+"2026-09",
+"13512"
+],
+"FL463A": [
+"Mont. func. orion plus a.650",
+64.41,
+"2026-09",
+"13510"
+],
+"FL500A": [
+"Calha DIN p/bornes l.400",
+12.68,
+"2026-08",
+"11663"
+],
+"FL52S": [
+"Univ. IP65 a.850 l.600 p.300",
+413.11,
+"2026-07",
+"10011"
+],
+"FL712E": [
+"Tampa cega a.150 l.400",
+6.29,
+"2026-08",
+"11663"
+],
+"FL72S": [
+"Univ. IP65 a.1150 l.600 p.300",
+492.74,
+"2026-09",
+"13512"
+],
+"FL992A": [
+"Kit modular 3x16 M a.500 l.400",
+53.9,
+"2026-08",
+"11347"
+],
+"FR63S": [
+"Univ. IP54 PO a.950 l.800 p.275",
+410.29,
+"2026-06",
+"8352"
+],
+"FV10AZLHPRY": [
+"CABO LIVRE HALOG.FV 10 AZUL",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10CALHPRY": [
+"CABO LIVRE HALOG.FV 10 CASTANHO",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10CZLHPRY": [
+"CABO LIVRE HALOG.FV 10 CINZA",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10PTLHPRYS": [
+"CABO LIVRE HALOG.FV 10 PRETO",
+1.41,
+"2026-08",
+"11332"
+],
+"FV10VALHPRYS": [
+"CABO LIVRE HALOGENEO FV 10 VD/AM",
+1.41,
+"2026-08",
+"11332"
+],
+"GG5009": [
+"GG5009 - Armário ABS 800x600x260",
+195.0,
+"2026-10",
+"15176"
+],
+"GW40104BS": [
+"40 CDK 24M(12X2) IP65 BS2x14P",
+45.6,
+"2026-10",
+"15164"
+],
+"GW40108BD": [
+"40 CDK 54M(18X3) IP65",
+82.0,
+"2026-09",
+"13561"
+],
+"HA457": [
+"Inter. corte aparente 4P 40",
+186.69,
+"2026-10",
+"15176"
+],
+"HA458": [
+"Inter. corte aparente 4P 630A",
+284.38,
+"2026-08",
+"12049"
+],
+"HAE416": [
+"Inter. corte visível 4P 160A 7.5M",
+81.04,
+"2026-07",
+"10060"
+],
+"HCA161H": [
+"Interruptor geral x160 4P 160A 6 M",
+228.58,
+"2026-08",
+"11663"
+],
+"HHA162H": [
+"Disj. geral x160 4P3D+N/2 160A 25kA 6 M",
+283.89,
+"2026-08",
+"11663"
+],
+"HHT202DR": [
+"Disjuntor P250 TM 4P-3D+N/2 200A 25kA",
+534.45,
+"2026-10",
+"15192"
+],
+"HI456": [
+"Invers. cmdo rot. manual 4P 400A",
+622.84,
+"2026-10",
+"15192"
+],
+"HMF490": [
+"Disjuntor 4P 100A C 10kA 6 M",
+218.94,
+"2026-09",
+"13514"
+],
+"HMF499": [
+"Disjuntor 4P 125A C 10kA 6 M",
+256.19,
+"2026-08",
+"11343"
+],
+"HR510": [
+"Relé dif. 0.03-10A temp. 3 M",
+171.82,
+"2026-10",
+"15192"
+],
+"HR702": [
+"Toro circular diâmetro 70mm",
+105.84,
+"2026-08",
+"11663"
+],
+"HR703": [
+"Toro circular diâmetro 105mm",
+141.37,
+"2026-10",
+"15192"
+],
+"HXA004H": [
+"Bob. p/emissão 230V AC p/x160-x250",
+42.51,
+"2026-10",
+"15192"
+],
+"HXA021H": [
+"Cont. auxiliar 1NA/NF p/x160-x250",
+24.21,
+"2026-10",
+"15192"
+],
+"HYA006H": [
+"Jogo 4 ligad. Al/Cu 1x70mm2 p/x160",
+25.15,
+"2026-08",
+"11663"
+],
+"K50AL": [
+"Borne de junção Al/Cu fase 50mm2",
+6.93,
+"2026-10",
+"15164"
+],
+"KH35E": [
+"Distribuidor 100A terra 2x(35+25) 1.5M",
+4.66,
+"2026-08",
+"11332"
+],
+"KJ125B": [
+"Repartidor escada 4P 125A 7.5M",
+32.6,
+"2026-07",
+"10665"
+],
+"KJ160A": [
+"Repartidor escada 4P 160A 9.5 M",
+62.51,
+"2026-08",
+"11663"
+],
+"L50600": [
+"L50600 C/C SECC. 32A 1P+N 1M",
+7.71,
+"2026-10",
+"15192"
+],
+"LC1D80004P7": [
+"CONTACTOR 125AT 4P BOB 230VCA",
+255.04,
+"2026-07",
+"10060"
+],
+"LF302G": [
+"Fusível 10x38 gG 2A 500V",
+0.4,
+"2026-09",
+"13539"
+],
+"LF599G": [
+"Fusível 22x58 gG 125A 400V",
+4.92,
+"2026-10",
+"15192"
+],
+"LR703": [
+"Corta-circuitos secc. 125A 3P 6 M",
+44.53,
+"2026-10",
+"15192"
+],
+"LSN503": [
+"Corta-circuitos 3P 32A 400V L38 3M",
+10.36,
+"2026-08",
+"11663"
+],
+"LSN504": [
+"Corta-circuitos 3P+N 32A 400V L38 4M",
+14.47,
+"2026-09",
+"12197"
+],
+"MCS20066PER5": [
+"ARMARIO MCS 2000X600X600 PE",
+538.0,
+"2026-05",
+"7267"
+],
+"NFN432": [
+"Disjuntor 4P 32A C 6/10kA 4 M",
+48.12,
+"2026-06",
+"8108"
+],
+"NFN440": [
+"Disjuntor 4P 40A C 6/10kA 4 M",
+48.78,
+"2026-06",
+"8183"
+],
+"NFN463": [
+"Disjuntor 4P 63A C 6/10kA 4 M",
+55.25,
+"2026-06",
+"8107"
+],
+"NSYPLA1054G": [
+"Arm pol PLA 1000x500x420 Cerrado 7035",
+319.47,
+"2026-10",
+"14643"
+],
+"NSYPMM105": [
+"PLAT MET PLA A1000XL500",
+47.31,
+"2026-10",
+"14643"
+],
+"PF1060": [
+"PEDESTAL 100X600",
+45.3,
+"2026-05",
+"7267"
+],
+"PS1060": [
+"LATERAL PEDESTAL 100X600",
+24.89,
+"2026-05",
+"7267"
+],
+"SBN499": [
+"Interruptor Modular 4P 125A",
+63.55,
+"2026-07",
+"10665"
+],
+"SPM2006R5": [
+"PAINEL LATERAL 2000X600",
+166.39,
+"2026-05",
+"7267"
+],
+"TM3150A5": [
+"TRASFORMADOR 150/5",
+11.0,
+"2026-09",
+"13561"
+],
+"TM3200A5": [
+"TM3-200A5 TRANSFORMADOR 200/5A",
+11.0,
+"2026-09",
+"13539"
+],
+"UD01F1": [
+"Tampas extrem. a.2x75 l.250",
+18.28,
+"2026-10",
+"15192"
+],
+"UD02F1": [
+"Tampas extrem. a.2x75 l.500",
+22.85,
+"2026-10",
+"15176"
+],
+"UD11B1": [
+"Unid. p/mod. 1x12M a.150 l.250",
+33.94,
+"2026-10",
+"15192"
+],
+"UD11B3": [
+"Unid. p/mod. 1x10 M a.150 l.250",
+37.24,
+"2026-09",
+"13512"
+],
+"UD11B4A": [
+"Unid. p/mod. 1x12 M a.225 l.250",
+36.82,
+"2026-10",
+"15192"
+],
+"UD11F1": [
+"Unid. c/tampa opaca a.150 l.250",
+18.19,
+"2026-10",
+"15192"
+],
+"UD11F4": [
+"Unid. c/tampa opaca a.225 l.250",
+22.66,
+"2026-09",
+"13539"
+],
+"UD12A1": [
+"Unid. p/bornes horiz. 1x26M a.150 l.500",
+41.81,
+"2026-08",
+"11663"
+],
+"UD12B2": [
+"Unid. p/mod. 1x26M a.150 l.500",
+40.53,
+"2026-08",
+"11663"
+],
+"UD12B3": [
+"Unid. p/mod. 1x24 M a.150 l.500",
+43.41,
+"2026-09",
+"13539"
+],
+"UD12B4A": [
+"Unid. p/mod. 1x24 M a.225 l.500",
+42.36,
+"2026-10",
+"15176"
+],
+"UD12F1": [
+"Unid. c/tampa opaca a.150 l.500",
+22.75,
+"2026-10",
+"15192"
+],
+"UD21B3": [
+"Unid. p/mod. 2x10 M s/calha a.300 l.250",
+45.38,
+"2026-07",
+"9377"
+],
+"UD21C1": [
+"Unid. c/platina lisa a.300 l.250",
+42.64,
+"2026-07",
+"9377"
+],
+"UD22C1": [
+"Unid. c/platina lisa a.300 l.500",
+67.24,
+"2026-09",
+"13539"
+],
+"UD31C1": [
+"Unid. c/platina lisa a.450 l.250",
+61.12,
+"2026-09",
+"13512"
+],
+"UE21D2": [
+"Unid. barram. vert. 250A a.300 l.250",
+129.95,
+"2026-09",
+"13512"
+],
+"UE21D3": [
+"Unid. barram. vert. 400A a.300 l.250",
+147.1,
+"2026-10",
+"15176"
+],
+"UE22D2": [
+"Unid. barram. horiz. 250A a.300 l.500",
+212.05,
+"2026-06",
+"8263"
+],
+"UK21A3": [
+"Unid. p/disj. x160 1x12 M a.300 l.250",
+43.72,
+"2026-09",
+"13512"
+],
+"UK21LH1": [
+"Unid. P250 a.300 l.250",
+52.37,
+"2026-10",
+"15192"
+],
+"UK21S1": [
+"Unid. p/inter. HA 250A a.300 l.250",
+44.12,
+"2026-10",
+"15176"
+],
+"UK22A2": [
+"Unid. p/disj. x160 1x24 M a.300 l.500",
+52.14,
+"2026-08",
+"11663"
+],
+"UK22LH1": [
+"Unid. P250 (x2) a.300 l.500",
+58.48,
+"2026-10",
+"15176"
+],
+"UK22U1": [
+"Unid. p/inv. HI 125-400A a.300 l.500",
+71.53,
+"2026-10",
+"15192"
+],
+"UK31LH34": [
+"Unid. P630 a.450 l.250",
+72.8,
+"2026-09",
+"12197"
+],
+"UK32LH34": [
+"Unid. P630 a.450 l.500",
+85.2,
+"2026-10",
+"15192"
+],
+"UN05A": [
+"Jogo 2 montantes univ. a.750",
+21.19,
+"2026-07",
+"10060"
+],
+"UN06A": [
+"Jogo 2 montantes univ. a.900",
+24.0,
+"2026-06",
+"8352"
+],
+"UN07A": [
+"Jogo 2 montantes univ. a.1050",
+29.49,
+"2026-10",
+"15192"
+],
+"UT52S": [
+"Conj. adaptação OP/Univ. a.850 I.600",
+61.85,
+"2026-08",
+"11663"
+],
+"UT72S": [
+"Conj. adaptação OP/Univ. a.1150 l.600",
+63.48,
+"2026-10",
+"15192"
+],
+"UT73S": [
+"Conj. adaptação OP/univ. a.1150 l.850",
+77.96,
+"2026-09",
+"12197"
+],
+"UT92S": [
+"Travessa equip. lig. ráp. terra l.500",
+22.24,
+"2026-08",
+"11663"
+],
+"UZ02B3": [
+"Calha DIN regulável l.500",
+23.32,
+"2026-10",
+"15176"
+],
+"VE112F": [
+"vector estanque IP55 1 fila 12 M",
+33.4,
+"2026-09",
+"13539"
+],
+"VE212F": [
+"vector estanque IP55 2 filas 24 M",
+53.14,
+"2026-09",
+"13514"
+],
+"VE312SN": [
+"vector estanque IP65 3 filas 36 M",
+66.26,
+"2026-10",
+"15164"
+]
+},
+"mont": [
+[
+"2026-04-23",
+"6139",
+"Casa Susanne",
+"Quadro Casa Susanne",
+80.0
+],
+[
+"2026-04-28",
+"6417",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-04-29",
+"6444",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-04-29",
+"6466",
+"Hotel Topazio (2)",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-11",
+"6939",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-11",
+"6940",
+"Ardavi",
+"QUADRO N Vending",
+240.0
+],
+[
+"2026-05-12",
+"6994",
+"Casa Dirk",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-15",
+"6878",
+"Hotel Topazio",
+"Quadro 1",
+80.0
+],
+[
+"2026-05-15",
+"6878",
+"Hotel Topazio",
+"Quadro 2",
+80.0
+],
+[
+"2026-05-18",
+"7311",
+"Casa Dirk",
+"Quadro Fotovoltaico Casa Dirk",
+80.0
+],
+[
+"2026-05-19",
+"7389",
+"Casa Dirk",
+"Quadro Fotovoltaico Casa Dirk",
+80.0
+],
+[
+"2026-05-20",
+"7458",
+"Ardavi",
+"QUADRO Ardavi",
+240.0
+],
+[
+"2026-06-03",
+"8203",
+"Escola Secundaria do Cadaval",
+"Quadro Escola Secundaria Cadaval(2x40 kW)",
+400.0
+],
+[
+"2026-06-03",
+"8206",
+"Lavandaria DLaundry",
+"quadro Lavandaria DLaudry (1x40KW)",
+240.0
+],
+[
+"2026-06-05",
+"8263",
+"Topeca FV",
+"Quadro preparado para 160 kW - TOPECA",
+280.0
+],
+[
+"2026-06-05",
+"8269",
+"Metalgarve",
+"Quadro Metalgarve",
+400.0
+],
+[
+"2026-06-05",
+"8271",
+"Qualcroqui",
+"Orçamento Solcor | Quadro Qualcroqui",
+200.0
+],
+[
+"2026-06-08",
+"8277",
+"Qualcroqui",
+"Orçamento Solcor | Quadro Qualcroqui",
+200.0
+],
+[
+"2026-06-09",
+"8352",
+"Frestia 1",
+"^disjuntores devem de vir com barras de cobre",
+950.0
+],
+[
+"2026-06-09",
+"8362",
+"Frestia UPAC 2 e 3",
+"quadro Frestia UPAC 2 e 3 (1x50KW)",
+240.0
+],
+[
+"2026-07-01",
+"9377",
+"Topeca FV",
+"Quadro preparado para 160 kW - TOPECA",
+280.0
+],
+[
+"2026-07-13",
+"10011",
+"Metalgarve",
+"Quadro Metalgarve",
+350.0
+],
+[
+"2026-07-14",
+"10060",
+"Metalgarve (2)",
+"Quadro Metalgarve",
+350.0
+],
+[
+"2026-07-23",
+"10665",
+"Vidraria Central do Porto",
+"QUADRO BV AMADORA",
+240.0
+],
+[
+"2026-08-05",
+"11337",
+"Vangflor",
+"Quadro Fotovoltaico VANGFLOR",
+80.0
+],
+[
+"2026-08-05",
+"11341",
+"Buijnik",
+"quadro BUIJNIK (1x50KW)",
+240.0
+],
+[
+"2026-08-05",
+"11343",
+"Metalgarve",
+"quadro METALGARVE (1x50KW)",
+240.0
+],
+[
+"2026-08-05",
+"11347",
+"Vangflor (2)",
+"Quadro Fotovoltaico VANGFLOR",
+80.0
+],
+[
+"2026-08-05",
+"11378",
+"Summerberry",
+"^disjuntores devem de vir com barras de cobre",
+950.0
+],
+[
+"2026-08-12",
+"11663",
+"Sirius Park",
+"Quadro Sirius Park",
+285.0
+],
+[
+"2026-08-21",
+"11887",
+"Summerberry",
+"^disjuntores devem de vir com barras de cobre",
+870.0
+],
+[
+"2026-08-27",
+"12049",
+"Summerberry",
+"ou",
+870.0
+],
+[
+"2026-09-01",
+"12197",
+"Summerberry",
+"^disjuntores devem de vir com barras de cobre",
+870.0
+],
+[
+"2026-09-08",
+"12616",
+"Digimodelo",
+"Orçamento Solcor | Quadro Digimodelo",
+200.0
+],
+[
+"2026-09-24",
+"13509",
+"Fundacao Joaquim A Franco",
+"Quadro Fotovoltaico Fundação Joaquim A Franco",
+240.0
+],
+[
+"2026-09-24",
+"13510",
+"Alberstone",
+"Quadro Alberstone",
+240.0
+],
+[
+"2026-09-24",
+"13512",
+"Alberstone (2)",
+"^proteção DST",
+360.0
+],
+[
+"2026-09-25",
+"13539",
+"Marcelo e Nogueira",
+"Quadro Fotovoltaico Marcelo & Nogueira (1x80KW)",
+350.0
+],
+[
+"2026-09-25",
+"13561",
+"Passion Cafe",
+"Orçamento Solcor | Quadro Passion Cafe",
+200.0
+],
+[
+"2026-10-26",
+"15164",
+"Cavalinhos Florestais",
+"Cavalinhos Florestais. - (1x30KW)",
+125.0
+],
+[
+"2026-10-26",
+"15176",
+"Oasis",
+"^disjuntores devem de vir com barras de cobre",
+950.0
+],
+[
+"2026-10-26",
+"15186",
+"Bypass Topeca",
+"Quadro topeca",
+850.0
+],
+[
+"2026-10-26",
+"15192",
+"Bypass Topeca (rev)",
+"Quadro topeca",
+850.0
+]
+]
+}

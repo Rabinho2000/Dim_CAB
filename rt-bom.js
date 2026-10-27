@@ -127,7 +127,7 @@ async function bomPdf(B){
   pdf.text('Total geral',M+1,y);pdf.text(pdfTxt(eur2(B.total)),W-M-1,y,{align:'right'});y+=8;
   pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);
   const notes=[...(B.est?['* Preço estimado: sem compra deste cabo em 2026, interpolado entre as secções compradas da mesma família.']:[]),
-    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Quadros: referências e preços líquidos dos orçamentos Indusmelec de 2025–2026 (indicativos); as proteções de saída contam em Disjuntores e diferenciais ABB; gateways sem preço. Sem quadro de interligação, o disjuntor de interligação instala-se no quadro do cliente (existente, fora do fornecimento).'];
+    'Metros = comprimento de cálculo de cada circuito (com a folga de 20 % abaixo de 30 m e 10 % a partir de 30 m). Terra: um condutor por circuito. Quadros: referências e preços líquidos dos orçamentos Indusmelec de 2026 (indicativos; unidades univers estimadas); as proteções de saída contam em Disjuntores e diferenciais ABB; gateways sem preço. Sem quadro de interligação, o disjuntor de interligação instala-se no quadro do cliente (existente, fora do fornecimento).'];
   notes.forEach(n=>{const l=pdf.splitTextToSize(pdfTxt(n),W-2*M);need(l.length*3.4);pdf.text(l,M,y);y+=l.length*3.4;});
   const rest=B.quad.filter(Q=>!B.qds.some(x=>x.node===Q.node));if(rest.length)title('Gateways e quadros existentes');
   rest.forEach(Q=>{need(16);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.text(pdfTxt(`${Q.node}${Q.role?" · "+Q.role:""}`),M,y);y+=4;
