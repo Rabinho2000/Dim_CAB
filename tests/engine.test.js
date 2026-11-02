@@ -40,13 +40,13 @@ test('folga desligada: comprimento de cálculo = comprimento real',()=>{
   const E=engine({folga:false});for(const c of rows(E.solve()))assert.equal(c.Lc,c.L);
 });
 
-test('secção do neutro e da terra: da fase, metade ou a tabelada seguinte acima da metade',()=>{
+test('secção do neutro e da terra: iguais entre si, da fase até 35 mm², acima metade ou a tabelada seguinte acima da metade',()=>{
   const E=engine();const cs=(s,mat,loaded=3)=>{const r=E.ev(`condSizes({s:${s},mat:'${mat}'},${loaded})`);return [r.sn,r.spe];};
   assert.deepEqual(cs(10,'Cu'),[10,10]);assert.deepEqual(cs(16,'Cu'),[16,16]);
-  assert.deepEqual(cs(25,'Cu'),[16,16]);assert.deepEqual(cs(35,'Cu'),[25,25]);assert.deepEqual(cs(95,'Cu'),[50,50],'metade 47,5 → 50');assert.deepEqual(cs(185,'Cu'),[95,95],'metade 92,5 → 95');
+  assert.deepEqual(cs(25,'Cu'),[25,25]);assert.deepEqual(cs(35,'Cu'),[35,35]);assert.deepEqual(cs(95,'Cu'),[50,50],'metade 47,5 → 50');assert.deepEqual(cs(185,'Cu'),[95,95],'metade 92,5 → 95');
   assert.deepEqual(cs(50,'Cu'),[25,25]);assert.deepEqual(cs(120,'Cu'),[70,70]);assert.deepEqual(cs(240,'Cu'),[120,120]);
-  assert.deepEqual(cs(25,'Al'),[25,16]);assert.deepEqual(cs(35,'Al'),[25,25]);assert.deepEqual(cs(95,'Al'),[50,50]);
-  assert.deepEqual(cs(50,'Cu',2),[50,25],'monofásico: neutro igual à fase');
+  assert.deepEqual(cs(25,'Al'),[25,25]);assert.deepEqual(cs(35,'Al'),[35,35]);assert.deepEqual(cs(50,'Al'),[25,25]);assert.deepEqual(cs(95,'Al'),[50,50]);
+  assert.deepEqual(cs(50,'Cu',2),[50,50],'monofásico: neutro e terra iguais à fase');
 });
 
 test('material automático: alumínio só acima de 15 m e de 30 kW, e nunca abaixo de 16 mm²',()=>{
@@ -61,7 +61,7 @@ test('designação do cabo',()=>{
   assert.equal(E.ev(`cableParts({n:1,s:10,mat:'Cu',cons:'multi'},3).cabo`),'1 × XV 5G10');
   assert.equal(E.ev(`cableParts({n:1,s:6,mat:'Cu',cons:'multi'},2).cabo`),'1 × XV 3G6');
   const p=E.ev(`cableParts({n:3,s:240,mat:'Al',cons:'mono'},3)`);
-  assert.equal(p.fase,'3 × LXV 1×240 mm²');assert.equal(p.neutro,'3 × LXV 1×120 mm²');assert.equal(p.terra,'1 × 1×120 mm² Al');
+  assert.equal(p.fase,'3 × LXV 1×240 mm²');assert.equal(p.neutro,'3 × LXV 1×120 mm²');assert.equal(p.terra,'3 × 1×120 mm² Al');
 });
 
 test('fator de temperatura (52-D1 / 52-D2)',()=>{
@@ -166,9 +166,9 @@ test('identificação dos cabos: C1…Cn pela ordem da tabela',()=>{
   const R=engine().solve();assert.deepEqual([...R.invC.concat(R.pC).map(c=>c.code)],['C1','C2','C3','C4','C5','C6']);
 });
 
-test('terminais: duas pontas, fases + neutro por conjunto e um de terra; bimetálicos no alumínio',()=>{
+test('terminais: duas pontas, fases + neutro + terra por conjunto; bimetálicos no alumínio',()=>{
   const E=engine();const tl=(o,l)=>JSON.parse(E.ev(`JSON.stringify(termLines(${JSON.stringify(o)},${l}))`));
-  assert.deepEqual(tl({n:3,s:240,mat:'Al',cons:'mono'},3),[{mat:'Al',s:240,q:18},{mat:'Al',s:120,q:8}],'3×240 Al: 18 de 240 e 8 de 120 (3 neutros + terra)');
+  assert.deepEqual(tl({n:3,s:240,mat:'Al',cons:'mono'},3),[{mat:'Al',s:240,q:18},{mat:'Al',s:120,q:12}],'3×240 Al: 18 de 240 e 12 de 120 (3 neutros + 3 terras)');
   assert.deepEqual(tl({n:1,s:120,mat:'Al',cons:'mono'},3),[{mat:'Al',s:120,q:6},{mat:'Al',s:70,q:4}]);
   assert.deepEqual(tl({n:1,s:10,mat:'Cu',cons:'mono'},3),[{mat:'Cu',s:10,q:10}],'neutro e terra iguais à fase: tudo na mesma secção');
   assert.deepEqual(tl({n:1,s:10,mat:'Cu',cons:'multi'},3),[],'multicondutor: ponteiras, não contadas');

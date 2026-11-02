@@ -9,7 +9,7 @@ const frameA=b=>{const m=/(160|250|400|630|1000|1250)/.exec(b.s);return m?+m[1]:
 function cableDwg(c){const o=c.res;if(!o)return '';const P=cableParts(o,c.loaded);const t=(o.mat==='Cu'?'':'L')+(S.isol==='XLPE'?'XV':'VV');
   if(P.multi)return `Cabo (${t}) ${o.n>1?o.n+'×':''}${c.loaded===2?'3G':'5G'}${fs(o.s)} mm²`;
   const ph=c.loaded===2?1:3,g=x=>o.n>1?`${o.n}x${fs(x)}`:`1x${fs(x)}`;
-  return `Cabo (${t}) ${ph}x(${g(o.s)})+1x(${g(P.sn)})+1G${fs(P.spe)} mm²`;}
+  return `Cabo (${t}) ${ph}x(${g(o.s)})+1x(${g(P.sn)})+1G${o.n>1?`(${g(P.spe)})`:fs(P.spe)} mm²`;}
 function sldSVG(R){
   const SW=170,FS=10.5,ink='#1A2028',mut='#5A6672',acc='#1E8A19',red='#BF3328',blue='#1F4E9E';
   const out=[];const T=(x,y,t,o={})=>out.push(`<text x="${x}" y="${y}" font-size="${o.fs||FS}" fill="${o.c||ink}"${o.b?' font-weight="700"':''}${o.a?` text-anchor="${o.a}"`:''}>${xe(t)}</text>`);

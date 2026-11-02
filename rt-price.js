@@ -24,16 +24,16 @@ function costPerM(o,loaded){
   if(o.cons==='multi'){
     if(loaded===2){const q3=pricePer('Cu','multi3',o.s);if(q3)return {p:q3.p*o.n,est:false};}
     const q=pricePer('Cu','multi5',o.s);if(!q)return null;return {p:q.p*(loaded===2?0.6:1)*o.n,est:q.est||loaded===2};}
-  /* fases + neutro (por conjunto em paralelo) + um condutor de terra (cabo verde/amarelo comprado, se existir para essa secção) */
+  /* por conjunto em paralelo: fases + neutro + terra (cabo verde/amarelo comprado, se existir para essa secção) */
   const {sn,spe}=condSizes(o,loaded);const f=pricePer(o.mat,'mono',o.s),nn=pricePer(o.mat,'mono',sn),pe=pricePer(o.mat,'pe',spe)||pricePer(o.mat,'mono',spe);
   if(!f||!nn||!pe)return null;
-  return {p:o.n*((loaded===2?1:3)*f.p+nn.p)+pe.p,est:f.est||nn.est||pe.est};
+  return {p:o.n*((loaded===2?1:3)*f.p+nn.p+pe.p),est:f.est||nn.est||pe.est};
 }
-/* terminais de um circuito, nas duas pontas: por conjunto em paralelo, um por fase e um no neutro, mais um de terra.
+/* terminais de um circuito, nas duas pontas: por conjunto em paralelo, um por fase, um no neutro e um na terra.
    Cobre: terminal de cravar; alumínio: bimetálico Cu/Al. Multicondutores (secções pequenas): ponteiras, não contadas. */
 function termLines(o,loaded){
   if(o.cons==='multi')return [];const {sn,spe}=condSizes(o,loaded),m=new Map();
-  [[o.s,o.n*(loaded===2?1:3)*2],[sn,o.n*2],[spe,2]].forEach(([s,q])=>m.set(s,(m.get(s)||0)+q));
+  [[o.s,o.n*(loaded===2?1:3)*2],[sn,o.n*2],[spe,o.n*2]].forEach(([s,q])=>m.set(s,(m.get(s)||0)+q));
   return [...m].map(([s,q])=>({mat:o.mat,s,q}));
 }
 /* custo dos terminais de um circuito (preço comprado ou interpolado entre secções compradas); null se não houver preço */

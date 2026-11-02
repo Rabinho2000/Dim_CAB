@@ -15,7 +15,7 @@ function bomCableLines(c){
     const f=pricePer(o.mat,'mono',o.s),nn=pricePer(o.mat,'mono',sn),pe=pricePer(o.mat,'pe',spe)||pricePer(o.mat,'mono',spe);
     out.push({uso:'Fase',des:`${type} 1×${fs(o.s)} mm² ${o.mat}`,mat:o.mat,s:o.s,m:o.n*nf*L,pm:f?f.p:null,est:f?f.est:false},
              {uso:'Neutro',des:`${type} 1×${fs(sn)} mm² ${o.mat}`,mat:o.mat,s:sn,m:o.n*L,pm:nn?nn.p:null,est:nn?nn.est:false},
-             {uso:'Terra',des:`1×${fs(spe)} mm² ${o.mat} verde/amarelo`,mat:o.mat,s:spe,m:L,pm:pe?pe.p:null,est:pe?pe.est:false});
+             {uso:'Terra',des:`1×${fs(spe)} mm² ${o.mat} verde/amarelo`,mat:o.mat,s:spe,m:o.n*L,pm:pe?pe.p:null,est:pe?pe.est:false});
   }
   /* sem preço para uma das partes: o circuito fica sem custo (como em costPerM) */
   if(out.some(x=>x.pm==null))out.forEach(x=>{x.pm=null;x.est=false;});

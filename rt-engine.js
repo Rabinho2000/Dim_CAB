@@ -284,18 +284,18 @@ function solve(zf){
 /* neutro e terra (decisão do utilizador, out. 2026): iguais à fase, ou metade da fase, ou, se a metade não é tabelada, a secção tabelada
    seguinte acima da metade. Neutro: igual à fase em monofásico e até 16 mm² Cu / 25 mm² Al (mínimos RTIEBT 524.2), acima metade da fase,
    nunca abaixo de 16 Cu / 25 Al. PE: igual à fase até 16 mm², acima metade da fase (35 mm² → 25, em vez dos 16 do quadro 54F). */
+/* neutro e terra: sempre com a mesma secção e um de cada por conjunto em paralelo (regra Solcor, nov. 2026); iguais à fase até
+   35 mm² e em monofásico, acima de 35 mm² metade da fase (ou a secção tabelada seguinte acima da metade) */
 function condSizes(o,loaded){
   const up=x=>SECS.find(v=>v>=x)||x;
-  const lim=o.mat==='Al'?25:16;
-  const sn=(loaded===2||o.s<=lim)?o.s:Math.max(up(o.s/2),lim);
-  const spe=o.s<=16?o.s:up(o.s/2);
-  return {sn,spe};
+  const sn=(loaded===2||o.s<=35)?o.s:up(o.s/2);
+  return {sn,spe:sn};
 }
 function cableParts(o,loaded){
   const type=(o.mat==='Cu'?'':'L')+(S.isol==='XLPE'?'XV':'VV');const mono=loaded===2;
   if(o.cons==='multi'&&o.n===1)return {multi:true,cabo:`1 × ${type} ${mono?'3G':'5G'}${fs(o.s)}`,nota:mono?'fase, neutro e terra no mesmo cabo':'3 fases, neutro e terra no mesmo cabo'};
   const {sn,spe}=condSizes(o,loaded);
-  return {multi:false,fase:`${o.n} × ${type} 1×${fs(o.s)} mm²`,neutro:`${o.n} × ${type} 1×${fs(sn)} mm²`,terra:`1 × 1×${fs(spe)} mm² ${o.mat}`,fases:mono?1:3,sn,spe};
+  return {multi:false,fase:`${o.n} × ${type} 1×${fs(o.s)} mm²`,neutro:`${o.n} × ${type} 1×${fs(sn)} mm²`,terra:`${o.n} × 1×${fs(spe)} mm² ${o.mat}`,fases:mono?1:3,sn,spe};
 }
 /* poder de corte (só Icu ≥ Icc máx. no local; o resto do curto-circuito continua desligado). Icc a partir da Icc conhecida no
    ponto de ligação ou do PT (ucc 4 % até 630 kVA, 6 % acima; rede a montante 500 MVA; sem o cabo PT–quadro, do lado da segurança).
